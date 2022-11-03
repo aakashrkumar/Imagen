@@ -45,13 +45,13 @@ class UnetDBlock(nn.Module):
     def __call__(self, x):
         x = nn.Conv(features=self.num_channels, kernel_size=(3, 3), strides=self.strides, dtype=self.dtype)(x)
         x = ResNetBlock(num_layers=3, num_channels=self.num_channels, strides=self.strides, dtype=self.dtype)(x)
-        x = nn.SelfAttention(num_heads=8)(x)
+        x = nn.SelfAttention(num_heads=8,out_features=self.channels,)(x)
         return x
 
 # 3 *  64 x 64 -> 3 * 32 x 32
 # 3 *  32 x 32 -> 3 * 16 x 16
 # 3 *  16 x 16 -> 3 * 8 x 8
-module = UnetDBlock(num_channels=64)
+module = UnetDBlock(num_channels=3)
 params = module.init(jax.random.PRNGKey(0), jnp.ones((1, 3, 64, 64)))
 x = module.apply(params, jnp.ones((1, 3, 64, 64)))
 print(x.shape)
