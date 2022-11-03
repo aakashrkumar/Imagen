@@ -80,8 +80,12 @@ class UnetUBlock(nn.Module):
         if self.num_attention_heads > 0:
             x = nn.SelfAttention(num_heads=self.num_attention_heads, qkv_features=2 *
                                  self.num_channels, out_features=self.num_channels)(x)
-        x = nn.Conv(features=self.num_channels, kernel_size=(3, 3),
-                    strides=self.strides, dtype=self.dtype, padding=1)(x)
+        x = jax.image.resize(
+            x,
+            shape=(x.shape[0], x.shape[1] * 2, x. shape[2] * 2, x.shape[3]),
+            method="nearest",
+        )
+        x = nn.Conv(features=self.num_channels, kernel_size=(3, 3), dtype=self.dtype, padding=1)(x)
         return x
 
 
@@ -105,12 +109,12 @@ class EfficentUNet(nn.Module):
         uNet16U = UnetUBlock(num_channels=1024, strides=self.strides,
                              num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(uNet16D)
         uNet32U = UnetUBlock(num_channels=512, strides=self.strides,
-                             num_resnet_blocks=8, dtype=self.dtype)(uNet16U + uNet32D)
+                             num_resnet_blocks=8, dtype=self.dtype)(jnp.concatenate([uNet16U, uNet32D], axis=-1))
         uNet64U = UnetUBlock(num_channels=256, strides=self.strides,
-                             num_resnet_blocks=4, dtype=self.dtype)(uNet32U + uNet64D)
+                             num_resnet_blocks=4, dtype=self.dtype)(jnp.concatenate([uNet32U, uNet64D], axis=-1))
         uNet256U = UnetUBlock(num_channels=128, strides=self.strides,
-                              num_resnet_blocks=2, dtype=self.dtype)(uNet64U + uNet256D)
-
+                              num_resnet_blocks=2, dtype=self.dtype)(jnp.concatenate([uNet64U, uNet256D], axis=-1))
+        
         x = nn.Dense(features=256 * 256 * 3, dtype=self.dtype)(uNet256U)
         return uNet256U
 
