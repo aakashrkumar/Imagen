@@ -2,3 +2,5 @@ jax
 jaxlib
 flax
 optax
+torch
+numpy
