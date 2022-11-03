@@ -1,7 +1,7 @@
 from typing import Tuple
 import jax
 import flax
-import optax
+# import optax
 from flax import linen as nn
 import jax.numpy as jnp
 
@@ -33,9 +33,7 @@ class CombineEmbs(nn.Module):
     @nn.compact
     def __call__(self, x, t):
         pe = jnp.zeros((1, self.d))
-        position = jnp.arange(0, self.d).reshape(-1, 1)
-        
-
+        position = jnp.arange(0, self.d).reshape(-1, 1)       
 
 class UnetDBlock(nn.Module):
     """UnetD block with a projection shortcut and batch normalization."""
