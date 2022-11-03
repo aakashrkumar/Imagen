@@ -69,6 +69,6 @@ def test():
     params = module.init(jax.random.PRNGKey(0), images)
     for i in range(100):
         x = module.apply(params, images)
-    print(x.shape)
+        print(x.shape)
     
 test()
