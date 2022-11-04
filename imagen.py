@@ -40,13 +40,13 @@ class ResNetBlock(nn.Module):
             residual = x
             x = nn.GroupNorm(dtype=self.dtype)(x)
             x = nn.swish(x)
-            x = nn.Conv(self.num_channels, kernel_size=(3, 3),
+            x = nnp.Conv(self.num_channels, kernel_size=(3, 3),
                         dtype=self.dtype, padding="same")(x)
             x = nn.GroupNorm(dtype=self.dtype)(x)
             x = nn.swish(x)
-            x = nn.Conv(self.num_channels, kernel_size=(3, 3),
+            x = nnp.Conv(self.num_channels, kernel_size=(3, 3),
                         dtype=self.dtype, padding="same")(x)
-            residual = nn.Conv(features=self.num_channels,
+            residual = nnp.Conv(features=self.num_channels,
                                kernel_size=(1, 1), dtype=self.dtype)(residual)
             x = x + residual
         return x
@@ -111,14 +111,14 @@ class UnetUBlock(nn.Module):
         x = ResNetBlock(num_layers=self.num_resnet_blocks,
                         num_channels=self.num_channels, strides=self.strides, dtype=self.dtype)(x)
         if self.num_attention_heads > 0:
-            x = nn.SelfAttention(num_heads=self.num_attention_heads, qkv_features=2 *
+            x = nnp.SelfAttention(num_heads=self.num_attention_heads, qkv_features=2 *
                                  self.num_channels, out_features=self.num_channels)(x)
         x = jax.image.resize(
             x,
             shape=(x.shape[0], x.shape[1] * 2, x. shape[2] * 2, x.shape[3]),
             method="nearest",
         )
-        x = nn.Conv(features=self.num_channels, kernel_size=(3, 3), dtype=self.dtype, padding=1)(x)
+        x = nnp.Conv(features=self.num_channels, kernel_size=(3, 3), dtype=self.dtype, padding=1)(x)
         return x
 
 
@@ -128,7 +128,7 @@ class EfficentUNet(nn.Module):
 
     @nn.compact
     def __call__(self, x):
-        x = nn.Conv(features=128, kernel_size=(3, 3),
+        x = nnp.Conv(features=128, kernel_size=(3, 3),
                     strides=self.strides, dtype=self.dtype, padding="same")(x)
         uNet256D = UnetDBlock(num_channels=128, strides=self.strides,
                               num_resnet_blocks=2, dtype=self.dtype)(x)
@@ -148,7 +148,7 @@ class EfficentUNet(nn.Module):
         uNet256U = UnetUBlock(num_channels=128, strides=self.strides,
                               num_resnet_blocks=2, dtype=self.dtype)(jnp.concatenate([uNet64U, uNet256D], axis=-1))
         
-        x = nn.Dense(features=256 * 256 * 3, dtype=self.dtype)(uNet256U)
+        x = nnp.Dense(features=256 * 256 * 3, dtype=self.dtype)(uNet256U)
         return uNet256U
 
 
