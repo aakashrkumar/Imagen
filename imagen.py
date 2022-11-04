@@ -8,6 +8,8 @@ from flax.linen import partitioning as nn_partitioning
 from jax.experimental import maps, pjit, PartitionSpec as P
 from flax.training.train_state import TrainState
 
+import partitioning as nnp
+
 import numpy as np
 
 TPU_RULES = [
@@ -160,7 +162,6 @@ def test():
     images = jnp.ones((1, 256, 256, 3))
     with maps.Mesh(mesh.devices, mesh.axis_names), nn_partitioning.axis_rules(TPU_RULES):
         params = jax.jit(module.init)(jax.random.PRNGKey(0), images)["params"]
-        exit()
         pjitForward = pjit.pjit(module.apply, in_axis_resources=P("X", None), out_axis_resources=P("X", None, "Y"))
         for i in range(100):
             x = pjitForward(params, images)
