@@ -163,6 +163,7 @@ def test():
     with maps.Mesh(mesh.devices, mesh.axis_names), nn_partitioning.axis_rules(TPU_RULES):
         params = jax.jit(module.init)(jax.random.PRNGKey(0), images)["params"]
         print(params)
+        exit()
         pjitForward = pjit.pjit(module.apply, in_axis_resources=P("X", None), out_axis_resources=P("X", None, "Y"))
         for i in range(100):
             x = pjitForward(params, images)
