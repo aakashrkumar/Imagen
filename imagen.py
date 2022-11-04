@@ -147,7 +147,7 @@ def test():
     model = EfficentUNet()
     images = jnp.ones((1, 256, 256, 3))
     params = jax.jit(model.init)(jax.random.PRNGKey(0), images)
-    print(params["params_axes"])
+    print(params)
     tx = optax.adam(learning_rate=1e-3)
     state = TrainState.create(apply_fn=model.apply, params=params, tx=tx)
     for i in range(100):
