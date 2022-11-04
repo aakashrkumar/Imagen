@@ -55,12 +55,20 @@ class UnetDBlock(nn.Module):
     num_channels: int
     strides: Tuple[int, int]
     dtype: jnp.dtype = jnp.float32
+    num_resnet_blocks: int = 3
+    text_cross_attention: bool = False
+    num_attention_heads: int = 0
 
     @nn.compact
     def __call__(self, x):
-        x = nn.Conv(features=self.num_channels, kernel_size=(3, 3), strides=self.strides, dtype=self.dtype, padding=1)(x)
-        x = ResNetBlock(num_layers=3, num_channels=self.num_channels, strides=self.strides, dtype=self.dtype)(x)
-        #x = nn.SelfAttention(num_heads=8, qkv_features=2 * self.num_channels, out_features=self.num_channels)(x)
+        x = nn.Conv(features=self.num_channels, kernel_size=(3, 3),
+                    strides=self.strides, dtype=self.dtype, padding=1)(x)
+        # combine embs
+        x = ResNetBlock(num_layers=self.num_resnet_blocks,
+                        num_channels=self.num_channels, strides=self.strides, dtype=self.dtype)(x)
+        if self.num_attention_heads > 0:
+            x = nn.SelfAttention(num_heads=self.num_attention_heads, qkv_features=2 *
+                                 self.num_channels, out_features=self.num_channels)(x)
         return x
 
 class UnetUBlock(nn.Module):
