@@ -12,16 +12,6 @@ import optax
 import partitioning as nnp
 
 import numpy as np
-import ray
-import alpa
-
-ray.init()
-alpa.init(cluster="ray")
-
-
-method = alpa.PipeshardParallel(num_micro_batches=16,
-                                layer_option=alpa.AutoLayerOption(layer_num=2),
-                                stage_option="auto")
 
 class ResNetBlock(nn.Module):
     """ResNet block with a projection shortcut and batch normalization."""
@@ -149,20 +139,6 @@ class EfficentUNet(nn.Module):
         x = nnp.Dense(features=256 * 256 * 3, dtype=self.dtype)(uNet256U)
         return uNet256U
 
-@alpa.parallelize(method=method)
-def auto_pipeline_train_step(state, batch):
-
-    def loss_func(params):
-        out = state.apply_fn(params, batch)
-        loss = 1
-        return loss
-
-    # Again, we use `alpa.grad` here to seperate the apply gradient stage with
-    # the forward/backward stages in the pipeline.
-    grads = alpa.grad(loss_func)(state.params)
-    new_state = state.apply_gradients(grads=grads)
-    return new_state
-
 def test():
     # 3 *  64 x 64 -> 3 * 32 x 32
     # 3 *  32 x 32 -> 3 * 16 x 16
@@ -174,7 +150,6 @@ def test():
     tx = optax.adam(learning_rate=1e-3)
     state = TrainState.create(apply_fn=model.apply, params=params, tx=tx)
     for i in range(100):
-        auto_pipeline_actual_state = auto_pipeline_train_step(state, images)
         print("Step")
 
 
