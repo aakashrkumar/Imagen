@@ -119,7 +119,7 @@ class EfficentUNet(nn.Module):
                      strides=self.strides, dtype=self.dtype, padding="same")(x)
         uNet256D = UnetDBlock(num_channels=128, strides=self.strides,
                               num_resnet_blocks=2, dtype=self.dtype)(x)
-        # return uNet256D
+        return uNet256D
         uNet64D = UnetDBlock(num_channels=256, strides=self.strides,
                              num_resnet_blocks=4, dtype=self.dtype)(uNet256D)
         uNet32D = UnetDBlock(num_channels=512, strides=self.strides,
@@ -147,6 +147,7 @@ def test():
     model = EfficentUNet()
     images = jnp.ones((1, 256, 256, 3))
     params = jax.jit(model.init)(jax.random.PRNGKey(0), images)
+    print(params["params_axes"])
     tx = optax.adam(learning_rate=1e-3)
     state = TrainState.create(apply_fn=model.apply, params=params, tx=tx)
     for i in range(100):
