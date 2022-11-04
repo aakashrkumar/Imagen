@@ -12,14 +12,6 @@ import partitioning as nnp
 
 import numpy as np
 
-TPU_RULES = [
-    ("batch", "X"),
-    ("hidden", "Y"),
-    ("heads", "Y"),
-    ("embed_kernel", "X"),
-    ("embed", "Y")   
-]
-
 
 mesh_shape = (2, 4)
 
@@ -160,13 +152,22 @@ def test():
     
     module = EfficentUNet()
     images = jnp.ones((1, 256, 256, 3))
-    with maps.Mesh(mesh.devices, mesh.axis_names), nn_partitioning.axis_rules(TPU_RULES):
-        params = jax.jit(module.init)(jax.random.PRNGKey(0), images)["params"]
-        print(params)
-        exit()
-        pjitForward = pjit.pjit(module.apply, in_axis_resources=P("X", None), out_axis_resources=P("X", None, "Y"))
+    with maps.Mesh(mesh.devices, mesh.axis_names), nn_partitioning.axis_rules(nnp.TPU_RULES):
+        params = jax.jit(module.init)(jax.random.PRNGKey(0), images)
+        
+        params, params_axes = params["params"], params["params_axes"]
+        params_axes = nnp.get_params_axes(params, params_axes, rules=nnp.DEFAULT_TPU_RULES)
+        
+        preshard_fn = pjit.pjit(
+    lambda x: x,  # this function does nothing
+    in_axis_resources=(params_axes,),  # but this spec "pre-shards" the params
+    out_axis_resources=params_axes,
+)
+        params_sharded = preshard_fn(params_sharded)
+        
+        pjitForward = pjit.pjit(module.apply, in_axis_resources=(params_axes, P("X", None)), out_axis_resources=P("X", None, "Y"))
         for i in range(100):
-            x = pjitForward(params, images)
+            x = pjitForward(params_sharded, images)
             print(x.shape)
 
 
