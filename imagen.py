@@ -13,6 +13,7 @@ import partitioning as nnp
 
 import numpy as np
 
+
 class ResNetBlock(nn.Module):
     """ResNet block with a projection shortcut and batch normalization."""
     num_layers: int
@@ -136,13 +137,18 @@ class EfficentUNet(nn.Module):
         uNet256U = UnetUBlock(num_channels=128, strides=self.strides,
                               num_resnet_blocks=2, dtype=self.dtype)(jnp.concatenate([uNet64U, uNet256D], axis=-1))
 
-        x = nnp.Dense(features=256 * 256 * 3, dtype=self.dtype, shard_axes={"kernel": ("embed_kernel", "hidden")})(uNet256U)
+        x = nnp.Dense(features=256 * 256 * 3, dtype=self.dtype,
+                      shard_axes={"kernel": ("embed_kernel", "hidden")})(uNet256U)
         return uNet256U
+
 
 def test():
     # 3 *  64 x 64 -> 3 * 32 x 32
     # 3 *  32 x 32 -> 3 * 16 x 16
     # 3 *  16 x 16 -> 3 * 8 x 8
+    mesh_shape = (2, 4)  # X=2, Y=4, 8 TPUs total
+    devices = np.asarray(jax.devices()).reshape(*mesh_shape)
+    mesh = maps.Mesh(devices, ("X", "Y"))
 
     model = EfficentUNet()
     images = jnp.ones((1, 256, 256, 3))
@@ -150,8 +156,29 @@ def test():
     params, params_axes = params["params"], params["params_axes"]
     tx = optax.adam(learning_rate=1e-3)
     state = TrainState.create(apply_fn=model.apply, params=params, tx=tx)
-   # for i in range(100):
-      #  print("Step")
+    param_axes = nnp.get_params_axes(
+        params, params_axes, rules=nnp.DEFAULT_TPU_RULES)
+    preshard_fn = pjit.pjit(
+        lambda x: x,  # this function does nothing
+        # but this spec "pre-shards" the params
+        in_axis_resources=(param_axes,),
+        out_axis_resources=param_axes,
+    )
+    with maps.Mesh(mesh.devices, mesh.axis_names), nn_partitioning.axis_rules(
+        nnp.DEFAULT_TPU_RULES
+    ):
+        params_sharded = preshard_fn(params)
 
+    apply_fn = pjit.pjit(
+        model.apply,
+        in_axis_resources=(param_axes, P("X", None)),
+        out_axis_resources=P("X", None, "Y"),
+    )
+    with maps.Mesh(mesh.devices, mesh.axis_names), nn_partitioning.axis_rules(
+        nnp.DEFAULT_TPU_RULES
+    ):
+        for i in range(100):
+            embeds = apply_fn(params_sharded, images)
+            print(embeds.shape)
 
 test()
