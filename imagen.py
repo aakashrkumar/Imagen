@@ -150,8 +150,8 @@ def test():
     print(params)
     tx = optax.adam(learning_rate=1e-3)
     state = TrainState.create(apply_fn=model.apply, params=params, tx=tx)
-    for i in range(100):
-        print("Step")
+   # for i in range(100):
+      #  print("Step")
 
 
 test()
