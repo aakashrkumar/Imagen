@@ -7,17 +7,21 @@ import jax.numpy as jnp
 from flax.linen import partitioning as nn_partitioning
 from jax.experimental import maps, pjit, PartitionSpec as P
 from flax.training.train_state import TrainState
+import optax
 
 import partitioning as nnp
 
 import numpy as np
+import ray
+import alpa
+
+ray.init()
+alpa.init(cluster="ray")
 
 
-mesh_shape = (2, 4)
-
-devices = np.asarray(jax.devices()).reshape(*mesh_shape)
-mesh = maps.Mesh(devices, ('X', 'Y'))
-
+method = alpa.PipeshardParallel(num_micro_batches=16,
+                                layer_option=alpa.AutoLayerOption(layer_num=2),
+                                stage_option="auto")
 
 class ResNetBlock(nn.Module):
     """ResNet block with a projection shortcut and batch normalization."""
@@ -145,36 +149,33 @@ class EfficentUNet(nn.Module):
         x = nnp.Dense(features=256 * 256 * 3, dtype=self.dtype)(uNet256U)
         return uNet256U
 
+@alpa.parallelize(method=method)
+def auto_pipeline_train_step(state, batch):
+
+    def loss_func(params):
+        out = state.apply_fn(params, batch)
+        loss = 1
+        return loss
+
+    # Again, we use `alpa.grad` here to seperate the apply gradient stage with
+    # the forward/backward stages in the pipeline.
+    grads = alpa.grad(loss_func)(state.params)
+    new_state = state.apply_gradients(grads=grads)
+    return new_state
 
 def test():
     # 3 *  64 x 64 -> 3 * 32 x 32
     # 3 *  32 x 32 -> 3 * 16 x 16
     # 3 *  16 x 16 -> 3 * 8 x 8
 
-    module = EfficentUNet()
+    model = EfficentUNet()
     images = jnp.ones((1, 256, 256, 3))
-    with maps.Mesh(mesh.devices, mesh.axis_names), nn_partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
-        params = jax.jit(module.init)(jax.random.PRNGKey(0), images)
- #       print(params)
-#        params = params["params"]
-        _, params_axes = jax.eval_shape(
-            module.init, jax.random.PRNGKey(0), images).pop("params_axes")
-        params_axes = nnp.get_params_axes(
-            params, params_axes, rules=nnp.DEFAULT_TPU_RULES)
-        print("Model initialized")
-        preshard_fn = pjit.pjit(
-            lambda x: x,  # this function does nothing
-            # but this spec "pre-shards" the params
-            in_axis_resources=(params_axes,),
-            out_axis_resources=params_axes,
-        )
-        params_sharded = preshard_fn(params_sharded)
-
-        pjitForward = pjit.pjit(module.apply, in_axis_resources=(
-            params_axes, P("X", None)), out_axis_resources=P("X", None, "Y"))
-        for i in range(100):
-            x = pjitForward(params_sharded, images)
-            print(x.shape)
+    params = jax.jit(model.init)(jax.random.PRNGKey(0), images)
+    tx = optax.adam(learning_rate=1e-3)
+    state = TrainState.create(apply_fn=model.apply, params=params, tx=tx)
+    for i in range(100):
+        auto_pipeline_actual_state = auto_pipeline_train_step(state, images)
+        print("Step")
 
 
 test()
