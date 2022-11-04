@@ -129,7 +129,7 @@ class EfficentUNet(nn.Module):
                      strides=self.strides, dtype=self.dtype, padding="same")(x)
         uNet256D = UnetDBlock(num_channels=128, strides=self.strides,
                               num_resnet_blocks=2, dtype=self.dtype)(x)
-        return uNet256D
+        # return uNet256D
         uNet64D = UnetDBlock(num_channels=256, strides=self.strides,
                              num_resnet_blocks=4, dtype=self.dtype)(uNet256D)
         uNet32D = UnetDBlock(num_channels=512, strides=self.strides,
