@@ -152,7 +152,7 @@ def test():
     
     module = EfficentUNet()
     images = jnp.ones((1, 256, 256, 3))
-    with maps.Mesh(mesh.devices, mesh.axis_names), nn_partitioning.axis_rules(nnp.TPU_RULES):
+    with maps.Mesh(mesh.devices, mesh.axis_names), nn_partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
         params = jax.jit(module.init)(jax.random.PRNGKey(0), images)
         
         params, params_axes = params["params"], params["params_axes"]
