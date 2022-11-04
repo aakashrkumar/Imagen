@@ -124,6 +124,7 @@ class EfficentUNet(nn.Module):
                     strides=self.strides, dtype=self.dtype, padding="same")(x)
         uNet256D = UnetDBlock(num_channels=128, strides=self.strides,
                               num_resnet_blocks=2, dtype=self.dtype)(x)
+        return uNet256D
         uNet64D = UnetDBlock(num_channels=256, strides=self.strides,
                              num_resnet_blocks=4, dtype=self.dtype)(uNet256D)
         uNet32D = UnetDBlock(num_channels=512, strides=self.strides,
@@ -154,7 +155,7 @@ def test():
     images = jnp.ones((1, 256, 256, 3))
     with maps.Mesh(mesh.devices, mesh.axis_names), nn_partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
         params = jax.jit(module.init)(jax.random.PRNGKey(0), images)
-        
+        print(params)
         params, params_axes = params["params"], params["params_axes"]
         params_axes = nnp.get_params_axes(params, params_axes, rules=nnp.DEFAULT_TPU_RULES)
         print("Model initialized")
