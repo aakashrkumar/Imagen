@@ -156,9 +156,9 @@ def test():
     # 3 *  16 x 16 -> 3 * 8 x 8
     
     module = EfficentUNet()
-    images = jnp.ones((1, 256, 256, 3))
+    images = jnp.ones((16, 256, 256, 3))
     with maps.Mesh(mesh.devices, mesh.axis_names), nn_partitioning.axis_rules(TPU_RULES):
-        params = pjit.pjit(module.init, in_axis_resources=P("Y", None), out_axis_resources=P("X", None, "Y"))(jax.random.PRNGKey(0), images)
+        params = jax.eval_shape(module.init, jax.random.PRNGKey(0), images)
         pjitForward = pjit.pjit(module.apply, in_axis_resources=P("X", None), out_axis_resources=P("X", None, "Y"))
         for i in range(100):
             x = pjitForward(params, images)
