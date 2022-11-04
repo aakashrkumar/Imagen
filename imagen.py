@@ -157,7 +157,7 @@ def test():
         
         params, params_axes = params["params"], params["params_axes"]
         params_axes = nnp.get_params_axes(params, params_axes, rules=nnp.DEFAULT_TPU_RULES)
-        
+        print("Model initialized")
         preshard_fn = pjit.pjit(
     lambda x: x,  # this function does nothing
     in_axis_resources=(params_axes,),  # but this spec "pre-shards" the params
