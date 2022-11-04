@@ -126,9 +126,8 @@ def test():
     module = EfficentUNet()
     images = jnp.ones((1, 256, 256, 3))
     params = module.init(jax.random.PRNGKey(0), images)
-    pmodule = jax.pmap(module.apply)
     for i in range(100):
-        x = pmodule(params, images)
+        x = module.apply(params, images)
         print(x.shape)
 
 
