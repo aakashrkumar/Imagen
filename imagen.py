@@ -33,15 +33,16 @@ class ResNetBlock(nn.Module):
 
 
 class CombineEmbs(nn.Module):
-    d: int = 32 # should be the dimensions of 
+    d: int = 32 # should be the dimensions of x
     n: int = 10000 # user defined scalor
 
     @nn.compact
     def __call__(self, x, t):
         # timestep encoding
-        pe = jnp.zeros((1, self.d))
+        d = x.shape[-1]
+        pe = jnp.zeros((1, d))
         position = jnp.array([t]).reshape(-1, 1)
-        div_term = jnp.power(self.n, jnp.arange(0, self.d, 2) / self.d)
+        div_term = jnp.power(self.n, jnp.arange(0, d, 2) / d)
         pe[:, 0::2] = jnp.sin(position * div_term)
         pe[:, 1::2] = jnp.cos(position * div_term)
         pe = pe[jnp.newaxis,jnp.newaxis,:]
