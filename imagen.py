@@ -34,7 +34,7 @@ class ResNetBlock(nn.Module):
             x = nnp.Conv(self.num_channels, kernel_size=(3, 3),
                          dtype=self.dtype, padding="same")(x)
             residual = nnp.Conv(features=self.num_channels,
-                                kernel_size=(1, 1), dtype=self.dtype)(residual)
+                                kernel_size=(1, 1), dtype=self.dtype, shard_axes={"kernel": ("embed_kernel", "hidden")})(residual)
             x = x + residual
         return x
 
@@ -136,7 +136,7 @@ class EfficentUNet(nn.Module):
         uNet256U = UnetUBlock(num_channels=128, strides=self.strides,
                               num_resnet_blocks=2, dtype=self.dtype)(jnp.concatenate([uNet64U, uNet256D], axis=-1))
 
-        x = nnp.Dense(features=256 * 256 * 3, dtype=self.dtype)(uNet256U)
+        x = nnp.Dense(features=256 * 256 * 3, dtype=self.dtype, shard_axes={"kernel": ("embed_kernel", "hidden")})(uNet256U)
         return uNet256U
 
 def test():
@@ -147,6 +147,7 @@ def test():
     model = EfficentUNet()
     images = jnp.ones((1, 256, 256, 3))
     params = jax.jit(model.init)(jax.random.PRNGKey(0), images)
+    print(params)
     print(params)
     tx = optax.adam(learning_rate=1e-3)
     state = TrainState.create(apply_fn=model.apply, params=params, tx=tx)
