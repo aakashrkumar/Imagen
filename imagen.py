@@ -33,12 +33,24 @@ class ResNetBlock(nn.Module):
 
 
 class CombineEmbs(nn.Module):
-    d: int = 32
+    d: int = 32 # should be the dimensions of 
+    n: int = 10000 # user defined scalor
 
     @nn.compact
     def __call__(self, x, t):
+        # timestep encoding
         pe = jnp.zeros((1, self.d))
-        position = jnp.arange(0, self.d).reshape(-1, 1)
+        position = jnp.array([t]).reshape(-1, 1)
+        div_term = jnp.power(self.n, jnp.arange(0, self.d, 2) / self.d)
+        pe[:, 0::2] = jnp.sin(position * div_term)
+        pe[:, 1::2] = jnp.cos(position * div_term)
+        pe = pe[jnp.newaxis,jnp.newaxis,:]
+        pe = jnp.repeat(pe, x.shape[1], axis=1)
+        pe = jnp.repeat(pe, x.shape[2], axis=2)
+        x = x + pe
+        # TODO add text/image encoding to x
+        return x
+
 
 
 class UnetDBlock(nn.Module):

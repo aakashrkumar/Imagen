@@ -1,21 +1,29 @@
-import torch.nn as nn
+# import torch.nn as nn
 import torch
 import math
+import numpy as np
 
+# https://machinelearningmastery.com/a-gentle-introduction-to-positional-encoding-in-transformer-models-part-1/ 
+n = 10000
 max_len = 1
-d_model = 16
-pe = torch.zeros(max_len, d_model)
+d_model = 4
+t=50
+dim = 16
+pe = np.zeros((1, d_model)) #torch.zeros(max_len, d_model)
 print(pe.shape)
-position = torch.arange(0, max_len).unsqueeze(1)
+position = np.array([t]).reshape(-1, 1) #torch.arange(0, max_len).unsqueeze(1)
 print(position.shape)
-div_term = torch.exp(torch.arange(0, d_model, 2) *
-                        -(math.log(10000.0) / d_model))
-print(div_term)
-pe[:, 0::2] = torch.sin(position * div_term)
+div_term = np.power(n, np.arange(0, d_model, 2) / d_model) #torch.pow(n, torch.arange(0, d_model, 2) / d_model)
+print(div_term.shape)
+pe[:, 0::2] = np.sin(position * div_term) #torch.sin(position * div_term)
+print(pe.shape)
+pe[:, 1::2] = np.cos(position * div_term) #torch.cos(position * div_term)
+print(pe.shape)
 print(pe)
-pe[:, 1::2] = torch.cos(position * div_term)
-print(pe)
-pe = pe.unsqueeze(0)
+pe = pe[np.newaxis,np.newaxis,:]
+pe = np.repeat(pe, dim, axis=1)
+pe = np.repeat(pe, dim, axis=2)
+print(pe.shape)
 print(pe)
 
 # class PositionalEncoding(nn.Module):
