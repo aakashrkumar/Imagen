@@ -28,11 +28,11 @@ class ResNetBlock(nn.Module):
             x = nn.GroupNorm(dtype=self.dtype)(x)
             x = nn.swish(x)
             x = nnp.Conv(self.num_channels, kernel_size=(3, 3),
-                         dtype=self.dtype, padding="same")(x)
+                         dtype=self.dtype, padding="same", shard_axes={"kernel": ("embed_kernel", "hidden")})(x)
             x = nn.GroupNorm(dtype=self.dtype)(x)
             x = nn.swish(x)
             x = nnp.Conv(self.num_channels, kernel_size=(3, 3),
-                         dtype=self.dtype, padding="same")(x)
+                         dtype=self.dtype, padding="same", shard_axes={"kernel": ("embed_kernel", "hidden")})(x)
             residual = nnp.Conv(features=self.num_channels,
                                 kernel_size=(1, 1), dtype=self.dtype, shard_axes={"kernel": ("embed_kernel", "hidden")})(residual)
             x = x + residual
@@ -98,7 +98,7 @@ class UnetUBlock(nn.Module):
                         num_channels=self.num_channels, strides=self.strides, dtype=self.dtype)(x)
         if self.num_attention_heads > 0:
             x = nnp.SelfAttention(num_heads=self.num_attention_heads, qkv_features=2 *
-                                  self.num_channels, out_features=self.num_channels)(x)
+                                  self.num_channels, out_features=self.num_channels, shard_axes={"kernel": ("heads", "hidden")})(x)
         x = jax.image.resize(
             x,
             shape=(x.shape[0], x.shape[1] * 2, x. shape[2] * 2, x.shape[3]),
@@ -116,10 +116,10 @@ class EfficentUNet(nn.Module):
     @nn.compact
     def __call__(self, x):
         x = nnp.Conv(features=128, kernel_size=(3, 3),
-                     strides=self.strides, dtype=self.dtype, padding="same")(x)
+                     strides=self.strides, dtype=self.dtype, padding="same", shard_axes={"kernel": ("embed_kernel", "hidden")})(x)
         uNet256D = UnetDBlock(num_channels=128, strides=self.strides,
                               num_resnet_blocks=2, dtype=self.dtype)(x)
-        return uNet256D
+        # return uNet256D
         uNet64D = UnetDBlock(num_channels=256, strides=self.strides,
                              num_resnet_blocks=4, dtype=self.dtype)(uNet256D)
         uNet32D = UnetDBlock(num_channels=512, strides=self.strides,
@@ -147,8 +147,7 @@ def test():
     model = EfficentUNet()
     images = jnp.ones((1, 256, 256, 3))
     params = jax.jit(model.init)(jax.random.PRNGKey(0), images)
-    print(params)
-    print(params)
+    params, params_axes = params["params"], params["params_axes"]
     tx = optax.adam(learning_rate=1e-3)
     state = TrainState.create(apply_fn=model.apply, params=params, tx=tx)
    # for i in range(100):
