@@ -4,7 +4,24 @@ import flax
 # import optax
 from flax import linen as nn
 import jax.numpy as jnp
+from flax.linen import partitioning as nn_partitioning
+from jax.experimental import maps, pjit, PartitionSpec as P
 
+import numpy as np
+
+TPU_RULES = [
+    ("batch", "X"),
+    ("hidden", "Y"),
+    ("heads", "Y"),
+    ("embed_kernel", "X"),
+    ("embed", "Y")   
+]
+
+
+mesh_shape = (2, 4)
+
+devices = np.asarray(jax.devices()).reshape(*mesh_shape)
+mesh = maps.Mesh(devices, ('X', 'Y'))
 
 class ResNetBlock(nn.Module):
     """ResNet block with a projection shortcut and batch normalization."""
@@ -136,12 +153,15 @@ def test():
     # 3 *  64 x 64 -> 3 * 32 x 32
     # 3 *  32 x 32 -> 3 * 16 x 16
     # 3 *  16 x 16 -> 3 * 8 x 8
+    
     module = EfficentUNet()
     images = jnp.ones((1, 256, 256, 3))
     params = module.init(jax.random.PRNGKey(0), images)
-    for i in range(100):
-        x = module.apply(params, images)
-        print(x.shape)
+    pjitForward = pjit.pjit(module.apply, in_axis_resources=P("X", None), out_axis_resources=P("X", None, "Y"))
+    with maps.Mesh(mesh.devices, mesh.axis_names), nn_partitioning.axis_rules(TPU_RULES):
+        for i in range(100):
+            x = pjitForward(params, images)
+            print(x.shape)
 
 
 test()
