@@ -128,7 +128,7 @@ class EfficentUNet(nn.Module):
         uNet256U = UnetUBlock(num_channels=128, strides=self.strides,
                               num_resnet_blocks=2, dtype=self.dtype)(jnp.concatenate([uNet64U, uNet256D], axis=-1))
         
-        x = nn.Dense(features=256 * 256 * 3, dtype=self.dtype)(uNet256U)
+        x = nn.Dense(features=3, dtype=self.dtype)(uNet256U)
         return uNet256U
 
 
