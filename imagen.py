@@ -110,22 +110,22 @@ class EfficentUNet(nn.Module):
     def __call__(self, x):
         x = nn.Conv(features=128, kernel_size=(3, 3),
                     strides=self.strides, dtype=self.dtype, padding="same")(x)
-        uNet256D = UnetDBlock(num_channels=128, strides=self.strides,
+        uNet256D = UnetDBlock(num_channels=256, strides=self.strides,
                               num_resnet_blocks=2, dtype=self.dtype)(x)
-        uNet64D = UnetDBlock(num_channels=256, strides=self.strides,
+        uNet64D = UnetDBlock(num_channels=512, strides=self.strides,
                              num_resnet_blocks=4, dtype=self.dtype)(uNet256D)
-        uNet32D = UnetDBlock(num_channels=512, strides=self.strides,
+        uNet32D = UnetDBlock(num_channels=1024, strides=self.strides,
                              num_resnet_blocks=8, dtype=self.dtype)(uNet64D)
-        uNet16D = UnetDBlock(num_channels=1024, strides=self.strides,
+        uNet16D = UnetDBlock(num_channels=2048, strides=self.strides,
                              num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(uNet32D)
 
-        uNet16U = UnetUBlock(num_channels=1024, strides=self.strides,
+        uNet16U = UnetUBlock(num_channels=2048, strides=self.strides,
                              num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(uNet16D)
-        uNet32U = UnetUBlock(num_channels=512,num_attention_heads=8, strides=self.strides,
+        uNet32U = UnetUBlock(num_channels=1024, strides=self.strides,
                              num_resnet_blocks=8, dtype=self.dtype)(jnp.concatenate([uNet16U, uNet32D], axis=-1))
-        uNet64U = UnetUBlock(num_channels=256,num_attention_heads=8, strides=self.strides,
+        uNet64U = UnetUBlock(num_channels=512, strides=self.strides,
                              num_resnet_blocks=4, dtype=self.dtype)(jnp.concatenate([uNet32U, uNet64D], axis=-1))
-        uNet256U = UnetUBlock(num_channels=128,num_attention_heads=8, strides=self.strides,
+        uNet256U = UnetUBlock(num_channels=256, strides=self.strides,
                               num_resnet_blocks=2, dtype=self.dtype)(jnp.concatenate([uNet64U, uNet256D], axis=-1))
         
         x = nn.Dense(features= 3, dtype=self.dtype)(uNet256U)
