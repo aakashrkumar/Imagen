@@ -129,7 +129,7 @@ class EfficentUNet(nn.Module):
                               num_resnet_blocks=2, dtype=self.dtype)(jnp.concatenate([uNet64U, uNet256D], axis=-1))
         
         x = nn.Dense(features= 3, dtype=self.dtype)(uNet256U)
-        return uNet256U
+        return x
 
 
 def test():
