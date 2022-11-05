@@ -108,8 +108,7 @@ class EfficentUNet(nn.Module):
 
     @nn.compact
     def __call__(self, x):
-        x = nn.Conv(features=128, kernel_size=(3, 3),
-                    strides=self.strides, dtype=self.dtype, padding="same")(x)
+        x = nn.Conv(features=128, kernel_size=(3, 3), dtype=self.dtype, padding="same")(x)
         uNet256D = UnetDBlock(num_channels=128, strides=self.strides,
                               num_resnet_blocks=2, dtype=self.dtype)(x)
         uNet128D = UnetDBlock(num_channels=256, strides=self.strides,
