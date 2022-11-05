@@ -1,9 +1,11 @@
 from typing import Tuple
 import jax
 import flax
-# import optax
 from flax import linen as nn
 import jax.numpy as jnp
+
+
+
 
 
 class ResNetBlock(nn.Module):
@@ -33,8 +35,8 @@ class ResNetBlock(nn.Module):
 
 
 class CombineEmbs(nn.Module):
-    d: int = 32 # should be the dimensions of x
-    n: int = 10000 # user defined scalor
+    d: int = 32  # should be the dimensions of x
+    n: int = 10000  # user defined scalor
 
     @nn.compact
     def __call__(self, x, t):
@@ -45,13 +47,12 @@ class CombineEmbs(nn.Module):
         div_term = jnp.power(self.n, jnp.arange(0, d, 2) / d)
         pe[:, 0::2] = jnp.sin(position * div_term)
         pe[:, 1::2] = jnp.cos(position * div_term)
-        pe = pe[jnp.newaxis,jnp.newaxis,:]
+        pe = pe[jnp.newaxis, jnp.newaxis, :]
         pe = jnp.repeat(pe, x.shape[1], axis=1)
         pe = jnp.repeat(pe, x.shape[2], axis=2)
         x = x + pe
         # TODO add text/image encoding to x
         return x
-
 
 
 class UnetDBlock(nn.Module):
@@ -64,10 +65,10 @@ class UnetDBlock(nn.Module):
     num_attention_heads: int = 0
 
     @nn.compact
-    def __call__(self, x):
+    def __call__(self, x, time):
         x = nn.Conv(features=self.num_channels, kernel_size=(3, 3),
                     strides=self.strides, dtype=self.dtype, padding=1)(x)
-        # combine embs
+        x = CombineEmbs()(x, time)
         x = ResNetBlock(num_layers=self.num_resnet_blocks,
                         num_channels=self.num_channels, strides=self.strides, dtype=self.dtype)(x)
         if self.num_attention_heads > 0:
@@ -86,8 +87,8 @@ class UnetUBlock(nn.Module):
     num_attention_heads: int = 0
 
     @nn.compact
-    def __call__(self, x):
-        # combine embs
+    def __call__(self, x, time):
+        x = CombineEmbs()(x, time)
         x = ResNetBlock(num_layers=self.num_resnet_blocks,
                         num_channels=self.num_channels, strides=self.strides, dtype=self.dtype)(x)
         if self.num_attention_heads > 0:
@@ -98,7 +99,8 @@ class UnetUBlock(nn.Module):
             shape=(x.shape[0], x.shape[1] * 2, x. shape[2] * 2, x.shape[3]),
             method="nearest",
         )
-        x = nn.Conv(features=self.num_channels, kernel_size=(3, 3), dtype=self.dtype, padding=1)(x)
+        x = nn.Conv(features=self.num_channels, kernel_size=(
+            3, 3), dtype=self.dtype, padding=1)(x)
         return x
 
 
@@ -107,33 +109,38 @@ class EfficentUNet(nn.Module):
     dtype: jnp.dtype = jnp.float32
 
     @nn.compact
-    def __call__(self, x):
-        x = nn.Conv(features=128, kernel_size=(3, 3), dtype=self.dtype, padding="same")(x)
+    def __call__(self, x, time):
+        x = nn.Conv(features=128, kernel_size=(3, 3),
+                    dtype=self.dtype, padding="same")(x)
         uNet256D = UnetDBlock(num_channels=128, strides=self.strides,
-                              num_resnet_blocks=2, dtype=self.dtype)(x)
+                              num_resnet_blocks=2, dtype=self.dtype)(x, time)
         uNet128D = UnetDBlock(num_channels=256, strides=self.strides,
-                             num_resnet_blocks=4, dtype=self.dtype)(uNet256D)
+                              num_resnet_blocks=4, dtype=self.dtype)(uNet256D, time)
         uNet64D = UnetDBlock(num_channels=512, strides=self.strides,
-                             num_resnet_blocks=8, dtype=self.dtype)(uNet128D)
+                             num_resnet_blocks=8, dtype=self.dtype)(uNet128D, time)
         uNet32D = UnetDBlock(num_channels=1024, strides=self.strides,
-                             num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(uNet64D)
+                             num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(uNet64D, time)
         uNet16D = UnetDBlock(num_channels=2048, strides=self.strides,
-                             num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(uNet32D)
+                             num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(uNet32D, time)
 
         uNet16U = UnetUBlock(num_channels=2048, strides=self.strides,
-                             num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(uNet16D)
+                             num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(uNet16D, time)
         uNet32U = UnetUBlock(num_channels=1024, strides=self.strides,
-                             num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(jnp.concatenate([uNet16U, uNet32D], axis=-1))
+                             num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(jnp.concatenate([uNet16U, uNet32D], axis=-1), time)
         uNet64U = UnetUBlock(num_channels=512, strides=self.strides,
-                             num_resnet_blocks=8, dtype=self.dtype)(jnp.concatenate([uNet32U, uNet64D], axis=-1))
+                             num_resnet_blocks=8, dtype=self.dtype)(jnp.concatenate([uNet32U, uNet64D], axis=-1), time)
         uNet128U = UnetUBlock(num_channels=256, strides=self.strides,
-                             num_resnet_blocks=4, dtype=self.dtype)(jnp.concatenate([uNet64U, uNet128D], axis=-1))
+                              num_resnet_blocks=4, dtype=self.dtype)(jnp.concatenate([uNet64U, uNet128D], axis=-1), time)
         uNet256U = UnetUBlock(num_channels=128, strides=self.strides,
-                              num_resnet_blocks=2, dtype=self.dtype)(jnp.concatenate([uNet128U, uNet256D], axis=-1))
-        
-        x = nn.Dense(features= 3, dtype=self.dtype)(uNet256U)
+                              num_resnet_blocks=2, dtype=self.dtype)(jnp.concatenate([uNet128U, uNet256D], axis=-1), time)
+
+        x = nn.Dense(features=3, dtype=self.dtype)(uNet256U)
         return x
 
+
+
+        
+        
 
 def test():
     # 3 *  64 x 64 -> 3 * 32 x 32
