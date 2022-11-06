@@ -20,10 +20,8 @@ from jax.experimental import maps
 
 wandb.init(project="flax-mnist", entity="therealaakash")
 config = wandb.config
-BATCH_SIZE = 64
-EPOCHS = 255
-config.batch_size = BATCH_SIZE
-config.epochs = EPOCHS
+config.batch_size = 1024
+config.epochs = 255
 
 def get_datasets():
   """Load MNIST train and test datasets into memory."""
@@ -119,11 +117,11 @@ def train_and_evaluate() -> train_state.TrainState:
 
     rng, init_rng = jax.random.split(rng)
     state = create_train_state(init_rng)
-    for epoch in range(1, EPOCHS + 1):
+    for epoch in range(1, config.epochs + 1):
         st = time.time()
         rng, input_rng = jax.random.split(rng)
         state, train_loss, train_accuracy = train_epoch(state, train_ds,
-                                                        BATCH_SIZE,
+                                                        config.batch_size,
                                                         input_rng)
         _, test_loss, test_accuracy = apply_model(state, test_ds['image'],
                                                   test_ds['label'])
