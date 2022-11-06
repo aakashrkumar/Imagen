@@ -17,7 +17,7 @@ from flax.metrics import tensorboard
 
 BATCH_SIZE = 64
 EPOCHS = 255
-
+wandb.init(project="flax-mnist", entity="wandb")
 
 class MnistNet(nn.Module):
     @nn.compact
