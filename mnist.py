@@ -72,7 +72,7 @@ def train_epoch(state, train_ds, batch_size, rng):
     epoch_loss = []
     epoch_accuracy = []
 
-    for perm in perms:
+    for perm in tqdm(perms):
         batch_images = train_ds['image'][perm, ...]
         batch_labels = train_ds['label'][perm, ...]
         grads, loss, accuracy = apply_model(state, batch_images, batch_labels)
