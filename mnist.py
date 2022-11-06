@@ -18,7 +18,7 @@ from jax.experimental import pjit, PartitionSpec as P
 from jax.experimental import maps
 
 
-wandb.init(project="flax-mnist", entity="wandb")
+wandb.init(project="flax-mnist", entity="therealaakash")
 config = wandb.config
 BATCH_SIZE = 64
 EPOCHS = 255
