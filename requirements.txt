@@ -4,3 +4,4 @@ flax
 optax
 torch
 numpy
+wandb
