@@ -121,15 +121,10 @@ def train_and_evaluate() -> train_state.TrainState:
         _, test_loss, test_accuracy = apply_model(state, test_ds['image'],
                                                   test_ds['label'])
 
-        logging.info(
-            'epoch:% 3d, train_loss: %.4f, train_accuracy: %.2f, test_loss: %.4f, test_accuracy: %.2f'
+        print('epoch:% 3d, train_loss: %.4f, train_accuracy: %.2f, test_loss: %.4f, test_accuracy: %.2f'
             % (epoch, train_loss, train_accuracy * 100, test_loss,
                test_accuracy * 100))
-
-        summary_writer.scalar('train_loss', train_loss, epoch)
-        summary_writer.scalar('train_accuracy', train_accuracy, epoch)
-        summary_writer.scalar('test_loss', test_loss, epoch)
-        summary_writer.scalar('test_accuracy', test_accuracy, epoch)
+        wandb.log({"train_loss": train_loss, "train_accuracy": train_accuracy, "test_loss": test_loss, "test_accuracy": test_accuracy})
 
     summary_writer.flush()
     return state
