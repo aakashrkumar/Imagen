@@ -141,16 +141,12 @@ class EfficentUNet(nn.Module):
         return x
 
 
-
-        
-        
-
 def test():
     # 3 *  64 x 64 -> 3 * 32 x 32
     # 3 *  32 x 32 -> 3 * 16 x 16
     # 3 *  16 x 16 -> 3 * 8 x 8
     module = EfficentUNet()
-    images = jnp.ones((64, 256, 256, 3))
+    images = jnp.ones((16, 256, 256, 3))
     params = module.init(jax.random.PRNGKey(0), images, 0)
     for i in tqdm(range(1_000_000)):
         x = jax.jit(module.apply)(params, images, 1)
