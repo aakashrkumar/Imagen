@@ -1,3 +1,4 @@
+import time
 import jax.numpy as jnp
 import numpy as np
 import tensorflow_datasets as tfds
@@ -13,11 +14,27 @@ from flax.training import train_state
 import logging
 from tqdm import tqdm
 from flax.metrics import tensorboard
+from jax.experimental import pjit, PartitionSpec as P
+from jax.experimental import maps
 
 
+wandb.init(project="flax-mnist", entity="wandb")
+config = wandb.config
 BATCH_SIZE = 64
 EPOCHS = 255
-wandb.init(project="flax-mnist", entity="wandb")
+config.batch_size = BATCH_SIZE
+config.epochs = EPOCHS
+
+def get_datasets():
+  """Load MNIST train and test datasets into memory."""
+  ds_builder = tfds.builder('mnist')
+  ds_builder.download_and_prepare()
+  train_ds = tfds.as_numpy(ds_builder.as_dataset(split='train', batch_size=-1))
+  test_ds = tfds.as_numpy(ds_builder.as_dataset(split='test', batch_size=-1))
+  train_ds['image'] = jnp.float32(train_ds['image']) / 255.
+  test_ds['image'] = jnp.float32(test_ds['image']) / 255.
+  return train_ds, test_ds
+
 
 class MnistNet(nn.Module):
     @nn.compact
@@ -60,6 +77,11 @@ def create_train_state(rng):
     return train_state.TrainState.create(
         apply_fn=cnn.apply, params=params, tx=tx)
 
+def train_step(state, batch):
+    """Train for a single step."""
+    grads, loss, accuracy = apply_model(state, batch['image'], batch['label'])
+    state = update_model(state, grads)
+    return state, loss, accuracy
 
 def train_epoch(state, train_ds, batch_size, rng):
     """Train for a single epoch."""
@@ -76,25 +98,12 @@ def train_epoch(state, train_ds, batch_size, rng):
     for perm in tqdm(perms):
         batch_images = train_ds['image'][perm, ...]
         batch_labels = train_ds['label'][perm, ...]
-        grads, loss, accuracy = apply_model(state, batch_images, batch_labels)
-        state = update_model(state, grads)
+        state, loss, accuracy = train_step(state, {'image': batch_images, 'label': batch_labels})
         epoch_loss.append(loss)
         epoch_accuracy.append(accuracy)
     train_loss = np.mean(epoch_loss)
     train_accuracy = np.mean(epoch_accuracy)
     return state, train_loss, train_accuracy
-
-
-def get_datasets():
-  """Load MNIST train and test datasets into memory."""
-  ds_builder = tfds.builder('mnist')
-  ds_builder.download_and_prepare()
-  train_ds = tfds.as_numpy(ds_builder.as_dataset(split='train', batch_size=-1))
-  test_ds = tfds.as_numpy(ds_builder.as_dataset(split='test', batch_size=-1))
-  train_ds['image'] = jnp.float32(train_ds['image']) / 255.
-  test_ds['image'] = jnp.float32(test_ds['image']) / 255.
-  return train_ds, test_ds
-
 
 def train_and_evaluate() -> train_state.TrainState:
     """Execute model training and evaluation loop.
@@ -104,16 +113,14 @@ def train_and_evaluate() -> train_state.TrainState:
     Returns:
       The train state (which includes the `.params`).
     """
-    logdir = "logs"
     train_ds, test_ds = get_datasets()
     rng = jax.random.PRNGKey(0)
 
-    summary_writer = tensorboard.SummaryWriter("logs")
 
     rng, init_rng = jax.random.split(rng)
     state = create_train_state(init_rng)
-
     for epoch in range(1, EPOCHS + 1):
+        st = time.time()
         rng, input_rng = jax.random.split(rng)
         state, train_loss, train_accuracy = train_epoch(state, train_ds,
                                                         BATCH_SIZE,
@@ -124,9 +131,8 @@ def train_and_evaluate() -> train_state.TrainState:
         print('epoch:% 3d, train_loss: %.4f, train_accuracy: %.2f, test_loss: %.4f, test_accuracy: %.2f'
             % (epoch, train_loss, train_accuracy * 100, test_loss,
                test_accuracy * 100))
-        wandb.log({"train_loss": train_loss, "train_accuracy": train_accuracy, "test_loss": test_loss, "test_accuracy": test_accuracy})
-
-    summary_writer.flush()
+        wandb.log({"train_loss": train_loss, "train_accuracy": train_accuracy, "test_loss": test_loss, "test_accuracy": test_accuracy, "epochTime": time.time() - st})
+    
     return state
 
 def main():
