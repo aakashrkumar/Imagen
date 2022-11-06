@@ -4,6 +4,8 @@ import flax
 from flax import linen as nn
 import jax.numpy as jnp
 
+from tqdm import tqdm
+
 
 
 
@@ -45,8 +47,8 @@ class CombineEmbs(nn.Module):
         pe = jnp.zeros((1, d))
         position = jnp.array([t]).reshape(-1, 1)
         div_term = jnp.power(self.n, jnp.arange(0, d, 2) / d)
-        pe[:, 0::2] = jnp.sin(position * div_term)
-        pe[:, 1::2] = jnp.cos(position * div_term)
+        pe = pe.at[:, 0::2].set(jnp.sin(position * div_term))
+        pe = pe.at[:, 1::2].set(jnp.cos(position * div_term))
         pe = pe[jnp.newaxis, jnp.newaxis, :]
         pe = jnp.repeat(pe, x.shape[1], axis=1)
         pe = jnp.repeat(pe, x.shape[2], axis=2)
@@ -111,7 +113,7 @@ class EfficentUNet(nn.Module):
     @nn.compact
     def __call__(self, x, time):
         x = nn.Conv(features=128, kernel_size=(3, 3),
-                    dtype=self.dtype, padding="same")(x)
+            dtype=self.dtype, padding="same")(x)
         uNet256D = UnetDBlock(num_channels=128, strides=self.strides,
                               num_resnet_blocks=2, dtype=self.dtype)(x, time)
         uNet128D = UnetDBlock(num_channels=256, strides=self.strides,
@@ -135,6 +137,7 @@ class EfficentUNet(nn.Module):
                               num_resnet_blocks=2, dtype=self.dtype)(jnp.concatenate([uNet128U, uNet256D], axis=-1), time)
 
         x = nn.Dense(features=3, dtype=self.dtype)(uNet256U)
+
         return x
 
 
@@ -148,10 +151,10 @@ def test():
     # 3 *  16 x 16 -> 3 * 8 x 8
     module = EfficentUNet()
     images = jnp.ones((1, 256, 256, 3))
-    params = module.init(jax.random.PRNGKey(0), images)
-    for i in range(100):
-        x = module.apply(params, images)
-        print(x.shape)
+    params = module.init(jax.random.PRNGKey(0), images, 0)
+    for i in tqdm(range(1_000_000)):
+        x = module.apply(params, images, 1)
+        # print(x.shape)
 
 
 test()
