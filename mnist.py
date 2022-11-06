@@ -16,6 +16,7 @@ from flax.metrics import tensorboard
 
 
 BATCH_SIZE = 64
+EPOCHS = 255
 
 
 class MnistNet(nn.Module):
@@ -112,7 +113,7 @@ def train_and_evaluate() -> train_state.TrainState:
     rng, init_rng = jax.random.split(rng)
     state = create_train_state(init_rng)
 
-    for epoch in range(1, 255 + 1):
+    for epoch in range(1, EPOCHS + 1):
         rng, input_rng = jax.random.split(rng)
         state, train_loss, train_accuracy = train_epoch(state, train_ds,
                                                         BATCH_SIZE,
