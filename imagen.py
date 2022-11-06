@@ -153,7 +153,7 @@ def test():
     images = jnp.ones((16, 256, 256, 3))
     params = module.init(jax.random.PRNGKey(0), images, 0)
     for i in tqdm(range(1_000_000)):
-        x = module.apply(params, images, 1)
+        x = jax.jit(module.apply)(params, images, 1)
         # print(x.shape)
 
 
