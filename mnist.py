@@ -20,7 +20,7 @@ from jax.experimental import maps
 
 wandb.init(project="flax-mnist", entity="therealaakash")
 config = wandb.config
-config.batch_size = 1024
+config.batch_size = 16384
 config.epochs = 255
 
 def get_datasets():
@@ -130,6 +130,7 @@ def train_and_evaluate() -> train_state.TrainState:
             % (epoch, train_loss, train_accuracy * 100, test_loss,
                test_accuracy * 100))
         wandb.log({"train_loss": train_loss, "train_accuracy": train_accuracy, "test_loss": test_loss, "test_accuracy": test_accuracy, "epochTime": time.time() - st})
+        
     
     return state
 
