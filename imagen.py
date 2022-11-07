@@ -48,7 +48,7 @@ class CombineEmbs(nn.Module):
         pe = pe[jnp.newaxis,jnp.newaxis,:]
         pe = jnp.repeat(pe, x.shape[1], axis=1)
         pe = jnp.repeat(pe, x.shape[2], axis=2)
-        x = x + pe
+        x = x + pe  
         # TODO add text/image encoding to x
         return x
 
@@ -142,6 +142,7 @@ def test():
     module = EfficentUNet()
     images = jnp.ones((1, 256, 256, 3))
     params = module.init(jax.random.PRNGKey(0), images)
+    print(jax.tree_map(lambda x:x, params))
     for i in range(100):
         x = module.apply(params, images)
         print(x.shape)

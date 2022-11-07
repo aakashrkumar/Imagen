@@ -52,6 +52,8 @@ class CombineEmbs(nn.Module):
         # TODO add text/image encoding to x
         return x
 
+
+
 class UnetDBlock(nn.Module):
     """UnetD block with a projection shortcut and batch normalization."""
     num_channels: int
@@ -137,9 +139,10 @@ def test():
     module = EfficentUNet()
     images = jnp.ones((1, 256, 256, 3))
     params = module.init(jax.random.PRNGKey(0), images)
+    pmodule = jax.pmap(module.apply)
     for i in range(100):
-        x = module.apply(params, images)
+        x = pmodule(params, images)
         print(x.shape)
 
 
-test()Hi Aris, do you know what the outer and inner radius was for the ring?
+test()
