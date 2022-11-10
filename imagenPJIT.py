@@ -124,29 +124,6 @@ class EfficentUNet(nn.Module):
     def __call__(self, x, time):
         x = nn.Conv(features=128, kernel_size=(3, 3),
             dtype=self.dtype, padding="same")(x)
-        uNet256D = UnetDBlock(num_channels=128, strides=self.strides,
-                              num_resnet_blocks=2, dtype=self.dtype)(x, time)
-        uNet128D = UnetDBlock(num_channels=256, strides=self.strides,
-                              num_resnet_blocks=4, dtype=self.dtype)(uNet256D, time)
-        uNet64D = UnetDBlock(num_channels=512, strides=self.strides,
-                             num_resnet_blocks=8, dtype=self.dtype)(uNet128D, time)
-        uNet32D = UnetDBlock(num_channels=1024, strides=self.strides,
-                             num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(uNet64D, time)
-        uNet16D = UnetDBlock(num_channels=2048, strides=self.strides,
-                             num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(uNet32D, time)
-
-        uNet16U = UnetUBlock(num_channels=2048, strides=self.strides,
-                             num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(uNet16D, time)
-        uNet32U = UnetUBlock(num_channels=1024, strides=self.strides,
-                             num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(jnp.concatenate([uNet16U, uNet32D], axis=-1), time)
-        uNet64U = UnetUBlock(num_channels=512, strides=self.strides,
-                             num_resnet_blocks=8, dtype=self.dtype)(jnp.concatenate([uNet32U, uNet64D], axis=-1), time)
-        uNet128U = UnetUBlock(num_channels=256, strides=self.strides,
-                              num_resnet_blocks=4, dtype=self.dtype)(jnp.concatenate([uNet64U, uNet128D], axis=-1), time)
-        uNet256U = UnetUBlock(num_channels=128, strides=self.strides,
-                              num_resnet_blocks=2, dtype=self.dtype)(jnp.concatenate([uNet128U, uNet256D], axis=-1), time)
-
-        x = nnp.Dense(features=3, dtype=self.dtype, shard_axes={"kernel": ("hidden", "embed_kernel")})(uNet256U)
 
         return x
 
@@ -161,7 +138,7 @@ def test():
     with mesh, partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
         params = pinit(jax.random.PRNGKey(0), images, 0)
         print("Params initialized")
-        params_axes = params["params_axes"]
+        params, params_axes = params.pop(["params_axes"])
         params_axes = nnp.get_params_axes(params, params_axes, nnp.DEFAULT_TPU_RULES)
 
     print("Param axes setup")
