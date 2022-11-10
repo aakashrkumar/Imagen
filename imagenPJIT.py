@@ -152,7 +152,9 @@ def test():
     # 3 *  16 x 16 -> 3 * 8 x 8
     module = EfficentUNet()
     images = jnp.ones((32, 256, 256, 3))
-    params = pjit.pjit(module.init, in_axis_resources=(None, P("X", None), None), out_axis_resources=(None))(jax.random.PRNGKey(0), images, 0)
+    pinit = pjit.pjit(module.init, in_axis_resources=(None, P("X", None), None), out_axis_resources=(None))
+    with mesh:
+        params = pinit(jax.random.PRNGKey(0), images, 0)
     papply = pjit.pjit(module.apply, in_axis_resources=(None, P("X", None), None), out_axis_resources=(None))
     for i in tqdm(range(1_000_000)):
         with mesh:
