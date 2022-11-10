@@ -146,7 +146,7 @@ class EfficentUNet(nn.Module):
         uNet256U = UnetUBlock(num_channels=128, strides=self.strides,
                               num_resnet_blocks=2, dtype=self.dtype)(jnp.concatenate([uNet128U, uNet256D], axis=-1), time)
 
-        x = nn.Dense(features=3, dtype=self.dtype)(uNet256U)
+        x = nnp.Dense(features=3, dtype=self.dtype, shard_axes={"kernel": ("hidden", "embed_kernel")})(uNet256U)
 
         return x
 
@@ -156,12 +156,12 @@ def test():
     # 3 *  32 x 32 -> 3 * 16 x 16
     # 3 *  16 x 16 -> 3 * 8 x 8
     module = EfficentUNet()
-    images = jnp.ones((32, 256, 256, 3))
-    pinit = pjit.pjit(module.init, in_axis_resources=P("X", None, "Y"), out_axis_resources=P("X", None, "Y"))
+    images = jnp.ones((4, 256, 256, 3))
+    pinit = pjit.pjit(module.init, in_axis_resources=(None, P("X", None), None), out_axis_resources=(None))
     with mesh, partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
         params = pinit(jax.random.PRNGKey(0), images, 0)
     print("Params initialized")
-    papply = pjit.pjit(module.apply, in_axis_resources=P("X", None, "Y"), out_axis_resources=P("X", None, "Y"))
+    papply = pjit.pjit(module.apply, in_axis_resources=(None, P("X", None), None), out_axis_resources=(None))
     for i in tqdm(range(1_000_000)):
         with mesh:
             x = papply(params, images, 1)
