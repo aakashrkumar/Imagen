@@ -162,7 +162,6 @@ def test():
         params = pinit(jax.random.PRNGKey(0), images, 0)
         print("Params initialized")
         params_axes = params["params_axes"]
-        print(params)
         params_axes = nnp.get_params_axes(params, params_axes, nnp.DEFAULT_TPU_RULES)
 
     print("Param axes setup")
