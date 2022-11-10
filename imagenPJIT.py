@@ -8,6 +8,11 @@ from tqdm import tqdm
 from jax.experimental import pjit, PartitionSpec as P
 from jax.experimental import maps
 import numpy as np
+
+from flax.linen import partitioning
+import partitioning as nnp
+
+
 mesh_shape = (2, 4)
 devices = np.asarray(jax.devices()).reshape(*mesh_shape)
 mesh = maps.Mesh(devices, ("X", "Y"))
@@ -151,12 +156,12 @@ def test():
     # 3 *  32 x 32 -> 3 * 16 x 16
     # 3 *  16 x 16 -> 3 * 8 x 8
     module = EfficentUNet()
-    images = jnp.ones((4, 256, 256, 3))
-    pinit = pjit.pjit(module.init, in_axis_resources=(None, P("X", None), None), out_axis_resources=(None))
-    with mesh:
+    images = jnp.ones((32, 256, 256, 3))
+    pinit = pjit.pjit(module.init, in_axis_resources=P("X", None), out_axis_resources=P("X", None, "Y"))
+    with mesh, partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
         params = pinit(jax.random.PRNGKey(0), images, 0)
     print("Params initialized")
-    papply = pjit.pjit(module.apply, in_axis_resources=(None, P("X", None), None), out_axis_resources=(None))
+    papply = pjit.pjit(module.apply, in_axis_resources=P("X", None), out_axis_resources=P("X", None, "Y"))
     for i in tqdm(range(1_000_000)):
         with mesh:
             x = papply(params, images, 1)
