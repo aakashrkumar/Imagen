@@ -125,7 +125,7 @@ class EfficentUNet(nn.Module):
         x = nn.Conv(features=128, kernel_size=(3, 3),
             dtype=self.dtype, padding="same")(x)
 
-        x = nnp.Dense(features=3, dtype=self.dtype, shard_axes={"kernel": ("hidden", "embed_kernel")})(x)
+        x = nnp.Dense(features=3, dtype=self.dtype, shard_axes={"kernel": ("hidden", None)})(x)
 
         return x
 
