@@ -159,11 +159,9 @@ def test():
     with mesh, partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
         params = pinit(jax.random.PRNGKey(0), images, 0)
         print("Params initialized after, ", time.time() - st, " seconds")
-        st = time.time()
         params, params_axes = params.pop("params_axes")
         params_axes = nnp.get_params_axes(params, params_axes, nnp.DEFAULT_TPU_RULES)
 
-    print("Param axes setup after", time.time() - st, " seconds")
     papply = pjit.pjit(module.apply, in_axis_resources=(params_axes, P("X", "Y"), None), out_axis_resources=(None))
     for i in tqdm(range(1_000_000)):
         with mesh, partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
