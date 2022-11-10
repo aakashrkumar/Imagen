@@ -21,3 +21,14 @@ prompt_ids = pipeline.prepare_inputs(prompt)
 
 p_params = replicate(params)
 prompt_ids = shard(prompt_ids)
+
+def create_key(seed=0):
+    return jax.random.PRNGKey(seed)
+
+rng = create_key(0)
+rng = jax.random.split(rng, jax.device_count())
+
+
+images = pipeline(prompt_ids, p_params, 0, jit=True)[0]
+print(images)
+
