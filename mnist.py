@@ -92,11 +92,12 @@ def train_epoch(state, train_ds, batch_size, rng):
 
     epoch_loss = []
     epoch_accuracy = []
+    ptrain_step = pjit(train_step, in_axis_resources=(None, None), out_axis_resources=None)
 
     for perm in tqdm(perms):
         batch_images = train_ds['image'][perm, ...]
         batch_labels = train_ds['label'][perm, ...]
-        state, loss, accuracy = train_step(state, {'image': batch_images, 'label': batch_labels})
+        state, loss, accuracy = ptrain_step(state, {'image': batch_images, 'label': batch_labels})
         epoch_loss.append(loss)
         epoch_accuracy.append(accuracy)
     train_loss = np.mean(epoch_loss)

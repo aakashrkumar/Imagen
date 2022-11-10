@@ -1,5 +1,4 @@
 import dataclasses
-
 from typing import List, Mapping, Optional, Tuple
 
 from flax import linen as nn, traverse_util
@@ -8,6 +7,7 @@ from flax.linen import partitioning as nn_partitioning
 
 # Default sharding rules for the ESM-2 model on TPUs.
 DEFAULT_TPU_RULES = [
+
     ("batch", "X"),
     ("hidden", "Y"),
     ("heads", "Y"),

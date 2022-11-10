@@ -28,6 +28,7 @@ class ResNetBlock(nn.Module):
                         dtype=self.dtype, padding="same")(x)
             residual = nn.Conv(features=self.num_channels,
                                kernel_size=(1, 1), dtype=self.dtype)(residual)
+            
             x = x + residual
         return x
 
