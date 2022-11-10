@@ -163,7 +163,6 @@ def test():
         print("Params initialized")
         params_axes = params["params_axes"]
         print(params)
-        params=params["params"]
         params_axes = nnp.get_params_axes(params, params_axes, nnp.DEFAULT_TPU_RULES)
 
     print("Param axes setup")
