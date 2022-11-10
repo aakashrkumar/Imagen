@@ -158,9 +158,9 @@ def test():
     module = EfficentUNet()
     images = jnp.ones((4, 256, 256, 3))
     pinit = pjit.pjit(module.init, in_axis_resources=(None, P("X", "Y"), None), out_axis_resources=(None))
-    print("Params initialized")
     with mesh, partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
         params = pinit(jax.random.PRNGKey(0), images, 0)
+        print("Params initialized")
         params_axes = params["params_axes"]
         print(params)
         params=params["params"]
@@ -169,7 +169,7 @@ def test():
     print("Param axes setup")
     papply = pjit.pjit(module.apply, in_axis_resources=(params_axes, P("X", "Y"), None), out_axis_resources=(None))
     for i in tqdm(range(1_000_000)):
-        with mesh:
+        with mesh, partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
             x = papply(params, images, 1)
         # print(x.shape)
 
