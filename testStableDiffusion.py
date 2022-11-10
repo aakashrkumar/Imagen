@@ -17,7 +17,7 @@ pipeline, params = FlaxStableDiffusionPipeline.from_pretrained(
     dtype=jnp.bfloat16,
 )
 prompt = "An image of a supernova"
-prompt_ids = pipeline.prepare_inputs([prompt])
+prompt_ids = pipeline.prepare_inputs([prompt] * 8)
 
 p_params = replicate(params)
 prompt_ids = shard(prompt_ids)
