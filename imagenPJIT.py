@@ -1,3 +1,4 @@
+import time
 from typing import Tuple
 import jax
 import flax
@@ -132,13 +133,9 @@ class EfficentUNet(nn.Module):
                              num_resnet_blocks=8, dtype=self.dtype)(uNet128D, time)
         uNet32D = UnetDBlock(num_channels=1024, strides=self.strides,
                              num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(uNet64D, time)
-        uNet16D = UnetDBlock(num_channels=2048, strides=self.strides,
-                             num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(uNet32D, time)
 
-        uNet16U = UnetUBlock(num_channels=2048, strides=self.strides,
-                             num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(uNet16D, time)
         uNet32U = UnetUBlock(num_channels=1024, strides=self.strides,
-                             num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(jnp.concatenate([uNet16U, uNet32D], axis=-1), time)
+                             num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(uNet32D, time)
         uNet64U = UnetUBlock(num_channels=512, strides=self.strides,
                              num_resnet_blocks=8, dtype=self.dtype)(jnp.concatenate([uNet32U, uNet64D], axis=-1), time)
         uNet128U = UnetUBlock(num_channels=256, strides=self.strides,
@@ -157,14 +154,16 @@ def test():
     # 3 *  16 x 16 -> 3 * 8 x 8
     module = EfficentUNet()
     images = jnp.ones((32, 256, 256, 3))
+    st = time.time()
     pinit = pjit.pjit(module.init, in_axis_resources=(None, P("X", "Y"), None), out_axis_resources=(None))
     with mesh, partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
         params = pinit(jax.random.PRNGKey(0), images, 0)
-        print("Params initialized")
+        print("Params initialized after, ", time.time() - st, " seconds")
+        st = time.time()
         params, params_axes = params.pop("params_axes")
         params_axes = nnp.get_params_axes(params, params_axes, nnp.DEFAULT_TPU_RULES)
 
-    print("Param axes setup")
+    print("Param axes setup after", time.time() - st, " seconds")
     papply = pjit.pjit(module.apply, in_axis_resources=(params_axes, P("X", "Y"), None), out_axis_resources=(None))
     for i in tqdm(range(1_000_000)):
         with mesh, partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
