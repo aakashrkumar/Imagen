@@ -3,7 +3,7 @@ from flax.training import train_state
 from tqdm import tqdm
 import optax
 import jax.numpy as jnp
-from imagen import EfficentUNet
+from imagenPJITF import EfficentUNet
 
 class config:
     batch_size = 16
