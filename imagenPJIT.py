@@ -7,6 +7,7 @@ import jax.numpy as jnp
 from tqdm import tqdm
 from jax.experimental import pjit, PartitionSpec as P
 from jax.experimental import maps
+import numpy as np
 mesh_shape = (2, 4)
 devices = np.asarray(jax.devices()).reshape(*mesh_shape)
 mesh = maps.Mesh(devices, ("X", "Y"))
