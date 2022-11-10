@@ -125,6 +125,8 @@ class EfficentUNet(nn.Module):
         x = nn.Conv(features=128, kernel_size=(3, 3),
             dtype=self.dtype, padding="same")(x)
 
+        x = nnp.Dense(features=3, dtype=self.dtype, shard_axes={"kernel": ("hidden", "embed_kernel")})(x)
+
         return x
 
 
@@ -138,7 +140,7 @@ def test():
     with mesh, partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
         params = pinit(jax.random.PRNGKey(0), images, 0)
         print("Params initialized")
-        params, params_axes = params.pop(["params_axes"])
+        params, params_axes = params.pop("params_axes")
         params_axes = nnp.get_params_axes(params, params_axes, nnp.DEFAULT_TPU_RULES)
 
     print("Param axes setup")
