@@ -16,8 +16,8 @@ pipeline, params = FlaxStableDiffusionPipeline.from_pretrained(
     revision="bf16",
     dtype=jnp.bfloat16,
 )
-prompt = "A cinematic film still of Morgan Freeman starring as Jimi Hendrix, portrait, 40mm lens, shallow depth of field, close up, split lighting, cinematic"
-prompt_ids = pipeline.prepare_inputs(prompt)
+prompt = "An image of a supernova"
+prompt_ids = pipeline.prepare_inputs([prompt])
 
 p_params = replicate(params)
 prompt_ids = shard(prompt_ids)
