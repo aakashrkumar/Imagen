@@ -156,7 +156,7 @@ def test():
     # 3 *  32 x 32 -> 3 * 16 x 16
     # 3 *  16 x 16 -> 3 * 8 x 8
     module = EfficentUNet()
-    images = jnp.ones((4, 256, 256, 3))
+    images = jnp.ones((32, 256, 256, 3))
     pinit = pjit.pjit(module.init, in_axis_resources=(None, P("X", "Y"), None), out_axis_resources=(None))
     with mesh, partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
         params = pinit(jax.random.PRNGKey(0), images, 0)
