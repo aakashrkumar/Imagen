@@ -122,13 +122,9 @@ class EfficentUNet(nn.Module):
                              num_resnet_blocks=8, dtype=self.dtype)(uNet128D, time)
         uNet32D = UnetDBlock(num_channels=1024, strides=self.strides,
                              num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(uNet64D, time)
-        uNet16D = UnetDBlock(num_channels=2048, strides=self.strides,
-                             num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(uNet32D, time)
 
-        uNet16U = UnetUBlock(num_channels=2048, strides=self.strides,
-                             num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(uNet16D, time)
         uNet32U = UnetUBlock(num_channels=1024, strides=self.strides,
-                             num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(jnp.concatenate([uNet16U, uNet32D], axis=-1), time)
+                             num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(uNet32D, time)
         uNet64U = UnetUBlock(num_channels=512, strides=self.strides,
                              num_resnet_blocks=8, dtype=self.dtype)(jnp.concatenate([uNet32U, uNet64D], axis=-1), time)
         uNet128U = UnetUBlock(num_channels=256, strides=self.strides,
@@ -139,7 +135,6 @@ class EfficentUNet(nn.Module):
         x = nn.Dense(features=3, dtype=self.dtype)(uNet256U)
 
         return x
-
 
 def test():
     # 3 *  64 x 64 -> 3 * 32 x 32

@@ -123,6 +123,7 @@ class EfficentUNet(nn.Module):
 
     @nn.compact
     def __call__(self, x, time):
+        # (batch, height, width, channels)
         x = nn.Conv(features=128, kernel_size=(3, 3),
             dtype=self.dtype, padding="same")(x)
         uNet256D = UnetDBlock(num_channels=128, strides=self.strides,
@@ -143,7 +144,7 @@ class EfficentUNet(nn.Module):
         uNet256U = UnetUBlock(num_channels=128, strides=self.strides,
                               num_resnet_blocks=2, dtype=self.dtype)(jnp.concatenate([uNet128U, uNet256D], axis=-1), time)
 
-        x = nnp.Dense(features=3, dtype=self.dtype, shard_axes={"kernel": ("hidden", None)})(uNet256U)
+        x = nn.Dense(features=3, dtype=self.dtype)(uNet256U)
 
         return x
 
