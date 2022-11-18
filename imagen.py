@@ -7,9 +7,6 @@ import jax.numpy as jnp
 from tqdm import tqdm
 
 
-
-
-
 class ResNetBlock(nn.Module):
     """ResNet block with a projection shortcut and batch normalization."""
     num_layers: int

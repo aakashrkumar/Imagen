@@ -5,3 +5,6 @@ optax
 torch
 numpy
 wandb
+einops
+transformers
+decoders

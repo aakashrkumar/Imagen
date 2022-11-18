@@ -142,4 +142,4 @@ def test():
         print(x.shape)
 
 
-test()Hi Aris, do you know what the outer and inner radius was for the ring?
+test()
