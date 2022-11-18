@@ -20,8 +20,11 @@ from jax.experimental import maps
 
 wandb.init(project="flax-mnist", entity="therealaakash")
 config = wandb.config
-config.batch_size = 1024
+config.batch_size = 16384
 config.epochs = 255
+mesh_shape = (2, 4)
+devices = np.asarray(jax.devices()).reshape(*mesh_shape)
+mesh = maps.Mesh(devices, ("X", "Y"))
 
 def get_datasets():
   """Load MNIST train and test datasets into memory."""
@@ -92,11 +95,13 @@ def train_epoch(state, train_ds, batch_size, rng):
 
     epoch_loss = []
     epoch_accuracy = []
+    ptrain_step = pjit.pjit(train_step, in_axis_resources=(None, None), out_axis_resources=None)
 
     for perm in tqdm(perms):
         batch_images = train_ds['image'][perm, ...]
         batch_labels = train_ds['label'][perm, ...]
-        state, loss, accuracy = train_step(state, {'image': batch_images, 'label': batch_labels})
+        with mesh:
+            state, loss, accuracy = ptrain_step(state, {'image': batch_images, 'label': batch_labels})
         epoch_loss.append(loss)
         epoch_accuracy.append(accuracy)
     train_loss = np.mean(epoch_loss)
@@ -130,6 +135,7 @@ def train_and_evaluate() -> train_state.TrainState:
             % (epoch, train_loss, train_accuracy * 100, test_loss,
                test_accuracy * 100))
         wandb.log({"train_loss": train_loss, "train_accuracy": train_accuracy, "test_loss": test_loss, "test_accuracy": test_accuracy, "epochTime": time.time() - st})
+        
     
     return state
 

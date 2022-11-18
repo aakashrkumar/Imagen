@@ -31,12 +31,7 @@ def compute_metrics(logits, labels):
     }
     return metrics
 
-@jax.jit
-def train_step(
-    state: train_state.TrainState, images: jnp.ndarray
-):
-
-
+def train_step(state: train_state.TrainState, images: jnp.ndarray):
     def loss_fn(params):
         logits = state.apply_fn({'params': params}, images)
         loss = cross_entropy_loss(logits=logits, labels=images)
@@ -65,4 +60,5 @@ def main():
         (config.batch_size, config.image_size, config.image_size, 3),
         config.learning_rate
     )
-    
+
+main()
