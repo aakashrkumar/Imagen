@@ -6,6 +6,10 @@ import jax.numpy as jnp
 
 from tqdm import tqdm
 
+import optax
+
+from sampler import GaussianDiffusionContinuousTimes
+from einops import rearrange, repeat, reduce, pack, unpack
 
 class ResNetBlock(nn.Module):
     """ResNet block with a projection shortcut and batch normalization."""
@@ -152,6 +156,28 @@ class EfficentUNet(nn.Module):
         x = nn.Dense(features=3, dtype=self.dtype)(uNet256U)
 
         return x
+
+
+class Imagen(nn.Module):    
+    def setup(self):
+        self.lowres_scheduler = GaussianDiffusionContinuousTimes(noise_schedule="cosine", num_timesteps=1000)
+        self.unet = EfficentUNet()
+        # todo: text encoder
+        
+    
+    def __call__(self, images, texts=None, seed=jax.random.PRNGKey(0)): # return losses
+        times = self.lowres_scheduler.get_times()
+        noise = jax.random.normal(seed, shape=images.shape)
+        
+        x_noisy, log_snr, alpha, sigma = self.lowres_scheduler.q_sample(x_start = images, times=times, noise=noise)
+
+        noise_cond = self.lowres_scheduler.get_condition(times)
+        
+        pred = self.unet(x_noisy, times)
+        losses = jnp.mean(jnp.square(pred - images))
+        losses = reduce(losses, 'b ... -> b', 'mean')
+        
+        return jnp.mean(losses)
 
 def test():
     # 3 *  64 x 64 -> 3 * 32 x 32
