@@ -120,6 +120,7 @@ class UnetUBlock(nn.Module):
 class EfficentUNet(nn.Module):
     strides: Tuple[int, int] = (2, 2)
     dtype: jnp.dtype = jnp.float32
+    skip_scale_factor: float = 1.0 / jnp.sqrt(2)
 
     @nn.compact
     def __call__(self, x, time):
@@ -138,11 +139,11 @@ class EfficentUNet(nn.Module):
         uNet32U = UnetUBlock(num_channels=1024, strides=self.strides,
                              num_resnet_blocks=8, num_attention_heads=8, dtype=self.dtype)(uNet32D, time)
         uNet64U = UnetUBlock(num_channels=512, strides=self.strides,
-                             num_resnet_blocks=8, dtype=self.dtype)(jnp.concatenate([uNet32U, uNet64D], axis=-1), time)
+                             num_resnet_blocks=8, dtype=self.dtype)(jnp.concatenate([uNet32U, self.skip_scale_factor * uNet64D], axis=-1), time)
         uNet128U = UnetUBlock(num_channels=256, strides=self.strides,
-                              num_resnet_blocks=4, dtype=self.dtype)(jnp.concatenate([uNet64U, uNet128D], axis=-1), time)
+                              num_resnet_blocks=4, dtype=self.dtype)(jnp.concatenate([uNet64U, self.skip_scale_factor * uNet128D], axis=-1), time)
         uNet256U = UnetUBlock(num_channels=128, strides=self.strides,
-                              num_resnet_blocks=2, dtype=self.dtype)(jnp.concatenate([uNet128U, uNet256D], axis=-1), time)
+                              num_resnet_blocks=2, dtype=self.dtype)(jnp.concatenate([uNet128U, self.skip_scale_factor * uNet256D], axis=-1), time)
 
         x = nn.Dense(features=3, dtype=self.dtype)(uNet256U)
 
