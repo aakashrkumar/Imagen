@@ -42,11 +42,10 @@ def extract(a, t, x_shape):
     return jnp.reshape(out, (batch_size, *((1,) * (len(x_shape) - 1))))
 
 
-class GaussianDiffusionContinuousTimes(nn.Module):
-    noise_schedule: str = "cosine"
-    num_timesteps: int = 1000
-
-    def setup(self):
+class GaussianDiffusionContinuousTimes():
+    def __init__(self, noise_schedule: str = "cosine", num_timesteps: int = 1000):
+        self.noise_schedule = noise_schedule
+        self.num_timesteps = num_timesteps
         if self.noise_schedule == "linear":
             self.beta_schedule = linear_beta_schedule
         elif self.noise_schedule == "cosine":
@@ -58,14 +57,14 @@ class GaussianDiffusionContinuousTimes(nn.Module):
         self.alphas = 1 - self.betas
         self.alphas_cumprod = jnp.cumprod(self.alphas)
         self.alphas_cumprod_prev = jnp.pad(
-            self.alphas_cumprod, ((1, 0),), constant_values=1.0)
+            self.alphas_cumprod[:-1], ((1, 0),), constant_values=1.0)
         self.sqrt_recip_alphas = jnp.sqrt(1.0 / self.alphas)
 
         self.sqrt_alphas_cumprod = jnp.sqrt(self.alphas_cumprod)
         self.sqrt_one_minus_alphas_cumprod = jnp.sqrt(
             1.0 - self.alphas_cumprod)
 
-        self.posteiror_variance = self.betas * \
+        self.posterior_variance = self.betas * \
             (1. - self.alphas_cumprod_prev) / (1. - self.alphas_cumprod)
 
     def get_times(self):

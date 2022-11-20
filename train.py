@@ -1,71 +1,48 @@
 import jax
-from flax.training import train_state
+from flax.training import checkpoints
 from tqdm import tqdm
 import optax
 import jax.numpy as jnp
-from imagen import Imagen
+from imagen_main import Imagen, sample, train_step
 import wandb
+
 
 wandb.init(project="imagen")
 
+
 class config:
-    batch_size = 16
+    batch_size = 8
     seed = 0
     learning_rate = 1e-4
-    image_size = 256
-
-def init_train_state(
-        model, random_key, shape, learning_rate) -> train_state.TrainState:
-    # Initialize the Model
-    variables = model.init(random_key, jnp.ones(shape), jnp.ones(shape[0]), random_key)
-    # Create the optimizer
-    optimizer = optax.adam(learning_rate)
-    # Create a State
-    return train_state.TrainState.create(
-        apply_fn=model.apply,
-        tx=optimizer,
-        params=variables['params']
-    )
-    
-def compute_metrics(loss):
-    metrics = {
-        'loss': loss,
-    }
-    return metrics
-
-def train_step(state: train_state.TrainState, images: jnp.ndarray, timestep: int, rng):
-    def loss_fn(params):
-        loss, logits = state.apply_fn({'params': params}, images, timestep, rng)
-        return loss, logits
+    image_size = 64
+    save_every = 1000
+    eval_every = 1
+    steps = 100_000
 
 
-    gradient_fn = jax.value_and_grad(loss_fn, has_aux=True)
-    (loss, logits), grads = gradient_fn(state.params)
-    state = state.apply_gradients(grads=grads)
-    metrics = compute_metrics(loss)
-    return state, metrics
-
-
-def train(state, steps):
-    rng = jax.random.PRNGKey(config.seed)
-    for i in tqdm(range(1, steps + 1)):
-        rng, key = jax.random.split(rng)
-        images = jnp.random.normal(key, (config.batch_size, config.image_size, config.image_size, 3))
-        timestep = jnp.ones(config.batch_size) * jnp.random.randint(key,0, 999)
-        rng, key = jax.random.split(rng)
-        state, metrics = train_step(state, images, timestep, rng)
+def train(imagen, steps):
+    for step in tqdm(range(1, steps + 1)):
+        images = jax.random.normal(
+            imagen.get_key(), (config.batch_size, config.image_size, config.image_size, 3))
+        timestep = jnp.ones(config.batch_size) * \
+            jax.random.randint(imagen.get_key(), (1,), 0, 999)
+        timestep = jnp.array(timestep, dtype=jnp.int16)
+        imagen.state, metrics = train_step(
+            imagen.state, images, None, timestep, imagen.get_key()) # TODO: Add text(None)
+        if step % config.eval_every == 0:
+            imgs = sample(imagen.state, imagen.lowres_scheduler,
+                          images, None, timestep, imagen.get_key()) # TODO: Add text(None)
+            # log as 16 gifs
+            gifs = []
+            for i in range(16):
+                gifs.append(wandb.Video(imgs[i], fps=60, format="gif"))
+            wandb.log({"samples": gifs})
         wandb.log(metrics)
 
+
 def main():
-    model = Imagen()
-    
-    rng = jax.random.PRNGKey(config.seed)
-    state = init_train_state(
-        model, 
-        rng,
-        (config.batch_size, config.image_size, config.image_size, 3),
-        config.learning_rate
-    )
-    train(state, 1000)
+    imagen = Imagen()
+    train(imagen, config.steps)
+
 
 main()
