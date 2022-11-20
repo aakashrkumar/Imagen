@@ -3,7 +3,7 @@ from flax.training import train_state
 from tqdm import tqdm
 import optax
 import jax.numpy as jnp
-from imagen import EfficentUNet
+from imagen import Imagen
 
 class config:
     batch_size = 16
@@ -31,10 +31,9 @@ def compute_metrics(logits, labels):
     }
     return metrics
 
-def train_step(state: train_state.TrainState, images: jnp.ndarray):
+def train_step(state: train_state.TrainState, images: jnp.ndarray, timestep: int, rng):
     def loss_fn(params):
-        logits = state.apply_fn({'params': params}, images)
-        loss = cross_entropy_loss(logits=logits, labels=images)
+        loss, logits = state.apply_fn({'params': params}, images, timestep, rng)
         return loss, logits
 
 
@@ -47,11 +46,11 @@ def train_step(state: train_state.TrainState, images: jnp.ndarray):
 
 def train(state, steps):
     for i in tqdm(range(1, steps + 1)):
-        batch = jnp.ones((config.batch_size, config.image_size, config.image_size, 3))
+        batch = jnp.random.normal(jax.random.PRNGKey(0), (config.batch_size, config.image_size, config.image_size, 3))
         state, metrics = train_step(state, batch)
 
 def main():
-    model = EfficentUNet()
+    model = Imagen()
     
     rng = jax.random.PRNGKey(config.seed)
     state = init_train_state(
@@ -60,5 +59,6 @@ def main():
         (config.batch_size, config.image_size, config.image_size, 3),
         config.learning_rate
     )
+    train(state, 1000)
 
 main()
