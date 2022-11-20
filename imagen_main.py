@@ -14,8 +14,25 @@ from sampler import GaussianDiffusionContinuousTimes, extract
 from einops import rearrange, repeat, reduce, pack, unpack
 from flax.training import train_state
 
+from jax import tree_util
+from flax.struct import PyTreeNode
 
-class Imagen:
+def get_imagen(image_size):
+    unet = EfficentUNet()
+    params = unet.init(jax.random.PRNGKey(0), jnp.ones((1, 8, 8, 3)), jnp.ones(1, dtype=jnp.int16))
+    
+
+class Imagen(PyTreeNode):
+    params: Any
+    unet: EfficentUNet = None
+    opt: Any = None
+    scheduler: GaussianDiffusionContinuousTimes = None
+    image_size: int = 64
+    batch_size: int = 16
+    num_timesteps: int = 1000
+    loss_type: str = "l2"
+    random_state = jax.random.PRNGKey(0)
+    
     def __init__(self, img_size: int = 64, batch_size: int = 16, num_timesteps: int = 1000, loss_type: str = "l2"):
         self.random_state = jax.random.PRNGKey(0)        
         self.lowres_scheduler = GaussianDiffusionContinuousTimes(
@@ -35,7 +52,11 @@ class Imagen:
     def get_key(self):
         self.random_state, key = jax.random.split(self.random_state)
         return key
-    
+
+tree_util.register_pytree_node(Imagen,
+                               Imagen._tree_flatten,
+                               Imagen._tree_unflatten)
+
 @jax.jit
 def train_step(state, x, texts, timestep, rng):
     noise = jax.random.normal(rng, x.shape)
@@ -71,6 +92,7 @@ def p_sample(state, sampler, x, texts, t, t_index, rng):
 def p_sample_loop(state, sampler, shape, texts, rng):
     b = shape[0]
     rng, key = jax.random.split(rng)
+    print(shape)
     img = jax.random.normal(key, shape)
     imgs = []
 
@@ -87,7 +109,7 @@ def sample(state, sampler, shape, texts, rng):
 
 def test():
     imagen = Imagen()
-    train_step(imagen.state, jnp.ones((16, 64, 64, 3)), None, jnp.ones(16, dtype=jnp.int16), imagen.get_key())
+    train_step(imagen.state, jnp.ones((1, 8, 8, 3)), None, jnp.ones(1, dtype=jnp.int16), imagen.get_key())
     
 if __name__ == "__main__":
     test()

@@ -1,3 +1,4 @@
+from jax import tree_util
 from typing import Tuple
 import jax
 import flax
@@ -76,6 +77,21 @@ class GaussianDiffusionContinuousTimes():
         sqrt_one_minus_alphas_cumprod_t = extract(
             self.sqrt_one_minus_alphas_cumprod, t, x_start.shape)
         return sqrt_alphas_cumprod_t * x_start + sqrt_one_minus_alphas_cumprod_t * noise
+
+    def _tree_flatten(self):
+        children = ()  # arrays / dynamic values
+        aux_data = {'noise_schedule': self.noise_schedule,
+                    'num_timesteps': self.num_timesteps}  # static values
+        return (children, aux_data)
+
+    @classmethod
+    def _tree_unflatten(cls, aux_data, children):
+        return cls(*children, **aux_data)
+
+
+tree_util.register_pytree_node(GaussianDiffusionContinuousTimes,
+                               GaussianDiffusionContinuousTimes._tree_flatten,
+                               GaussianDiffusionContinuousTimes._tree_unflatten)
 
 
 def get_noisy_image(x, t, noise, sampler):

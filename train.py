@@ -27,17 +27,17 @@ def train(imagen, steps):
         timestep = jnp.ones(config.batch_size) * \
             jax.random.randint(imagen.get_key(), (1,), 0, 999)
         timestep = jnp.array(timestep, dtype=jnp.int16)
-        imagen.state, metrics = train_step(
-            imagen.state, images, None, timestep, imagen.get_key()) # TODO: Add text(None)
+        #imagen.state, metrics = train_step(
+         #   imagen.state, images, None, timestep, imagen.get_key()) # TODO: Add text(None)
         if step % config.eval_every == 0:
             imgs = sample(imagen.state, imagen.lowres_scheduler,
-                          images, None, timestep, imagen.get_key()) # TODO: Add text(None)
+                          images.shape, None, imagen.get_key()) # TODO: Add text(None)
             # log as 16 gifs
             gifs = []
             for i in range(16):
                 gifs.append(wandb.Video(imgs[i], fps=60, format="gif"))
             wandb.log({"samples": gifs})
-        wandb.log(metrics)
+        # wandb.log(metrics)
 
 
 def main():
