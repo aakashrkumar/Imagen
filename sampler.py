@@ -1,5 +1,5 @@
 from jax import tree_util
-from typing import Tuple
+from typing import Any, Tuple
 import jax
 import flax
 from flax import linen as nn
@@ -8,8 +8,8 @@ import jax.numpy as jnp
 from tqdm import tqdm
 
 from functools import partial
-import cv2
 import numpy as np
+from flax import struct
 
 
 def right_pad_dims_to(x, t):
@@ -43,30 +43,20 @@ def extract(a, t, x_shape):
     return jnp.reshape(out, (batch_size, *((1,) * (len(x_shape) - 1))))
 
 
-class GaussianDiffusionContinuousTimes():
-    def __init__(self, noise_schedule: str = "cosine", num_timesteps: int = 1000):
-        self.noise_schedule = noise_schedule
-        self.num_timesteps = num_timesteps
-        if self.noise_schedule == "linear":
-            self.beta_schedule = linear_beta_schedule
-        elif self.noise_schedule == "cosine":
-            self.beta_schedule = cosine_beta_schedule
-        else:
-            raise ValueError(f"Unknown noise schedule {self.noise_schedule}")
+class GaussianDiffusionContinuousTimes(struct.PyTreeNode):
+    noise_schedule: str = struct.field(pytree_node=False)
+    num_timesteps: int = struct.field(pytree_node=False)
+    beta_schedule: Any = struct.field(pytree_node=False)
+    betas: Any
+    alphas: Any
+    alphas_cumprod: Any
+    alphas_cumprod_prev: Any
+    sqrt_recip_alphas: Any
 
-        self.betas = self.beta_schedule(self.num_timesteps)
-        self.alphas = 1 - self.betas
-        self.alphas_cumprod = jnp.cumprod(self.alphas)
-        self.alphas_cumprod_prev = jnp.pad(
-            self.alphas_cumprod[:-1], ((1, 0),), constant_values=1.0)
-        self.sqrt_recip_alphas = jnp.sqrt(1.0 / self.alphas)
+    sqrt_alphas_cumprod: Any
 
-        self.sqrt_alphas_cumprod = jnp.sqrt(self.alphas_cumprod)
-        self.sqrt_one_minus_alphas_cumprod = jnp.sqrt(
-            1.0 - self.alphas_cumprod)
-
-        self.posterior_variance = self.betas * \
-            (1. - self.alphas_cumprod_prev) / (1. - self.alphas_cumprod)
+    sqrt_one_minus_alphas_cumprod: Any
+    posterior_variance: Any
 
     def get_times(self):
         return self.beta_schedule(self.num_timesteps)
@@ -78,20 +68,29 @@ class GaussianDiffusionContinuousTimes():
             self.sqrt_one_minus_alphas_cumprod, t, x_start.shape)
         return sqrt_alphas_cumprod_t * x_start + sqrt_one_minus_alphas_cumprod_t * noise
 
-    def _tree_flatten(self):
-        children = ()  # arrays / dynamic values
-        aux_data = {'noise_schedule': self.noise_schedule,
-                    'num_timesteps': self.num_timesteps}  # static values
-        return (children, aux_data)
-
     @classmethod
-    def _tree_unflatten(cls, aux_data, children):
-        return cls(*children, **aux_data)
+    def create(cls, noise_schedule, num_timesteps):
+        if noise_schedule == "cosine":
+            beta_schedule = cosine_beta_schedule
+        elif noise_schedule == "linear":
+            beta_schedule = linear_beta_schedule
+        else:
+            ValueError(f"Unknown noise schedule {noise_schedule}")
 
+        betas = beta_schedule(num_timesteps)
+        alphas = 1 - betas
+        alphas_cumprod = jnp.cumprod(alphas)
+        alphas_cumprod_prev = jnp.pad(
+            alphas_cumprod[:-1], ((1, 0),), constant_values=1.0)
+        sqrt_recip_alphas = jnp.sqrt(1.0 / alphas)
 
-tree_util.register_pytree_node(GaussianDiffusionContinuousTimes,
-                               GaussianDiffusionContinuousTimes._tree_flatten,
-                               GaussianDiffusionContinuousTimes._tree_unflatten)
+        sqrt_alphas_cumprod = jnp.sqrt(alphas_cumprod)
+
+        sqrt_one_minus_alphas_cumprod = jnp.sqrt(
+            1.0 - alphas_cumprod)
+        posterior_variance = betas * \
+            (1. - alphas_cumprod_prev) / (1. - alphas_cumprod)
+        return cls(noise_schedule, num_timesteps, beta_schedule, betas, alphas, alphas_cumprod, alphas_cumprod_prev, sqrt_recip_alphas, sqrt_alphas_cumprod, sqrt_one_minus_alphas_cumprod, posterior_variance)
 
 
 def get_noisy_image(x, t, noise, sampler):
@@ -99,6 +98,7 @@ def get_noisy_image(x, t, noise, sampler):
 
 
 def test():
+    import cv2
     img = cv2.imread("images.jpeg")
     img = jnp.array([img])
     img /= 255.0
