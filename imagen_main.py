@@ -24,7 +24,7 @@ def j_sample(state, sampler, x, texts, t, t_index, rng):
     sqrt_recip_alphas_t = extract(
         sampler.sqrt_recip_alphas, t, x.shape)
     model_mean = sqrt_recip_alphas_t * \
-        (x - betas_t * apply({"params": state.params}, x, texts, t) /
+        (x - betas_t * state.apply_fn({"params": state.params}, x, texts, t) /
             sqrt_one_minus_alphas_cumprod_t)
     return model_mean
 def p_sample(state, sampler, x, texts, t, t_index, rng):
