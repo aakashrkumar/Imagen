@@ -5,7 +5,7 @@ import optax
 import jax.numpy as jnp
 from imagen_main import Imagen
 import wandb
-
+import numpy as np
 
 wandb.init(project="imagen")
 
@@ -35,7 +35,7 @@ def train(imagen: Imagen, steps):
             # log as 16 gifs
             gifs = []
             for i in range(16):
-                gifs.append(wandb.Video(imgs[i], fps=60, format="gif"))
+                gifs.append(wandb.Video(np.asarray(imgs[i]), fps=60, format="gif"))
             wandb.log({"samples": gifs})
         wandb.log(metrics)
 
