@@ -47,24 +47,52 @@ class ResNetBlock(nn.Module):
         return x
 
 
+
 class CombineEmbs(nn.Module):
     d: int = 32  # should be the dimensions of x
     n: int = 10000  # user defined scalor
+    dtype: jnp.dtype = jnp.float32
 
     @nn.compact
-    def __call__(self, x, t):
-        # timestep encoding
-        d = x.shape[-1]
-        pe = jnp.zeros((1, d))
-        position = jnp.array([t]).reshape(-1, 1)
-        div_term = jnp.power(self.n, jnp.arange(0, d, 2) / d)
-        pe = pe.at[:, 0::2].set(jnp.sin(position * div_term))
-        pe = pe.at[:, 1::2].set(jnp.cos(position * div_term))
-        pe = pe[jnp.newaxis, jnp.newaxis, :]
+    def __call__(self, x, t, s):
+        # timestep encoding, Note t is a tensor of dimension (batch_size x 1)
+
+        # dimension is nummber of channels
+        d = x.shape[-1] 
+        # create a tensor of dimensions: batch_size x channels
+        pe = jnp.zeros((t.shape[0], d)) 
+        # use the formula n ^ (2*i/d) for i∈2Z (even numbers)
+        div_term = jnp.power(self.n, jnp.arange(0, d, 2) / d) 
+        # set all even indices to sin
+        pe = pe.at[:, 0::2].set(jnp.sin(t * div_term)) 
+        # set all odd indices to cos
+        pe = pe.at[:, 1::2].set(jnp.cos(t * div_term)) 
+        # add the height and width channels
+        pe = pe[:, jnp.newaxis, jnp.newaxis, :]
+        # project accross height and width
         pe = jnp.repeat(pe, x.shape[1], axis=1)
         pe = jnp.repeat(pe, x.shape[2], axis=2)
+        # concatinate timestep embeds
         x = x + pe
-        # TODO add text/image encoding to x
+
+
+        # add text/image encoding to x, Note for text, s is a tensor of dimension (batch_size, sequence_length, hidden_latent_size)
+
+        text_embeds = s
+        # project to correct number of channels
+        text_embeds = nn.Dense(features=self.d, dtype=self.dtype)(text_embeds)
+        # mean pooling across sequence
+        text_embeds = jnp.mean(text_embeds, axis=2) 
+        # add axis for height
+        text_embeds = text_embeds[:, jnp.newaxis, :]
+        # project across height and width
+        text_embeds = jnp.repeat(text_embeds, x.shape[1], axis=1)
+        text_embeds = jnp.repeat(text_embeds, x.shape[2], axis=2)
+        # concatinate text_embeds
+        x = x + text_embeds
+
+        # use layer norm as suggested by the paper
+        x = nn.LayerNorm(dtype=self.dtype)(x)
         return x
 
 

@@ -21,8 +21,10 @@ tokenizer = T5Tokenizer.from_pretrained(name)
 model = FlaxT5ForConditionalGeneration.from_pretrained(name)
 # model.model_max_length = 512
 
-text_tokens = tokenizer(text[0], return_tensors="np")
-outputs = model.encode(**text_tokens, return_dict = False)
-print(outputs[0].shape)
+inputs = tokenizer(text[0], return_tensors="np")
+outputs = model.encode(**inputs, return_dict=True, output_attentions=True)
+print(outputs["last_hidden_state"])
+print(outputs["attentions"])
 
-text = outputs[0].numpy()
+
+# def pool_sequences(input_id):
