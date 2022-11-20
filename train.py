@@ -4,6 +4,9 @@ from tqdm import tqdm
 import optax
 import jax.numpy as jnp
 from imagen import Imagen
+import wandb
+
+wandb.init(project="imagen")
 
 class config:
     batch_size = 16
@@ -14,7 +17,7 @@ class config:
 def init_train_state(
         model, random_key, shape, learning_rate) -> train_state.TrainState:
     # Initialize the Model
-    variables = model.init(random_key, jnp.ones(shape))
+    variables = model.init(random_key, jnp.ones(shape), jnp.ones(shape[0]), random_key)
     # Create the optimizer
     optimizer = optax.adam(learning_rate)
     # Create a State
@@ -24,8 +27,7 @@ def init_train_state(
         params=variables['params']
     )
     
-def compute_metrics(logits, labels):
-    loss = jnp.mean((logits - labels) ** 2)
+def compute_metrics(loss):
     metrics = {
         'loss': loss,
     }
@@ -38,16 +40,21 @@ def train_step(state: train_state.TrainState, images: jnp.ndarray, timestep: int
 
 
     gradient_fn = jax.value_and_grad(loss_fn, has_aux=True)
-    (_, logits), grads = gradient_fn(state.params)
+    (loss, logits), grads = gradient_fn(state.params)
     state = state.apply_gradients(grads=grads)
-    metrics = compute_metrics(logits=logits, labels=images)
+    metrics = compute_metrics(loss)
     return state, metrics
 
 
 def train(state, steps):
+    rng = jax.random.PRNGKey(config.seed)
     for i in tqdm(range(1, steps + 1)):
-        batch = jnp.random.normal(jax.random.PRNGKey(0), (config.batch_size, config.image_size, config.image_size, 3))
-        state, metrics = train_step(state, batch)
+        rng, key = jax.random.split(rng)
+        images = jnp.random.normal(key, (config.batch_size, config.image_size, config.image_size, 3))
+        timestep = jnp.ones(config.batch_size) * jnp.random.randint(key,0, 999)
+        rng, key = jax.random.split(rng)
+        state, metrics = train_step(state, images, timestep, rng)
+        wandb.log(metrics)
 
 def main():
     model = Imagen()

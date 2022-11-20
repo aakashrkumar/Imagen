@@ -11,6 +11,7 @@ import optax
 from sampler import GaussianDiffusionContinuousTimes, extract
 from einops import rearrange, repeat, reduce, pack, unpack
 
+
 class ResNetBlock(nn.Module):
     """ResNet block with a projection shortcut and batch normalization."""
     num_layers: int
@@ -71,12 +72,14 @@ class CombineEmbs(nn.Module):
         pe = pe.at[:, 1::2].set(jnp.cos(position * div_term))
         # 5. Repeat the position encoding matrix for each batch and spatial dimension.
         pe = pe[jnp.newaxis, jnp.newaxis, :]
-        pe = jnp.repeat(pe, x.shape[1], axis=1) # repeat for each spatial dimension
-        pe = jnp.repeat(pe, x.shape[2], axis=2) # repeat for each batch
+        # repeat for each spatial dimension
+        pe = jnp.repeat(pe, x.shape[1], axis=1)
+        pe = jnp.repeat(pe, x.shape[2], axis=2)  # repeat for each batch
         # 6. Add the position encoding to the input.
-        x = x + pe  
+        x = x + pe
         # TODO add text/image encoding to x
         return x
+
 
 class UnetDBlock(nn.Module):
     """UnetD block with a projection shortcut and batch normalization."""
@@ -134,7 +137,7 @@ class EfficentUNet(nn.Module):
     @nn.compact
     def __call__(self, x, time):
         x = nn.Conv(features=128, kernel_size=(3, 3),
-            dtype=self.dtype, padding="same")(x)
+                    dtype=self.dtype, padding="same")(x)
         uNet256D = UnetDBlock(num_channels=128, strides=self.strides,
                               num_resnet_blocks=2, dtype=self.dtype)(x, time)
         uNet128D = UnetDBlock(num_channels=256, strides=self.strides,
@@ -156,59 +159,67 @@ class EfficentUNet(nn.Module):
         x = nn.Dense(features=3, dtype=self.dtype)(uNet256U)
 
         return x
-    
+
 
 class Imagen(nn.Module):
-    
+
     loss_type: str = "l2"
-      
+
     def setup(self):
-        self.lowres_scheduler = GaussianDiffusionContinuousTimes(noise_schedule="cosine", num_timesteps=1000)
+        self.lowres_scheduler = GaussianDiffusionContinuousTimes(
+            noise_schedule="cosine", num_timesteps=1000)
         self.unet = EfficentUNet()
         # todo: text encoder
-        
-    
-    def p_sample(self, x, t, t_index):
+
+    def p_sample(self, x, t, t_index, rng):
         betas_t = extract(self.lowres_scheduler.betas, t, x.shape)
-        sqrt_one_minus_alphas_cumprod_t = extract(self.lowres_scheduler.sqrt_one_minus_alphas_cumprod, t, x.shape)
-        sqrt_recip_alphas_t = extract(self.lowres_scheduler.sqrt_recip_alphas, t, x.shape)
-        model_mean = sqrt_recip_alphas_t * (x - betas_t * self.lowres_scheduler.unet(x, t) / sqrt_one_minus_alphas_cumprod_t)
-        
+        sqrt_one_minus_alphas_cumprod_t = extract(
+            self.lowres_scheduler.sqrt_one_minus_alphas_cumprod, t, x.shape)
+        sqrt_recip_alphas_t = extract(
+            self.lowres_scheduler.sqrt_recip_alphas, t, x.shape)
+        model_mean = sqrt_recip_alphas_t * \
+            (x - betas_t * self.lowres_scheduler.unet(x, t) /
+             sqrt_one_minus_alphas_cumprod_t)
+
         if t_index == 0:
             return model_mean
         else:
-            posterior_variance_t = extract(self.lowres_scheduler.posteiror_variance, t, x.shape)
-            noise = jax.random.normal(jax.random.PRNGKey(0), x.shape)  # TODO: use proper key
+            posterior_variance_t = extract(
+                self.lowres_scheduler.posteiror_variance, t, x.shape)
+            noise = jax.random.normal(rng, x.shape)  # TODO: use proper key
             return model_mean + noise * jnp.sqrt(posterior_variance_t)
-        
-    def p_sample_loop(self, shape):
+
+    def p_sample_loop(self, shape, rng):
         b = shape[0]
-        img = jnp.random.normal(jax.random.PRNGKey(0), shape) # TODO: use proper key
+        rng, key = jax.random.split(rng)
+        img = jnp.random.normal(key, shape)
         imgs = []
-        
+
         for i in tqdm(reversed(range(self.lowres_scheduler.num_timesteps))):
-            img = self.lowres_scheduler.p_sample(img, jnp.ones(b) * i, i)
+            rng, key = jax.random.split(rng)
+            img = self.p_sample(img, jnp.ones(b) * i, i, key)
             imgs.append(img)
         return imgs
-   
-    def sample(self, model, image_size=(256, 256, 3), batch_size=16):
-        return self.lowres_scheduler.p_sample_loop(model, shape = ((batch_size, *image_size)))   
-    
-    def p_losses(self, x_start, t, rng): # t is an int
+
+    def sample(self, model, image_size=(256, 256, 3), batch_size=16, rng=jax.random.PRNGKey(0)):
+        return self.lowres_scheduler.p_sample_loop(model, shape=(batch_size, *image_size), rng=rng)
+
+    def p_losses(self, x_start, t, rng):  # t is an int
         noise = jax.random.normal(rng, x_start.shape)
         x_noisy = self.lowres_scheduler.q_sample(x_start, t, noise)
         predicted = self.unet(x_noisy, t)
-        
+
         if self.loss_type == "l2":
             loss = jnp.mean((noise - predicted) ** 2)
         else:
             raise NotImplementedError()
-        
+
         return loss, predicted
-    
+
     def __call__(self, x, t, rng):
         return self.p_losses(x, t, rng)
-    
+
+
 def test():
     # 3 *  64 x 64 -> 3 * 32 x 32
     # 3 *  32 x 32 -> 3 * 16 x 16
@@ -220,5 +231,5 @@ def test():
         x = jax.jit(module.apply)(params, images, 1)
         # print(x.shape)
 
-
-test()
+if __name__ == "__main__":
+    test()
