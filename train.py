@@ -16,7 +16,7 @@ class config:
     learning_rate = 1e-4
     image_size = 64
     save_every = 1000
-    eval_every = 1
+    eval_every = 1000
     steps = 100_000
 
 
@@ -28,7 +28,7 @@ def train(imagen: Imagen, steps):
             jax.random.randint(imagen.get_key(), (1,), 0, 999)
         timestep = jnp.array(timestep, dtype=jnp.int16)
         metrics = imagen.train_step(
-            imagen.state, images, None, timestep, imagen.get_key())  # TODO: Add text(None)
+            images, None, timestep)  # TODO: Add text(None)
         if step % config.eval_every == 0:
             # TODO: Add text(None)
             imgs = imagen.sample(None, 16)
