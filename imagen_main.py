@@ -31,7 +31,8 @@ def j_sample(state, sampler, x, texts, t, t_index, rng):
         axis=tuple(range(1, model_mean.ndim)))
     s = jnp.max(s, 1.0)
     
-        
+    model_mean = jnp.clip(model_mean, -s, s) / s
+    
     return model_mean
 def p_sample(state, sampler, x, texts, t, t_index, rng):
     model_mean = j_sample(state, sampler, x, texts, t, t_index, rng)
