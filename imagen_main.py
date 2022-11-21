@@ -14,11 +14,63 @@ from sampler import GaussianDiffusionContinuousTimes, extract
 from einops import rearrange, repeat, reduce, pack, unpack
 from flax.training import train_state
 
+from jax import tree_util
+
+@jax.jit
+def j_sample(state, sampler, x, texts, t, t_index, rng):
+    betas_t = extract(sampler.betas, t, x.shape)
+    sqrt_one_minus_alphas_cumprod_t = extract(
+        sampler.sqrt_one_minus_alphas_cumprod, t, x.shape)
+    sqrt_recip_alphas_t = extract(
+        sampler.sqrt_recip_alphas, t, x.shape)
+    model_mean = sqrt_recip_alphas_t * \
+        (x - betas_t * state.apply_fn({"params": state.params}, x, texts, t) /
+            sqrt_one_minus_alphas_cumprod_t)
+    return model_mean
+def p_sample(state, sampler, x, texts, t, t_index, rng):
+    model_mean = j_sample(state, sampler, x, texts, t, t_index, rng)
+
+    if t_index == 0:
+        return model_mean
+    else:
+        posterior_variance_t = extract(
+            sampler.posterior_variance, t, x.shape)
+        noise = jax.random.normal(rng, x.shape)  # TODO: use proper key
+        return model_mean + noise * jnp.sqrt(posterior_variance_t)
+
+def p_sample_loop(state, sampler, img, texts, rng):
+    batch_size = img.shape[0]
+    rng, key = jax.random.split(rng)
+    imgs = []
+
+    for i in tqdm(reversed(range(sampler.num_timesteps))):
+        rng, key = jax.random.split(rng)
+        img = p_sample(state, sampler, img, texts, jnp.ones(batch_size, dtype=jnp.int16) * i, i, key)
+        imgs.append(img)
+    return imgs
+
+def sample(state, sampler, noise, texts, rng):
+    return p_sample_loop(state, sampler, noise, texts, rng)
+
+@jax.jit
+def train_step(state, sampler, x, texts, timestep, rng):
+    noise = jax.random.normal(rng, x.shape)
+    x_noise = sampler.q_sample(x, timestep, noise)
+    def loss_fn(params):
+        predicted = state.apply_fn({"params": params}, x_noise, texts, timestep)
+        loss = jnp.mean((noise - predicted) ** 2)
+        return loss, predicted
+    gradient_fn = jax.value_and_grad(loss_fn, has_aux=True)
+    (loss, logits), grads = gradient_fn(state.params)
+    state = state.apply_gradients(grads=grads)
+    return state, compute_metrics(loss, logits)
+
+
 
 class Imagen:
     def __init__(self, img_size: int = 64, batch_size: int = 16, num_timesteps: int = 1000, loss_type: str = "l2"):
         self.random_state = jax.random.PRNGKey(0)        
-        self.lowres_scheduler = GaussianDiffusionContinuousTimes(
+        self.lowres_scheduler = GaussianDiffusionContinuousTimes.create(
             noise_schedule="cosine", num_timesteps=1000
         )
         
@@ -31,64 +83,30 @@ class Imagen:
             tx=self.opt,
             params=self.params['params']
         )
+        
+        self.image_size = img_size
 
     def get_key(self):
         self.random_state, key = jax.random.split(self.random_state)
         return key
     
-@jax.jit
-def train_step(state, x, texts, timestep, rng):
-    noise = jax.random.normal(rng, x.shape)
+    def sample(self, texts, batch_size):
+        noise = jax.random.normal(self.get_key(), (batch_size, self.image_size, self.image_size, 3))
+        return sample(self.state, self.lowres_scheduler, noise, texts, self.get_key())
+    
+    def train_step(self, image_batch, texts_batchs, timestep):
+        self.state, metrics = train_step(self.state, self.lowres_scheduler, image_batch, texts_batchs, timestep, self.get_key())
+        return metrics
 
-    def loss_fn(params):
-        predicted = state.apply_fn({"params": params}, x, texts, timestep)
-        loss = jnp.mean((noise - predicted) ** 2)
-        return loss, predicted
-    gradient_fn = jax.value_and_grad(loss_fn, has_aux=True)
-    (loss, logits), grads = gradient_fn(state.params)
-    state = state.apply_gradients(grads=grads)
-    return state, loss
-
-
-def p_sample(state, sampler, x, texts, t, t_index, rng):
-    betas_t = extract(sampler.betas, t, x.shape)
-    sqrt_one_minus_alphas_cumprod_t = extract(
-        sampler.sqrt_one_minus_alphas_cumprod, t, x.shape)
-    sqrt_recip_alphas_t = extract(
-        sampler.sqrt_recip_alphas, t, x.shape)
-    model_mean = sqrt_recip_alphas_t * \
-        (x - betas_t * state.unet.apply(x, texts, t) /
-            sqrt_one_minus_alphas_cumprod_t)
-
-    if t_index == 0:
-        return model_mean
-    else:
-        posterior_variance_t = extract(
-            sampler.posterior_variance, t, x.shape)
-        noise = jax.random.normal(rng, x.shape)  # TODO: use proper key
-        return model_mean + noise * jnp.sqrt(posterior_variance_t)
-
-def p_sample_loop(state, sampler, shape, texts, rng):
-    b = shape[0]
-    rng, key = jax.random.split(rng)
-    img = jax.random.normal(key, shape)
-    imgs = []
-
-    for i in tqdm(reversed(range(sampler.num_timesteps))):
-        rng, key = jax.random.split(rng)
-        img = p_sample(state, sampler, img, texts, jnp.ones(b) * i, i, key)
-        imgs.append(img)
-    return imgs
-
-@jax.jit
-def sample(state, sampler, shape, texts, rng):
-    return p_sample_loop(state, sampler, shape, texts, rng)
-
+def compute_metrics(loss, logits):
+    return {"loss": loss}
 
 def test():
     imagen = Imagen()
-    train_step(imagen.state, jnp.ones((16, 64, 64, 3)), None, jnp.ones(16, dtype=jnp.int16), imagen.get_key())
-    
+    #train_step(imagen.state, imagen.lowres_scheduler, jnp.ones((1, 64, 64, 3)), None, jnp.ones(1, dtype=jnp.int16), imagen.get_key())
+    print("Training done")
+    for i in tqdm(range(1000)):
+        imagen.sample(None, 1)
 if __name__ == "__main__":
     test()
     
