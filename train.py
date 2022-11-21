@@ -125,8 +125,9 @@ def train(imagen: Imagen, steps):
             # log as 16 gifs
             gifs = []
             for i in range(samples):
-                img = np.asarray(imgs[i])
-                gifs.append(wandb.Image(img, caption="sample"))
+                frames = np.asarray(imgs[i])
+                video = wandb.Video(frames, fps=60, format="gif")
+                gifs.append(video)
             wandb.log({"samples": gifs})
         wandb.log(metrics)
 
