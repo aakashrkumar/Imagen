@@ -25,6 +25,7 @@ wandb.init(project="imagen")
 
 USER_AGENT = get_datasets_user_agent()
 
+
 class config:
     batch_size = 8
     seed = 0
@@ -33,6 +34,7 @@ class config:
     save_every = 1000
     eval_every = 5
     steps = 1_000_000
+
 
 def fetch_single_image(image_url, timeout=None, retries=0):
     for _ in range(retries + 1):
@@ -54,8 +56,6 @@ def fetch_single_image(image_url, timeout=None, retries=0):
     return image
 
 
-
-
 def fetch_images(batch, num_threads, timeout=None, retries=0):
     fetch_single_image_with_args = partial(
         fetch_single_image, timeout=timeout, retries=retries)
@@ -63,6 +63,7 @@ def fetch_images(batch, num_threads, timeout=None, retries=0):
         batch["image"] = list(executor.map(
             fetch_single_image_with_args, batch["image_url"]))
     return batch
+
 
 def get_image(ds):
     while True:
@@ -72,6 +73,7 @@ def get_image(ds):
             continue
         text = item["caption"]
         return image, text
+
 
 def get_images(num_images, ds):
     images = []
@@ -83,6 +85,7 @@ def get_images(num_images, ds):
             images.append(image)
             text.append(t)
     return images, text
+
 
 def train(imagen: Imagen, steps):
     dataset = load_dataset("red_caps", split="train")
