@@ -48,7 +48,7 @@ def fetch_single_image(image_url, timeout=None, retries=0):
                 image = PIL.Image.open(io.BytesIO(req.read())).resize(
                     (config.image_size, config.image_size))
                 # convert to array H, W, C
-                image = np.array(image)[..., :3] / 255.0
+                image = np.array(image)[..., :3] / 127.5 - 1.0
 
             break
         except Exception:
@@ -133,6 +133,7 @@ def train(imagen: Imagen, steps):
             gifs = []
             for i in range(samples):
                 frames = np.asarray(imgs[i]) # (frames, 64, 64, 3)
+                frames = frames * 127.5 + 127.5
                 # reshape to (frames, 3, 64, 64)
                 frames = np.transpose(frames, (0, 3, 1, 2))
                 video = wandb.Video(frames, fps=60, format="mp4")
