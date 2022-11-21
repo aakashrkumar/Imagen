@@ -66,7 +66,7 @@ def fetch_images(batch, num_threads, timeout=None, retries=0):
 
 
 def train(imagen: Imagen, steps):
-    dataset = load_dataset("red_caps", split="validation")
+    dataset = load_dataset("red_caps", split="train")
     dataset = dataset.remove_columns("created_utc")
     dataset = dataset.remove_columns("crosspost_parents")
     dataset = dataset.remove_columns("author")
