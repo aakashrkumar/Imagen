@@ -103,7 +103,7 @@ def train(imagen: Imagen, steps):
             if image is None:
                 continue
             image = jnp.array(image, dtype=jnp.float32)
-            if images.shape != (config.image_size, config.image_size, 3):
+            if image.shape != (config.image_size, config.image_size, 3):
                 continue
             images.append(image)
             texts.append(item["caption"])
