@@ -32,7 +32,7 @@ class config:
     learning_rate = 1e-4
     image_size = 64
     save_every = 1000
-    eval_every = 100
+    eval_every = 10
     steps = 1_000_000
 
 
@@ -115,14 +115,13 @@ def train(imagen: Imagen, steps):
         timesteps = list(range(0, 1000))
         # shuffle timesteps
         timesteps = np.random.permutation(timesteps)
-        losses = 0
         for ts in timesteps:
             timestep = jnp.ones(config.batch_size) * ts
             # jax.random.randint(imagen.get_key(), (1,), 0, 999)
             timestep = jnp.array(timestep, dtype=jnp.int16)
             metrics = imagen.train_step(
                 images, None, timestep)  # TODO: Add text(None)
-            losses += metrics["loss"]
+            wandb.log(metrics)
         if step % config.eval_every == 0:
             # TODO: Add text(None)
             samples = 4
@@ -137,7 +136,6 @@ def train(imagen: Imagen, steps):
                 video = wandb.Video(frames, fps=60, format="mp4")
                 gifs.append(video)
             wandb.log({"samples": gifs})
-        wandb.log({"loss": losses / len(timesteps)})
 
 
 def main():
