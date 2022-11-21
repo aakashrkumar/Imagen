@@ -19,6 +19,7 @@ import PIL.Image
 from datasets import load_dataset
 from datasets.utils.file_utils import get_datasets_user_agent
 
+from torch.utils.data import DataLoader
 
 wandb.init(project="imagen")
 
@@ -60,13 +61,13 @@ def fetch_images(batch, num_threads, timeout=None, retries=0):
     return batch
 
 def train(imagen: Imagen, steps):
-    dataset = load_dataset("red_caps", split="train")
+    dataset = load_dataset("red_caps", split="validation")
     dataset = dataset.map(fetch_images, batched=True, batch_size=16, fn_kwargs={"num_threads": 20})
 
-
+    dl = DataLoader(dataset, batch_size=config.batch_size, shuffle=True, num_workers=0, pin_memory=True)
     for step in tqdm(range(1, steps + 1)):
-        images = jax.random.normal(
-            imagen.get_key(), (config.batch_size, config.image_size, config.image_size, 3))
+        images = next(iter(dl))["image"]
+        texts = next(iter(dl))["captions"]
         timestep = jnp.ones(config.batch_size) * \
             jax.random.randint(imagen.get_key(), (1,), 0, 999)
         timestep = jnp.array(timestep, dtype=jnp.int16)
