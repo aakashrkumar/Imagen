@@ -97,7 +97,8 @@ def train(imagen: Imagen, steps):
 
     #dl = DataLoader(dataset, batch_size=config.batch_size, shuffle=True)
     # dl = iter(dl)
-    for step in tqdm(range(1, steps + 1)):
+    pbar = tqdm(range(1, steps * 1000 + 1))
+    for step in range(1, steps + 1):
         images = []
         texts = []
         while len(images) < config.batch_size:
@@ -122,6 +123,7 @@ def train(imagen: Imagen, steps):
             metrics = imagen.train_step(
                 images, None, timestep)  # TODO: Add text(None)
             wandb.log(metrics)
+            pbar.update(1)
         if step % config.eval_every == 0:
             # TODO: Add text(None)
             samples = 4
