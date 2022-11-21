@@ -121,11 +121,12 @@ def train(imagen: Imagen, steps):
             # TODO: Add text(None)
             samples = 4
             imgs = imagen.sample(None, samples)
-            print(imgs.shape)
+            print(imgs.shape) # (4, 64, 64, 3)
             # log as 16 gifs
             gifs = []
             for i in range(samples):
-                gifs.append(wandb.Image(imgs[i], caption="sample"))
+                img = np.asarray(imgs[i])
+                gifs.append(wandb.Image(img, caption="sample"))
             wandb.log({"samples": gifs})
         wandb.log(metrics)
 
