@@ -119,12 +119,13 @@ def train(imagen: Imagen, steps):
             images, None, timestep)  # TODO: Add text(None)
         if step % config.eval_every == 0:
             # TODO: Add text(None)
-            imgs = imagen.sample(None, 4)
+            samples = 4
+            imgs = imagen.sample(None, samples)
+            print(imgs.shape)
             # log as 16 gifs
             gifs = []
-            for i in range(16):
-                gifs.append(wandb.Video(
-                    np.array(imgs[i] * 255, dtype=np.uint8), fps=60, format="gif"))
+            for i in range(samples):
+                gifs.append(wandb.Image(imgs[i][-1], caption="sample"))
             wandb.log({"samples": gifs})
         wandb.log(metrics)
 
