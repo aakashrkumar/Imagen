@@ -32,7 +32,7 @@ class config:
     learning_rate = 1e-4
     image_size = 64
     save_every = 1000
-    eval_every = 5
+    eval_every = 100
     steps = 1_000_000
 
 
@@ -121,14 +121,14 @@ def train(imagen: Imagen, steps):
             # TODO: Add text(None)
             samples = 4
             imgs = imagen.sample(None, samples)
-            print(imgs.shape) # (4, 64, 64, 3)
+            # print(imgs.shape) # (4, 64, 64, 3)
             # log as 16 gifs
             gifs = []
             for i in range(samples):
                 frames = np.asarray(imgs[i]) # (frames, 64, 64, 3)
                 # reshape to (frames, 3, 64, 64)
                 frames = np.transpose(frames, (0, 3, 1, 2))
-                video = wandb.Video(frames, fps=60, format="gif")
+                video = wandb.Video(frames, fps=60, format="mp4")
                 gifs.append(video)
             wandb.log({"samples": gifs})
         wandb.log(metrics)
