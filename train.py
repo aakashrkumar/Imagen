@@ -35,14 +35,16 @@ def fetch_single_image(image_url, timeout=None, retries=0):
                 headers={"user-agent": USER_AGENT},
             )
             with urllib.request.urlopen(request, timeout=timeout) as req:
-                image = PIL.Image.open(io.BytesIO(req.read())).resize((config.image_size, config.image_size))
+                image = PIL.Image.open(io.BytesIO(req.read())).resize(
+                    (config.image_size, config.image_size))
                 # convert to array H, W, C
                 image = np.array(image)[..., :3] / 255.0
-                
+
             break
         except Exception:
             image = None
     return image
+
 
 class config:
     batch_size = 8
@@ -52,22 +54,38 @@ class config:
     save_every = 1000
     eval_every = 1000
     steps = 100_000
-    
+
 
 def fetch_images(batch, num_threads, timeout=None, retries=0):
-    fetch_single_image_with_args = partial(fetch_single_image, timeout=timeout, retries=retries)
+    fetch_single_image_with_args = partial(
+        fetch_single_image, timeout=timeout, retries=retries)
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        batch["image"] = list(executor.map(fetch_single_image_with_args, batch["image_url"]))
+        batch["image"] = list(executor.map(
+            fetch_single_image_with_args, batch["image_url"]))
     return batch
 
-def train(imagen: Imagen, steps):
-    dataset = load_dataset("red_caps", split="train")
-    dataset = dataset.map(fetch_images, batched=True, batch_size=16, fn_kwargs={"num_threads": 20})
 
-    dl = DataLoader(dataset, batch_size=config.batch_size, shuffle=True, num_workers=0, pin_memory=True)
+def train(imagen: Imagen, steps):
+    dataset = load_dataset("red_caps", split="validation")
+    dataset = dataset.remove_columns("created_utc")
+    dataset = dataset.remove_columns("crosspost_parents")
+    dataset = dataset.remove_columns("author")
+    dataset = dataset.remove_columns("subreddit")
+    dataset = dataset.remove_columns("score")
+
+    #dl = DataLoader(dataset, batch_size=config.batch_size, shuffle=True)
+    # dl = iter(dl)
     for step in tqdm(range(1, steps + 1)):
-        images = next(iter(dl))["image"]
-        texts = next(iter(dl))["captions"]
+        images = []
+        texts = []
+        while len(images) < config.batch_size:
+            item = dataset[np.random.randint(len(dataset))]
+            image = fetch_single_image(item["image_url"])
+            if image is not None:
+                continue
+            images.append(image)
+            texts.append(item["caption"])
+        images = jnp.array(images)
         timestep = jnp.ones(config.batch_size) * \
             jax.random.randint(imagen.get_key(), (1,), 0, 999)
         timestep = jnp.array(timestep, dtype=jnp.int16)
@@ -79,7 +97,8 @@ def train(imagen: Imagen, steps):
             # log as 16 gifs
             gifs = []
             for i in range(16):
-                gifs.append(wandb.Video(np.array(imgs[i] * 255, dtype=np.uint8), fps=60, format="gif"))
+                gifs.append(wandb.Video(
+                    np.array(imgs[i] * 255, dtype=np.uint8), fps=60, format="gif"))
             wandb.log({"samples": gifs})
         wandb.log(metrics)
 
