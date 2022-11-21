@@ -27,7 +27,7 @@ def j_sample(state, sampler, x, texts, t, t_index, rng):
         (x - betas_t * state.apply_fn({"params": state.params}, x, texts, t) /
             sqrt_one_minus_alphas_cumprod_t)
     s = jnp.percentile(
-        jnp.abs(model_mean), p,
+        jnp.abs(model_mean), 0.95,
         axis=tuple(range(1, model_mean.ndim)))
     s = jnp.max(s, 1.0)
     
