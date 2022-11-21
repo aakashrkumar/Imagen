@@ -21,6 +21,8 @@ from datasets.utils.file_utils import get_datasets_user_agent
 
 from torch.utils.data import DataLoader
 
+import cv2
+
 wandb.init(project="imagen")
 
 USER_AGENT = get_datasets_user_agent()
@@ -32,7 +34,7 @@ class config:
     learning_rate = 1e-4
     image_size = 64
     save_every = 1000
-    eval_every = 5
+    eval_every = 50
     steps = 1_000_000
 
 
@@ -125,7 +127,9 @@ def train(imagen: Imagen, steps):
             # log as 16 gifs
             gifs = []
             for i in range(samples):
-                frames = np.asarray(imgs[i])
+                frames = np.asarray(imgs[i]) # (frames, 64, 64, 3)
+                # reshape to (frames, 3, 64, 64)
+                frames = np.transpose(frames, (0, 3, 1, 2))
                 video = wandb.Video(frames, fps=60, format="gif")
                 gifs.append(video)
             wandb.log({"samples": gifs})
