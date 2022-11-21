@@ -56,7 +56,7 @@ class CombineEmbs(nn.Module):
 
     @nn.compact
     def __call__(self, x, t, s=None):
-        # timestep encoding, Note t is a tensor of dimension (batch_size x 1)
+        # timestep encoding, Note t is a tensor of dimension (batch_size,)
 
         # dimension is nummber of channels
         d = x.shape[-1] 
@@ -72,7 +72,7 @@ class CombineEmbs(nn.Module):
         pe = pe.at[:, 1::2].set(jnp.cos(position * div_term)) 
         # add the height and width channels
         pe = pe[:, jnp.newaxis, jnp.newaxis, :]
-        # project accross height and width
+        # project accross height and width (spatial dimensions)
         pe = jnp.repeat(pe, x.shape[1], axis=1)
         pe = jnp.repeat(pe, x.shape[2], axis=2)
         # concatinate timestep embeds
