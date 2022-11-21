@@ -44,6 +44,26 @@ def fetch_images(batch, num_threads, timeout=None, retries=0):
         batch["image"] = list(executor.map(fetch_single_image_with_args, batch["image_url"]))
     return batch
 
+def get_image(ds):
+    while True:
+        item = ds[np.random.randint(len(ds))]
+        image = fetch_single_image(item["image_url"])
+        if image is None:
+            continue
+        text = item["caption"]
+        return (image, text)
+    
+    
+def get_images(num_images, ds):
+    images = []
+    text = []
+    # parallelized image fetching
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        for i in range(num_images):
+            batch = list(executor.map(get_image, [ds] * 8))
+            images = [item[0] for item in batch]
+            text = [item[1] for item in batch]
+    return images, text
 
 dataset = load_dataset("red_caps", split="train")
 # remove 'created_utc' column
@@ -53,26 +73,11 @@ dataset = dataset.remove_columns("author")
 dataset = dataset.remove_columns("subreddit")
 dataset = dataset.remove_columns("score")
 
-
-dl = DataLoader(dataset, batch_size=64, shuffle=True)
-dl = iter(dl)
-batch = next(dl)
-batch = fetch_images(batch, 8)
-for image, caption in zip(batch["image"], batch["caption"]):
-    print(caption)
-    cv2.imshow("image", image)
-    cv2.waitKey(0)
-cv2.destroyAllWindows()
-print(batch)
 images = []
 texts = []
-while len(images) < 8:
-    item = dataset[np.random.randint(len(dataset))]
-    image = fetch_single_image(item["image_url"])
-    if image is not None:
-        continue
-    image = jnp.array(image, dtype=jnp.float32)
-    images.append(image)
-    texts.append(item["caption"])
+import time
+st = time.time()
+images, texts = get_images(8, dataset)
+print("Took", time.time() - st)
 images = jnp.array(images)    
 print(images.shape)

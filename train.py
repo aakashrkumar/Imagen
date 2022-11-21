@@ -64,6 +64,25 @@ def fetch_images(batch, num_threads, timeout=None, retries=0):
             fetch_single_image_with_args, batch["image_url"]))
     return batch
 
+def get_image(ds):
+    while True:
+        item = ds[np.random.randint(len(ds))]
+        image = fetch_single_image(item["image_url"])
+        if image is None:
+            continue
+        text = item["caption"]
+        return image, text
+
+def get_images(num_images, ds):
+    images = []
+    text = []
+    # parallelized image fetching
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        for i in tqdm(range(num_images)):
+            image, t = executor.submit(get_image, ds).result()
+            images.append(image)
+            text.append(t)
+    return images, text
 
 def train(imagen: Imagen, steps):
     dataset = load_dataset("red_caps", split="train")
@@ -81,9 +100,11 @@ def train(imagen: Imagen, steps):
         while len(images) < config.batch_size:
             item = dataset[np.random.randint(len(dataset))]
             image = fetch_single_image(item["image_url"])
-            if image is not None:
+            if image is None:
                 continue
             image = jnp.array(image, dtype=jnp.float32)
+            if images.shape != (config.image_size, config.image_size, 3):
+                continue
             images.append(image)
             texts.append(item["caption"])
         images = jnp.array(images)
