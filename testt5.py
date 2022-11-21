@@ -23,8 +23,8 @@ model = FlaxT5ForConditionalGeneration.from_pretrained(name)
 
 inputs = tokenizer(text[0], return_tensors="np")
 outputs = model.encode(**inputs, return_dict=True, output_attentions=True)
-print(outputs["last_hidden_state"])
-print(outputs["attentions"])
+print(outputs["last_hidden_state"].shape)
+print(outputs["attentions"][-1].shape)
 
 
 # def pool_sequences(input_id):

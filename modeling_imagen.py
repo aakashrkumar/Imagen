@@ -55,29 +55,47 @@ class CombineEmbs(nn.Module):
     n: int = 10000  # user defined scalor
 
     @nn.compact
-    def __call__(self, x, t):
-        # timestep encoding
-        # 1. Create a position encoding matrix with shape (1, d) where d = input dimension.
-        #    The matrix will be initialized with zeros.
-        d = x.shape[-1]
-        pe = jnp.zeros((1, d))
-        # 2. Create a position encoding vector with shape (1, 1) where the value is the timestep.
-        #    The vector will be initialized with zeros.
+    def __call__(self, x, t, s=None):
+        # timestep encoding, Note t is a tensor of dimension (batch_size x 1)
+
+        # dimension is nummber of channels
+        d = x.shape[-1] 
+        # create a tensor of dimensions: batch_size x channels
+        pe = jnp.zeros((t.shape[0], d)) 
+        # go from t: (batch_size,) to (batch_size,1)
         position = jnp.array([t]).reshape(-1, 1)
-        # 3. Calculate a denominator term for the sine and cosine functions.
-        div_term = jnp.power(self.n, jnp.arange(0, d, 2) / d)
-        # 4. Calculate the sine and cosine terms for the position encoding vector.
-        #    Add the sine and cosine terms to the position encoding matrix.
-        pe = pe.at[:, 0::2].set(jnp.sin(position * div_term))
-        pe = pe.at[:, 1::2].set(jnp.cos(position * div_term))
-        # 5. Repeat the position encoding matrix for each batch and spatial dimension.
-        pe = pe[jnp.newaxis, jnp.newaxis, :]
-        # repeat for each spatial dimension
+        # use the formula n ^ (2*i/d) for i∈2Z (even numbers)
+        div_term = jnp.power(self.n, jnp.arange(0, d, 2) / d) 
+        # set all even indices to sin
+        pe = pe.at[:, 0::2].set(jnp.sin(position * div_term)) 
+        # set all odd indices to cos
+        pe = pe.at[:, 1::2].set(jnp.cos(position * div_term)) 
+        # add the height and width channels
+        pe = pe[:, jnp.newaxis, jnp.newaxis, :]
+        # project accross height and width
         pe = jnp.repeat(pe, x.shape[1], axis=1)
-        pe = jnp.repeat(pe, x.shape[2], axis=2)  # repeat for each batch
-        # 6. Add the position encoding to the input.
+        pe = jnp.repeat(pe, x.shape[2], axis=2)
+        # concatinate timestep embeds
         x = x + pe
-        # TODO add text/image encoding to x
+
+
+        # add text/image encoding to x, Note for text, s is a tensor of dimension (batch_size, sequence_length, hidden_latent_size)
+        if s is not None:
+            text_embeds = s
+            # project to correct number of channels
+            text_embeds = nn.Dense(features=self.d, dtype=self.dtype)(text_embeds)
+            # mean pooling across sequence
+            text_embeds = jnp.mean(text_embeds, axis=2) 
+            # add axis for height
+            text_embeds = text_embeds[:, jnp.newaxis, :]
+            # project across height and width
+            text_embeds = jnp.repeat(text_embeds, x.shape[1], axis=1)
+            text_embeds = jnp.repeat(text_embeds, x.shape[2], axis=2)
+            # concatinate text_embeds
+            x = x + text_embeds
+
+        # use layer norm as suggested by the paper
+        x = nn.LayerNorm(dtype=self.dtype)(x)
         return x
 
 
