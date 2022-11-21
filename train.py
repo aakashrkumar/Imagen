@@ -61,7 +61,7 @@ def fetch_images(batch, num_threads, timeout=None, retries=0):
     return batch
 
 def train(imagen: Imagen, steps):
-    dataset = load_dataset("red_caps", split="validation")
+    dataset = load_dataset("red_caps", split="train")
     dataset = dataset.map(fetch_images, batched=True, batch_size=16, fn_kwargs={"num_threads": 20})
 
     dl = DataLoader(dataset, batch_size=config.batch_size, shuffle=True, num_workers=0, pin_memory=True)
