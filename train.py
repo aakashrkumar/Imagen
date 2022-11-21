@@ -119,7 +119,7 @@ def train(imagen: Imagen, steps):
             images, None, timestep)  # TODO: Add text(None)
         if step % config.eval_every == 0:
             # TODO: Add text(None)
-            imgs = imagen.sample(None, 16)
+            imgs = imagen.sample(None, 4)
             # log as 16 gifs
             gifs = []
             for i in range(16):
