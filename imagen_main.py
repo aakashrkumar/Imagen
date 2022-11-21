@@ -43,10 +43,13 @@ def p_sample_loop(state, sampler, img, texts, rng):
     rng, key = jax.random.split(rng)
     imgs = []
 
-    for i in tqdm(reversed(range(sampler.num_timesteps))):
+    for i in reversed(range(sampler.num_timesteps)):
         rng, key = jax.random.split(rng)
         img = p_sample(state, sampler, img, texts, jnp.ones(batch_size, dtype=jnp.int16) * i, i, key)
         imgs.append(img)
+    # frames, batch, height, width, channels
+    # reshape batch, frames, height, width, channels
+    imgs = jnp.stack(imgs, axis=1)
     return imgs
 
 def sample(state, sampler, noise, texts, rng):
@@ -102,11 +105,18 @@ def compute_metrics(loss, logits):
     return {"loss": loss}
 
 def test():
+    import cv2
+    import numpy as np
     imagen = Imagen()
     #train_step(imagen.state, imagen.lowres_scheduler, jnp.ones((1, 64, 64, 3)), None, jnp.ones(1, dtype=jnp.int16), imagen.get_key())
     print("Training done")
     for i in tqdm(range(1000)):
-        imagen.sample(None, 1)
+        images = imagen.sample(None, 1)
+        print(images.shape)
+        images = np.asarray(images[0] * 255, dtype=np.uint8)
+        for i in range(1000):
+            cv2.imshow("image", images[i])
+            cv2.waitKey(1)
 if __name__ == "__main__":
     test()
     

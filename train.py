@@ -25,14 +25,16 @@ wandb.init(project="imagen")
 
 USER_AGENT = get_datasets_user_agent()
 
+
 class config:
     batch_size = 8
     seed = 0
     learning_rate = 1e-4
     image_size = 64
     save_every = 1000
-    eval_every = 1000
+    eval_every = 100
     steps = 1_000_000
+
 
 def fetch_single_image(image_url, timeout=None, retries=0):
     for _ in range(retries + 1):
@@ -54,8 +56,6 @@ def fetch_single_image(image_url, timeout=None, retries=0):
     return image
 
 
-
-
 def fetch_images(batch, num_threads, timeout=None, retries=0):
     fetch_single_image_with_args = partial(
         fetch_single_image, timeout=timeout, retries=retries)
@@ -63,6 +63,28 @@ def fetch_images(batch, num_threads, timeout=None, retries=0):
         batch["image"] = list(executor.map(
             fetch_single_image_with_args, batch["image_url"]))
     return batch
+
+
+def get_image(ds):
+    while True:
+        item = ds[np.random.randint(len(ds))]
+        image = fetch_single_image(item["image_url"])
+        if image is None:
+            continue
+        text = item["caption"]
+        return image, text
+
+
+def get_images(num_images, ds):
+    images = []
+    text = []
+    # parallelized image fetching
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        for i in tqdm(range(num_images)):
+            image, t = executor.submit(get_image, ds).result()
+            images.append(image)
+            text.append(t)
+    return images, text
 
 
 def train(imagen: Imagen, steps):
@@ -81,13 +103,15 @@ def train(imagen: Imagen, steps):
         while len(images) < config.batch_size:
             item = dataset[np.random.randint(len(dataset))]
             image = fetch_single_image(item["image_url"])
-            if image is not None:
+            if image is None:
                 continue
             image = jnp.array(image, dtype=jnp.float32)
+            if image.shape != (config.image_size, config.image_size, 3):
+                continue
             images.append(image)
             texts.append(item["caption"])
         images = jnp.array(images)
-        print(images.shape)
+        # print(images.shape)
         timestep = jnp.ones(config.batch_size) * \
             jax.random.randint(imagen.get_key(), (1,), 0, 999)
         timestep = jnp.array(timestep, dtype=jnp.int16)
@@ -95,12 +119,17 @@ def train(imagen: Imagen, steps):
             images, None, timestep)  # TODO: Add text(None)
         if step % config.eval_every == 0:
             # TODO: Add text(None)
-            imgs = imagen.sample(None, 16)
+            samples = 4
+            imgs = imagen.sample(None, samples)
+            # print(imgs.shape) # (4, 64, 64, 3)
             # log as 16 gifs
             gifs = []
-            for i in range(16):
-                gifs.append(wandb.Video(
-                    np.array(imgs[i] * 255, dtype=np.uint8), fps=60, format="gif"))
+            for i in range(samples):
+                frames = np.asarray(imgs[i]) # (frames, 64, 64, 3)
+                # reshape to (frames, 3, 64, 64)
+                frames = np.transpose(frames, (0, 3, 1, 2))
+                video = wandb.Video(frames, fps=60, format="mp4")
+                gifs.append(video)
             wandb.log({"samples": gifs})
         wandb.log(metrics)
 

@@ -53,6 +53,7 @@ class CombineEmbs(nn.Module):
 
     d: int = 32  # should be the dimensions of x
     n: int = 10000  # user defined scalor
+    dtype: jnp.dtype = jnp.float32
 
     @nn.compact
     def __call__(self, x, t, s=None):
@@ -112,7 +113,7 @@ class UnetDBlock(nn.Module):
     def __call__(self, x, time):
         x = nn.Conv(features=self.num_channels, kernel_size=(3, 3),
                     strides=self.strides, dtype=self.dtype, padding=1)(x)
-        # x = CombineEmbs()(x, time)
+        x = CombineEmbs()(x, time)
         x = ResNetBlock(num_layers=self.num_resnet_blocks,
                         num_channels=self.num_channels, strides=self.strides, dtype=self.dtype)(x)
         if self.num_attention_heads > 0:
@@ -132,7 +133,7 @@ class UnetUBlock(nn.Module):
 
     @nn.compact
     def __call__(self, x, time):
-        # x = CombineEmbs()(x, time)
+        x = CombineEmbs()(x, time)
         x = ResNetBlock(num_layers=self.num_resnet_blocks,
                         num_channels=self.num_channels, strides=self.strides, dtype=self.dtype)(x)
         if self.num_attention_heads > 0:
