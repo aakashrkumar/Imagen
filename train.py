@@ -108,7 +108,7 @@ def train(imagen: Imagen, steps):
             images.append(image)
             texts.append(item["caption"])
         images = jnp.array(images)
-        print(images.shape)
+        # print(images.shape)
         timestep = jnp.ones(config.batch_size) * \
             jax.random.randint(imagen.get_key(), (1,), 0, 999)
         timestep = jnp.array(timestep, dtype=jnp.int16)

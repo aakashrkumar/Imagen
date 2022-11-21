@@ -65,6 +65,7 @@ def get_images(num_images, ds):
             text = [item[1] for item in batch]
     return images, text
 
+
 dataset = load_dataset("red_caps", split="train")
 # remove 'created_utc' column
 dataset = dataset.remove_columns("created_utc")
@@ -72,6 +73,7 @@ dataset = dataset.remove_columns("crosspost_parents")
 dataset = dataset.remove_columns("author")
 dataset = dataset.remove_columns("subreddit")
 dataset = dataset.remove_columns("score")
+dataset = dataset.map(fetch_images, batched=True, batch_size=100, fn_kwargs={"num_threads": 10})
 
 images = []
 texts = []
