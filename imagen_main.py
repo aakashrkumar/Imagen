@@ -49,8 +49,7 @@ def p_sample_loop(state, sampler, img, texts, rng):
         imgs.append(img)
     # frames, batch, height, width, channels
     # reshape batch, frames, height, width, channels
-    imgs = jnp.stack(imgs, axis=1)
-    return imgs
+    return img
 
 def sample(state, sampler, noise, texts, rng):
     return p_sample_loop(state, sampler, noise, texts, rng)
