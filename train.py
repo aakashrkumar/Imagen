@@ -31,7 +31,7 @@ class config:
     learning_rate = 1e-4
     image_size = 64
     save_every = 1000
-    eval_every = 1000
+    eval_every = 5
     steps = 1_000_000
 
 def fetch_single_image(image_url, timeout=None, retries=0):
