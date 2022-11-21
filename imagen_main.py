@@ -32,7 +32,7 @@ def j_sample(state, sampler, x, texts, t, t_index, rng):
      #   )
     # s = jnp.max(s, 1.0)
     
-    model_mean = jnp.clip(model_mean, -1, 1)
+    model_mean = jnp.clip(model_mean, -1., 1.)
     
     return model_mean
 def p_sample(state, sampler, x, texts, t, t_index, rng):
