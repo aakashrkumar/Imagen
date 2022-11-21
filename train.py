@@ -21,8 +21,6 @@ from datasets.utils.file_utils import get_datasets_user_agent
 
 from torch.utils.data import DataLoader
 
-import cv2
-
 wandb.init(project="imagen")
 
 USER_AGENT = get_datasets_user_agent()
