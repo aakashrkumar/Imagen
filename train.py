@@ -116,7 +116,7 @@ def train(imagen: Imagen, steps):
         timesteps = list(range(0, 1000))
         # shuffle timesteps
         timesteps = np.random.permutation(timesteps)
-        for ts in tqdm(timesteps):
+        for ts in timesteps:
             timestep = jnp.ones(config.batch_size) * ts
             # jax.random.randint(imagen.get_key(), (1,), 0, 999)
             timestep = jnp.array(timestep, dtype=jnp.int16)
