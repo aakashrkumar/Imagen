@@ -25,6 +25,14 @@ wandb.init(project="imagen")
 
 USER_AGENT = get_datasets_user_agent()
 
+class config:
+    batch_size = 8
+    seed = 0
+    learning_rate = 1e-4
+    image_size = 64
+    save_every = 1000
+    eval_every = 1000
+    steps = 1_000_000
 
 def fetch_single_image(image_url, timeout=None, retries=0):
     for _ in range(retries + 1):
@@ -46,14 +54,6 @@ def fetch_single_image(image_url, timeout=None, retries=0):
     return image
 
 
-class config:
-    batch_size = 8
-    seed = 0
-    learning_rate = 1e-4
-    image_size = 64
-    save_every = 1000
-    eval_every = 1000
-    steps = 100_000
 
 
 def fetch_images(batch, num_threads, timeout=None, retries=0):
@@ -83,9 +83,11 @@ def train(imagen: Imagen, steps):
             image = fetch_single_image(item["image_url"])
             if image is not None:
                 continue
+            image = jnp.array(image, dtype=jnp.float32)
             images.append(image)
             texts.append(item["caption"])
         images = jnp.array(images)
+        print(images.shape)
         timestep = jnp.ones(config.batch_size) * \
             jax.random.randint(imagen.get_key(), (1,), 0, 999)
         timestep = jnp.array(timestep, dtype=jnp.int16)

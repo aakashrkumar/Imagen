@@ -12,7 +12,8 @@ from datasets.utils.file_utils import get_datasets_user_agent
 from torch.utils.data import DataLoader
 import cv2
 import numpy as np
-
+import jax
+import jax.numpy as jnp
 USER_AGENT = get_datasets_user_agent()
 
 
@@ -63,3 +64,15 @@ for image, caption in zip(batch["image"], batch["caption"]):
     cv2.waitKey(0)
 cv2.destroyAllWindows()
 print(batch)
+images = []
+texts = []
+while len(images) < 8:
+    item = dataset[np.random.randint(len(dataset))]
+    image = fetch_single_image(item["image_url"])
+    if image is not None:
+        continue
+    image = jnp.array(image, dtype=jnp.float32)
+    images.append(image)
+    texts.append(item["caption"])
+images = jnp.array(images)    
+print(images.shape)
