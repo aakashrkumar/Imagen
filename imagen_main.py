@@ -35,7 +35,9 @@ def j_sample(state, sampler, x, texts, t, t_index, rng):
     model_mean = jnp.clip(model_mean, -1., 1.)
     
     return model_mean
-def p_sample(state, sampler, x, texts, t, t_index, rng):
+
+def p_sample(state, sampler, x, texts, t_index, rng):
+    t = jnp.ones(x.shape[0], dtype=jnp.int16) * t_index
     model_mean = j_sample(state, sampler, x, texts, t, t_index, rng)
 
     if t_index == 0:
@@ -46,20 +48,10 @@ def p_sample(state, sampler, x, texts, t, t_index, rng):
         noise = jax.random.normal(rng, x.shape)  # TODO: use proper key
         return model_mean + noise * jnp.sqrt(posterior_variance_t)
 
+@jax.jit
 def p_sample_loop(state, sampler, img, texts, rng):
-    # img is x0
-    batch_size = img.shape[0]
-    rng, key = jax.random.split(rng)
-    imgs = []
-
-    for i in reversed(range(sampler.num_timesteps)):
-        rng, key = jax.random.split(rng)
-        img = p_sample(state, sampler, img, texts, jnp.ones(batch_size, dtype=jnp.int16) * i, i, key)
-        imgs.append(img)
-    # frames, batch, height, width, channels
-    # reshape batch, frames, height, width, channels
-    imgs = jnp.stack(imgs, axis=1)
-    return imgs
+    img = jax.lax.fori_loop(0, sampler.num_timesteps, p_sample, (state, sampler, img, texts, rng))
+    return img
 
 def sample(state, sampler, noise, texts, rng):
     return p_sample_loop(state, sampler, noise, texts, rng)
