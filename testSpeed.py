@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 ray.init()
 
-collector = dataCollector.DataManager.remote(num_workers=60, batch_size=8)
+collector = dataCollector.DataManager.remote(num_workers=90, batch_size=64)
 collector.start.remote()
 time.sleep(5)
 for i in tqdm.tqdm(range(1000)):
