@@ -38,7 +38,7 @@ class config:
     steps = 1_000_000
 
 def train(imagen: Imagen, steps):
-    collector = dataCollector.DataManager.remote(num_workers=40, batch_size=config.batch_size)
+    collector = dataCollector.DataManager.remote(num_workers=5, batch_size=config.batch_size)
     collector.start.remote()
 
     #dl = DataLoader(dataset, batch_size=config.batch_size, shuffle=True)
