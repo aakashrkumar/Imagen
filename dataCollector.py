@@ -1,10 +1,4 @@
-import jax
-from flax.training import checkpoints
 from tqdm import tqdm
-import optax
-import jax.numpy as jnp
-from imagen_main import Imagen
-import wandb
 import numpy as np
 from datasets import load_dataset
 
@@ -71,7 +65,7 @@ class SharedStorage:
         for _ in range(batch_size):
             images.append(self.images.pop(0))
             texts.append(self.texts.pop(0))
-        images = jnp.array(images)
+        images = np.array(images)
         return images, texts
 
     
@@ -104,7 +98,7 @@ class DataCollector:
             image = fetch_single_image(item["image_url"])
             if image is None:
                 continue
-            image = jnp.array(image, dtype=jnp.float32)
+            image = np.array(image, dtype=np.float32)
             if image.shape != (64, 64, 3):
                 continue
             self.shared_storage.add_data.remote([image], [item["caption"]])
