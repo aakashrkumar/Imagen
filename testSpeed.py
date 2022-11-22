@@ -13,5 +13,5 @@ for i in tqdm.tqdm(range(1000)):
     images, text = ray.get(collector.get_batch.remote())
     images = images * 127.5 + 127.5
     images = np.asarray(images, dtype=np.uint8)
-    cv2.imshow("image", images[0])
-    cv2.waitKey(1)
+    #cv2.imshow("image", images[0])
+    # cv2.waitKey(1)
