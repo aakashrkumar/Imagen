@@ -19,7 +19,6 @@ import PIL.Image
 from datasets import load_dataset
 from datasets.utils.file_utils import get_datasets_user_agent
 
-from torch.utils.data import DataLoader
 import ray
 
 USER_AGENT = get_datasets_user_agent()
