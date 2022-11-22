@@ -34,6 +34,7 @@ def j_sample(state, sampler, x, texts, t, t_index, rng):
     
     model_mean = jnp.clip(model_mean, -1., 1.)
     
+    
     return model_mean
 
 def p_sample(t_index, carry):
@@ -43,6 +44,8 @@ def p_sample(t_index, carry):
     x = carry[2]
     texts = carry[3]
     rng = carry[4]
+    ## TODO: scan should carry over the state over the loop i.e. the change in images over the loop
+    
     rng, key = jax.random.split(rng)
     t = jnp.ones(x.shape[0], dtype=jnp.int16) * t_index
     model_mean = j_sample(state, sampler, x, texts, t, t_index, key)
@@ -61,7 +64,7 @@ def p_sample_loop(state, sampler, img, texts, rng):
     #batch_size = img.shape[0]
     rng, key = jax.random.split(rng)
     imgs = []
-    _, imgs = jax.lax.scan(p_sample, [state, sampler, img, texts, rng], jnp.arange(1000))
+    _, imgs = jax.lax.scan(p_sample, [state, sampler , img, texts, rng], jnp.arange(1000))
     # for i in reversed(range(sampler.num_timesteps)):
     #   rng, key = jax.random.split(rng)
     #   img = p_sample(state, sampler, img, texts, jnp.ones(batch_size, dtype=jnp.int16) * i, i, key)
