@@ -74,6 +74,7 @@ def train_step(state, sampler, x, texts, timestep, rng):
         return loss, predicted
     gradient_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (loss, logits), grads = gradient_fn(state.params)
+    grads = jax.lax.pmean(grads, "batch")
     state = state.apply_gradients(grads=grads)
     return state, compute_metrics(loss, logits)
 
@@ -96,6 +97,7 @@ class Imagen:
         )
         
         self.image_size = img_size
+        self.ptrain_step = jax.pmap(partial(train_step, sampler=self.lowres_scheduler), axis_name="batch")
 
     def get_key(self):
         self.random_state, key = jax.random.split(self.random_state)
@@ -106,7 +108,7 @@ class Imagen:
         return sample(self.state, self.lowres_scheduler, noise, texts, self.get_key())
     
     def train_step(self, image_batch, texts_batchs, timestep):
-        self.state, metrics = train_step(self.state, self.lowres_scheduler, image_batch, texts_batchs, timestep, self.get_key())
+        self.state, metrics = self.ptrain_step(self.state, image_batch, texts_batchs, timestep, self.get_key())
         return metrics
 
 def compute_metrics(loss, logits):
