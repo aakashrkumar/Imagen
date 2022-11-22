@@ -65,15 +65,13 @@ def train(imagen: Imagen, steps):
             imgs = imagen.sample(None, samples)
             # print(imgs.shape) # (4, 64, 64, 3)
             # log as 16 gifs
-            gifs = []
+            images = []
             for i in range(samples):
-                frames = np.asarray(imgs[i]) # (frames, 64, 64, 3)
-                frames = frames * 127.5 + 127.5
-                # reshape to (frames, 3, 64, 64)
-                frames = np.transpose(frames, (0, 3, 1, 2))
-                video = wandb.Video(frames, fps=240, format="240")
-                gifs.append(video)
-            wandb.log({"samples": gifs})
+                img = np.asarray(imgs[i]) # (64, 64, 3)
+                img = img * 127.5 + 127.5
+                img = wandb.Image(img)
+                images.append(img)
+            wandb.log({"samples": images})
 
 
 def main():
