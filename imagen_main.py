@@ -91,7 +91,7 @@ def train_step(imagen_state, x, texts, timestep, rng):
     noise = jax.random.normal(rng, x.shape)
     x_noise = imagen_state.sampler.q_sample(x, timestep, noise)
     def loss_fn(params):
-        predicted = imagen_state.apply_fn({"params": params}, x_noise, texts, timestep)
+        predicted = imagen_state.train_state.apply_fn({"params": params}, x_noise, texts, timestep)
         loss = jnp.mean((noise - predicted) ** 2)
         return loss, predicted
     gradient_fn = jax.value_and_grad(loss_fn, has_aux=True)
