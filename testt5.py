@@ -33,6 +33,8 @@ def get_tokenizer_and_model():
     name = "t5-large"
     tokenizer = T5Tokenizer.from_pretrained(name)
     model = FlaxT5ForConditionalGeneration.from_pretrained(name)
+    return tokenizer, model
+
 
 def encode_text(text, tokenizer, model):
     max_sequence_length = 512

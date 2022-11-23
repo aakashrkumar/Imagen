@@ -122,9 +122,9 @@ class CombineEmbs(nn.Module):
         #     # project to correct number of channels
         #     text_embeds = nn.Dense(features=self.d, dtype=self.dtype)(text_embeds)
         #     # mean pooling across sequence
-        #     text_embeds = jnp.mean(text_embeds, axis=2) 
-        #     # add axis for height
-        #     text_embeds = text_embeds[:, jnp.newaxis, :]
+        #     text_embeds = jnp.mean(text_embeds, axis=1) 
+        #     # add axis for height and width
+        #     text_embeds = text_embeds[:, jnp.newaxis, jnp.newaxis, :]
         #     # project across height and width
         #     text_embeds = jnp.repeat(text_embeds, x.shape[1], axis=1)
         #     text_embeds = jnp.repeat(text_embeds, x.shape[2], axis=2)
