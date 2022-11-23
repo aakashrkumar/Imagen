@@ -92,8 +92,7 @@ def sample(imagen_state, noise, texts, rng):
     return p_sample_loop(imagen_state, noise, texts, rng)
 
 @partial(jax.pmap, axis_name="batch")
-def train_step(imagen_state, x, timestep):
-    texts = None
+def train_step(imagen_state, x, timestep, texts):
     imagen_state,key = imagen_state.get_key()
     noise = jax.random.normal(key, x.shape)
     x_noise = imagen_state.sampler.q_sample(x, timestep, noise)
@@ -140,7 +139,7 @@ class Imagen:
         return sample(self.imagen_state, noise, texts, self.get_key())
     
     def train_step(self, image_batch, timestep, texts_batchs=None):
-        self.imagen_state, metrics = train_step(self.imagen_state, image_batch, timestep)
+        self.imagen_state, metrics = train_step(self.imagen_state, image_batch, timestep, texts_batchs)
         return metrics
 
 def compute_metrics(loss, logits):
