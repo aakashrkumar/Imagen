@@ -56,13 +56,13 @@ def train(imagen: Imagen, steps):
             # jax.random.randint(imagen.get_key(), (1,), 0, 999)
             timestep = jnp.array(timestep, dtype=jnp.int16)
             metrics = imagen.train_step(
-                images, None, timestep)  # TODO: Add text(None)
+                images, timestep, texts_batchs=None)  # TODO: Add text(None)
             wandb.log(metrics)
             pbar.update(1)
         if step % config.eval_every == 0:
             # TODO: Add text(None)
             samples = 4
-            imgs = imagen.sample(None, samples)
+            imgs = imagen.sample(texts=None, batch_size=samples)
             # print(imgs.shape) # (4, 64, 64, 3)
             # log as 16 gifs
             images = []

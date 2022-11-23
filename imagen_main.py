@@ -129,7 +129,7 @@ class Imagen:
         noise = jax.random.normal(self.get_key(), (batch_size, self.image_size, self.image_size, 3))
         return sample(self.imagen_state, noise, texts, self.get_key())
     
-    def train_step(self, image_batch, texts_batchs, timestep):
+    def train_step(self, image_batch, timestep, texts_batchs=None):
         self.imagen_state, metrics = train_step(self.imagen_state, image_batch, texts_batchs, timestep, self.get_key())
         return metrics
 
