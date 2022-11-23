@@ -96,13 +96,14 @@ def train_step(state, sampler, x, texts, timestep, rng):
         return loss, predicted
     gradient_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (loss, logits), grads = gradient_fn(state.params)
-    state = state.apply_gradients(grads=grads)
+    train_state = state.train_state.apply_gradients(grads=grads)
+    state = state.replace(train_state=train_state)
     return state, compute_metrics(loss, logits)
 
 
 
 class Imagen:
-    def __init__(self, img_size: int = 64, batch_size: int = 16, num_timesteps: int = 1000, loss_type: str = "l2"):
+    def create(self, img_size: int = 64, batch_size: int = 16, num_timesteps: int = 1000, loss_type: str = "l2"):
         self.random_state = jax.random.PRNGKey(0)        
         self.lowres_scheduler = GaussianDiffusionContinuousTimes.create(
             noise_schedule="cosine", num_timesteps=1000
@@ -129,7 +130,7 @@ class Imagen:
         return sample(self.state, noise, texts, self.get_key())
     
     def train_step(self, image_batch, texts_batchs, timestep):
-        self.state, metrics = train_step(self.state, self.lowres_scheduler, image_batch, texts_batchs, timestep, self.get_key())
+        train_state, metrics = train_step(self.state, image_batch, texts_batchs, timestep, self.get_key())
         return metrics
 
 def compute_metrics(loss, logits):
