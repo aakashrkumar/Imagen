@@ -30,14 +30,14 @@ class GeneratorState(struct.PyTreeNode):
     
     
 
-def j_sample(state, sampler, x, texts, t, t_index, rng):
+def j_sample(train_state, sampler, x, texts, t, t_index, rng):
     betas_t = extract(sampler.betas, t, x.shape)
     sqrt_one_minus_alphas_cumprod_t = extract(
         sampler.sqrt_one_minus_alphas_cumprod, t, x.shape)
     sqrt_recip_alphas_t = extract(
         sampler.sqrt_recip_alphas, t, x.shape)
     model_mean = sqrt_recip_alphas_t * \
-        (x - betas_t * state.apply_fn({"params": state.params}, x, texts, t) /
+        (x - betas_t * train_state.apply_fn({"params": train_state.params}, x, texts, t) /
             sqrt_one_minus_alphas_cumprod_t)
    # s = jnp.percentile(
     #    jnp.abs(model_mean), 0.95,
@@ -49,56 +49,56 @@ def j_sample(state, sampler, x, texts, t, t_index, rng):
     
     return model_mean
 
-def p_sample(t_index, state):
+def p_sample(t_index, generator_state):
     t_index = 999-t_index
     t = jnp.ones(1, dtype=jnp.int16) * t_index
-    rng, key = jax.random.split(state.rng)
-    model_mean = j_sample(state.imagen_state.train_state, state.imagen_state.sampler, state.image, state.text, t, t_index, key)
+    rng, key = jax.random.split(generator_state.rng)
+    model_mean = j_sample(generator_state.imagen_state.train_state, generator_state.imagen_state.sampler, generator_state.image, generator_state.text, t, t_index, key)
     rng, key = jax.random.split(rng)
     posterior_variance_t = extract(
-    state.imagen_state.sampler.posterior_variance, t, state.image.shape)
-    noise = jax.random.normal(key, state.image.shape)  # TODO: use proper key
+    generator_state.imagen_state.sampler.posterior_variance, t, generator_state.image.shape)
+    noise = jax.random.normal(key, generator_state.image.shape)  # TODO: use proper key
 
     x = jax.lax.cond(t_index > 0, lambda x: model_mean + noise * jnp.sqrt(posterior_variance_t), lambda x: model_mean, None)
    #if t_index == 0:
    #     x = model_mean
    # else:
     #    x = model_mean + noise * jnp.sqrt(posterior_variance_t)
-    return GeneratorState.replace(state, image=x, rng=rng)
+    return GeneratorState.replace(generator_state, image=x, rng=rng)
 @jax.jit
-def p_sample_loop(state, img, texts, rng):
+def p_sample_loop(imagen_state, img, texts, rng):
     # img is x0
     batch_size = img.shape[0]
     rng, key = jax.random.split(rng)
     # imgs = []
-    generator_state = GeneratorState(imagen_state=state, image=img, text=texts, rng=rng)
+    generator_state = GeneratorState(imagen_state=imagen_state, image=img, text=texts, rng=rng)
     generator_state = jax.lax.fori_loop(0, 1000, p_sample, generator_state)
     img = generator_state.image
     #for i in reversed(range(sampler.num_timesteps)):
      #  rng, key = jax.random.split(rng)
-     #  img = p_sample(state, sampler, img, texts, jnp.ones(batch_size, dtype=jnp.int16) * i, i, key)
+     #  img = p_sample(imagen_state, sampler, img, texts, jnp.ones(batch_size, dtype=jnp.int16) * i, i, key)
        # imgs.append(img)
     # frames, batch, height, width, channels
     # reshape batch, frames, height, width, channels
     return img
 
 
-def sample(state, noise, texts, rng):
-    return p_sample_loop(state, noise, texts, rng)
+def sample(imagen_state, noise, texts, rng):
+    return p_sample_loop(imagen_state, noise, texts, rng)
 
 @jax.jit
-def train_step(state, x, texts, timestep, rng):
+def train_step(imagen_state, x, texts, timestep, rng):
     noise = jax.random.normal(rng, x.shape)
-    x_noise = state.sampler.q_sample(x, timestep, noise)
+    x_noise = imagen_state.sampler.q_sample(x, timestep, noise)
     def loss_fn(params):
-        predicted = state.apply_fn({"params": params}, x_noise, texts, timestep)
+        predicted = imagen_state.apply_fn({"params": params}, x_noise, texts, timestep)
         loss = jnp.mean((noise - predicted) ** 2)
         return loss, predicted
     gradient_fn = jax.value_and_grad(loss_fn, has_aux=True)
-    (loss, logits), grads = gradient_fn(state.params)
-    train_state = state.train_state.apply_gradients(grads=grads)
-    state = state.replace(train_state=train_state)
-    return state, compute_metrics(loss, logits)
+    (loss, logits), grads = gradient_fn(imagen_state.train_state.params)
+    train_state = imagen_state.train_state.apply_gradients(grads=grads)
+    imagen_state = imagen_state.replace(train_state=train_state)
+    return imagen_state, compute_metrics(loss, logits)
 
 
 
@@ -117,7 +117,7 @@ class Imagen:
             tx=self.opt,
             params=self.params['params']
         )
-        self.state = ImagenState(train_state=self.train_state, sampler=self.lowres_scheduler)
+        self.imagen_state = ImagenState(train_state=self.train_state, sampler=self.lowres_scheduler)
         
         self.image_size = img_size
 
@@ -127,10 +127,10 @@ class Imagen:
     
     def sample(self, texts, batch_size):
         noise = jax.random.normal(self.get_key(), (batch_size, self.image_size, self.image_size, 3))
-        return sample(self.state, noise, texts, self.get_key())
+        return sample(self.imagen_state, noise, texts, self.get_key())
     
     def train_step(self, image_batch, texts_batchs, timestep):
-        train_state, metrics = train_step(self.state, image_batch, texts_batchs, timestep, self.get_key())
+        self.imagen_state, metrics = train_step(self.imagen_state, image_batch, texts_batchs, timestep, self.get_key())
         return metrics
 
 def compute_metrics(loss, logits):
@@ -140,7 +140,7 @@ def test():
     import cv2
     import numpy as np
     imagen = Imagen()
-    #train_step(imagen.state, imagen.lowres_scheduler, jnp.ones((1, 64, 64, 3)), None, jnp.ones(1, dtype=jnp.int16), imagen.get_key())
+    #train_step(imagen.imagen_state, imagen.lowres_scheduler, jnp.ones((1, 64, 64, 3)), None, jnp.ones(1, dtype=jnp.int16), imagen.get_key())
     print("Training done")
     for i in tqdm(range(1000)):
         images = imagen.sample(None, 1)
