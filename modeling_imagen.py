@@ -75,7 +75,7 @@ class CrossAttentionResidualBlock(nn.Module):
         attention_matrix = attention_matrix / jnp.sqrt(self.num_channels) # scale the attention matrix
         attention_matrix = nn.softmax(attention_matrix, axis=-1)
         output = jnp.einsum('...ij, ...jk -> ...ik', q, attention_matrix) # dot product between queries and attention matrix
-        output = reduce(z1, 'b w h s c -> b w h c', 'max')
+        output = reduce(output, 'b w h s c -> b w h c', 'max')
         output = nn.Dense(features=x.shape[-1], dtype=self.num_channels) # reshape channels
 
         x = x + output # add original information
