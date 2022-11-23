@@ -30,14 +30,14 @@ class GeneratorState(struct.PyTreeNode):
     
     
 
-def j_sample(imagen_state, sampler, x, texts, t, t_index, rng):
+def j_sample(train_state, sampler, x, texts, t, t_index, rng):
     betas_t = extract(sampler.betas, t, x.shape)
     sqrt_one_minus_alphas_cumprod_t = extract(
         sampler.sqrt_one_minus_alphas_cumprod, t, x.shape)
     sqrt_recip_alphas_t = extract(
         sampler.sqrt_recip_alphas, t, x.shape)
     model_mean = sqrt_recip_alphas_t * \
-        (x - betas_t * imagen_state.apply_fn({"params": imagen_state.params}, x, texts, t) /
+        (x - betas_t * train_state.apply_fn({"params": train_state.params}, x, texts, t) /
             sqrt_one_minus_alphas_cumprod_t)
    # s = jnp.percentile(
     #    jnp.abs(model_mean), 0.95,
@@ -49,22 +49,22 @@ def j_sample(imagen_state, sampler, x, texts, t, t_index, rng):
     
     return model_mean
 
-def p_sample(t_index, imagen_state):
+def p_sample(t_index, generator_state):
     t_index = 999-t_index
     t = jnp.ones(1, dtype=jnp.int16) * t_index
-    rng, key = jax.random.split(imagen_state.rng)
-    model_mean = j_sample(imagen_state.imagen_state.train_state, imagen_state.imagen_state.sampler, imagen_state.image, imagen_state.text, t, t_index, key)
+    rng, key = jax.random.split(generator_state.rng)
+    model_mean = j_sample(generator_state.imagen_state.train_state, generator_state.imagen_state.sampler, generator_state.image, generator_state.text, t, t_index, key)
     rng, key = jax.random.split(rng)
     posterior_variance_t = extract(
-    imagen_state.imagen_state.sampler.posterior_variance, t, imagen_state.image.shape)
-    noise = jax.random.normal(key, imagen_state.image.shape)  # TODO: use proper key
+    generator_state.imagen_state.sampler.posterior_variance, t, generator_state.image.shape)
+    noise = jax.random.normal(key, generator_state.image.shape)  # TODO: use proper key
 
     x = jax.lax.cond(t_index > 0, lambda x: model_mean + noise * jnp.sqrt(posterior_variance_t), lambda x: model_mean, None)
    #if t_index == 0:
    #     x = model_mean
    # else:
     #    x = model_mean + noise * jnp.sqrt(posterior_variance_t)
-    return GeneratorState.replace(imagen_state, image=x, rng=rng)
+    return GeneratorState.replace(generator_state, image=x, rng=rng)
 @jax.jit
 def p_sample_loop(imagen_state, img, texts, rng):
     # img is x0
