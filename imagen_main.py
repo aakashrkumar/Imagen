@@ -103,7 +103,7 @@ def train_step(state, sampler, x, texts, timestep, rng):
 
 
 class Imagen:
-    def create(self, img_size: int = 64, batch_size: int = 16, num_timesteps: int = 1000, loss_type: str = "l2"):
+    def __init__(self, img_size: int = 64, batch_size: int = 16, num_timesteps: int = 1000, loss_type: str = "l2"):
         self.random_state = jax.random.PRNGKey(0)        
         self.lowres_scheduler = GaussianDiffusionContinuousTimes.create(
             noise_schedule="cosine", num_timesteps=1000
