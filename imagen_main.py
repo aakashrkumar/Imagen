@@ -15,7 +15,7 @@ from einops import rearrange, repeat, reduce, pack, unpack
 from flax.training import train_state
 
 from jax import tree_util
-from flax import struct
+from flax import struct, jax_utils
 
 
 class ImagenState(struct.PyTreeNode):
@@ -127,7 +127,7 @@ class Imagen:
             params=self.params['params']
         )
         self.imagen_state = ImagenState(train_state=self.train_state, sampler=self.lowres_scheduler, rng=self.random_state)
-        
+        self.imagen_state = jax_utils.replicate(self.imagen_state)
         self.image_size = img_size
 
     def get_key(self):
