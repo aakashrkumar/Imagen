@@ -37,7 +37,7 @@ def j_sample(train_state, sampler, x, texts, t, t_index, rng):
     sqrt_recip_alphas_t = extract(
         sampler.sqrt_recip_alphas, t, x.shape)
     model_mean = sqrt_recip_alphas_t * \
-        (x - betas_t * train_state.apply_fn({"params": train_state.params}, x, texts, t) /
+        (x - betas_t * train_state.apply_fn({"params": train_state.params}, x, t, texts) /
             sqrt_one_minus_alphas_cumprod_t)
    # s = jnp.percentile(
     #    jnp.abs(model_mean), 0.95,
@@ -91,7 +91,7 @@ def train_step(imagen_state, x, texts, timestep, rng):
     noise = jax.random.normal(rng, x.shape)
     x_noise = imagen_state.sampler.q_sample(x, timestep, noise)
     def loss_fn(params):
-        predicted = imagen_state.apply_fn({"params": params}, x_noise, texts, timestep)
+        predicted = imagen_state.train_state.apply_fn({"params": params}, x_noise, timestep, texts)
         loss = jnp.mean((noise - predicted) ** 2)
         return loss, predicted
     gradient_fn = jax.value_and_grad(loss_fn, has_aux=True)
