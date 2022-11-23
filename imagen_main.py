@@ -87,9 +87,9 @@ def sample(state, noise, texts, rng):
     return p_sample_loop(state, noise, texts, rng)
 
 @jax.jit
-def train_step(state, sampler, x, texts, timestep, rng):
+def train_step(state, x, texts, timestep, rng):
     noise = jax.random.normal(rng, x.shape)
-    x_noise = sampler.q_sample(x, timestep, noise)
+    x_noise = state.sampler.q_sample(x, timestep, noise)
     def loss_fn(params):
         predicted = state.apply_fn({"params": params}, x_noise, texts, timestep)
         loss = jnp.mean((noise - predicted) ** 2)
