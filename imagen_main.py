@@ -150,7 +150,7 @@ def test():
     import numpy as np
     imagen = Imagen()
     print("Training done")
-    batch_size = 16
+    batch_size = 8
     for i in tqdm(range(1000)):
         imagen.train_step(jnp.ones((batch_size, 64, 64, 3)), jnp.ones(batch_size, dtype=jnp.int16) * 10)
         #images = imagen.sample(None, 1)
