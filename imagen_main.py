@@ -125,13 +125,13 @@ class Imagen:
             tx=self.opt,
             params=self.params['params']
         )
-        self.imagen_state = ImagenState(train_state=self.train_state, sampler=self.lowres_scheduler)
+        self.imagen_state = ImagenState(train_state=self.train_state, sampler=self.lowres_scheduler, rng=self.random_state)
         
         self.image_size = img_size
 
     def get_key(self):
-        self.random_state, key = jax.random.split(self.random_state)
-        return key
+        self.imagen_state, self.random_state = self.imagen_state.get_key()
+        return self.random_state
     
     def sample(self, texts, batch_size):
         noise = jax.random.normal(self.get_key(), (batch_size, self.image_size, self.image_size, 3))
