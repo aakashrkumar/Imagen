@@ -148,9 +148,9 @@ def test():
     import cv2
     import numpy as np
     imagen = Imagen()
-    imagen.train_step(jnp.ones((16, 64, 64, 3)), jnp.ones(16, dtype=jnp.int16) * 10)
     print("Training done")
     for i in tqdm(range(1000)):
+        imagen.train_step(jnp.ones((16, 64, 64, 3)), jnp.ones(16, dtype=jnp.int16) * 10)
         images = imagen.sample(None, 1)
         print(images.shape)
         images = np.asarray(images * 127.5 + 127.5, dtype=np.uint8)
