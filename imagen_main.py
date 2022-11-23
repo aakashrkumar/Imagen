@@ -25,7 +25,7 @@ class ImagenState(struct.PyTreeNode):
     
     def get_key(self):
         rng, key = jax.random.split(self.rng)
-        return key, self.replace(rng=rng)
+        return self.replace(rng=rng), key
     
 class GeneratorState(struct.PyTreeNode):
     imagen_state: ImagenState
