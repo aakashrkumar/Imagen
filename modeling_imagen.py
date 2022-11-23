@@ -48,7 +48,7 @@ class ResNetBlock(nn.Module):
         return x
 
 
-class CrossAttentionResidualBlock(nn.Module):
+class CrossAttentionBlock(nn.Module):
     num_channels: int
     dtype: jnp.dtype = jnp.float32
     
