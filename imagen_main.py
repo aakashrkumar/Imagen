@@ -117,7 +117,8 @@ class Imagen:
             noise_schedule="cosine", num_timesteps=1000
         )
         self.unet = EfficentUNet()
-        self.params = self.unet.init(self.get_key(), jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), None)
+        self.random_state, key = jax.random.split(self.random_state)
+        self.params = self.unet.init(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), None)
         
         self.opt = optax.adafactor(1e-4)
         self.train_state = train_state.TrainState.create(
