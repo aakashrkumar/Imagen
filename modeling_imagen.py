@@ -146,10 +146,13 @@ class UnetDBlock(nn.Module):
     num_attention_heads: int = 0
 
     @nn.compact
-    def __call__(self, x, time):
+    def __call__(self, x, time, texts=None):
         x = nn.Conv(features=self.num_channels, kernel_size=(3, 3),
-                    strides=self.strides, dtype=self.dtype, padding=1)(x)
+                    strides=self.strides, dtype=self.dtype, padding=1)(x)        
         x = CombineEmbs()(x, time)
+        if self.text_cross_attention and texts is not None:
+            x = CrossAttentionBlock(num_channels=self.num_channels, dtype=self.dtype)(x, texts)
+
         x = ResNetBlock(num_layers=self.num_resnet_blocks,
                         num_channels=self.num_channels, strides=self.strides, dtype=self.dtype)(x)
         if self.num_attention_heads > 0:
@@ -168,13 +171,16 @@ class UnetUBlock(nn.Module):
     num_attention_heads: int = 0
 
     @nn.compact
-    def __call__(self, x, time):
+    def __call__(self, x, time, texts = None):
         x = CombineEmbs()(x, time)
         x = ResNetBlock(num_layers=self.num_resnet_blocks,
                         num_channels=self.num_channels, strides=self.strides, dtype=self.dtype)(x)
+        if self.text_cross_attention and texts is not None:
+            x = CrossAttentionBlock(num_channels=self.num_channels, dtype=self.dtype)(x, texts)
         if self.num_attention_heads > 0:
             x = nn.SelfAttention(num_heads=self.num_attention_heads, qkv_features=2 *
                                  self.num_channels, out_features=self.num_channels)(x)
+            
         x = jax.image.resize(
             x,
             shape=(x.shape[0], x.shape[1] * 2, x. shape[2] * 2, x.shape[3]),
@@ -191,7 +197,7 @@ class EfficentUNet(nn.Module):
     dtype: jnp.dtype = jnp.float32
 
     @nn.compact
-    def __call__(self, x, texts, time):
+    def __call__(self, x, time, texts=None):
         x = nn.Conv(features=128, kernel_size=(3, 3),
                     dtype=self.dtype, padding="same")(x)
 
