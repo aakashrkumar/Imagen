@@ -27,7 +27,6 @@ wandb.init(project="imagen", entity="therealaakash")
 USER_AGENT = get_datasets_user_agent()
 
 
-
 class config:
     batch_size = 64
     seed = 0
@@ -37,8 +36,10 @@ class config:
     eval_every = 10
     steps = 1_000_000
 
+
 def train(imagen: Imagen, steps):
-    collector = dataCollector.DataManager.remote(num_workers=5, batch_size=config.batch_size)
+    collector = dataCollector.DataManager.remote(
+        num_workers=5, batch_size=config.batch_size)
     collector.start.remote()
 
     #dl = DataLoader(dataset, batch_size=config.batch_size, shuffle=True)
@@ -60,14 +61,14 @@ def train(imagen: Imagen, steps):
             wandb.log(metrics)
             pbar.update(1)
         if step % config.eval_every == 0:
-            # TODO: Add text(None)
             samples = 4
+            # TODO: Add text(None)
             imgs = imagen.sample(texts=None, batch_size=samples)
             # print(imgs.shape) # (4, 64, 64, 3)
             # log as 16 gifs
             images = []
             for i in range(samples):
-                img = np.asarray(imgs[i]) # (64, 64, 3)
+                img = np.asarray(imgs[i])  # (64, 64, 3)
                 img = img * 127.5 + 127.5
                 img = wandb.Image(img)
                 images.append(img)

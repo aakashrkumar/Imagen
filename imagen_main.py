@@ -21,6 +21,11 @@ from flax import struct
 class ImagenState(struct.PyTreeNode):
     train_state: train_state.TrainState
     sampler: GaussianDiffusionContinuousTimes
+    rng: jax.random.PRNGKey
+    
+    def get_key(self):
+        rng, key = jax.random.split(self.rng)
+        return key, self.replace(rng=rng)
     
 class GeneratorState(struct.PyTreeNode):
     imagen_state: ImagenState
@@ -86,9 +91,9 @@ def p_sample_loop(imagen_state, img, texts, rng):
 def sample(imagen_state, noise, texts, rng):
     return p_sample_loop(imagen_state, noise, texts, rng)
 
-@jax.jit
-def train_step(imagen_state, x, texts, timestep, rng):
-    noise = jax.random.normal(rng, x.shape)
+@partial(jax.pmap, axis_name="batch")
+def train_step(imagen_state, x, timestep, texts):
+    noise = jax.random.normal(imagen_state.rng, x.shape)
     x_noise = imagen_state.sampler.q_sample(x, timestep, noise)
     def loss_fn(params):
         predicted = imagen_state.train_state.apply_fn({"params": params}, x_noise, timestep, texts)
@@ -96,6 +101,8 @@ def train_step(imagen_state, x, texts, timestep, rng):
         return loss, predicted
     gradient_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (loss, logits), grads = gradient_fn(imagen_state.train_state.params)
+    loss = jax.lax.pmean(loss, "batch")
+    grads = jax.lax.pmean(grads, "batch")
     train_state = imagen_state.train_state.apply_gradients(grads=grads)
     imagen_state = imagen_state.replace(train_state=train_state)
     return imagen_state, compute_metrics(loss, logits)
@@ -130,7 +137,7 @@ class Imagen:
         return sample(self.imagen_state, noise, texts, self.get_key())
     
     def train_step(self, image_batch, timestep, texts_batchs=None):
-        self.imagen_state, metrics = train_step(self.imagen_state, image_batch, texts_batchs, timestep, self.get_key())
+        self.imagen_state, metrics = train_step(self.imagen_state, image_batch, timestep, texts_batchs)
         return metrics
 
 def compute_metrics(loss, logits):
@@ -140,7 +147,7 @@ def test():
     import cv2
     import numpy as np
     imagen = Imagen()
-    #train_step(imagen.imagen_state, imagen.lowres_scheduler, jnp.ones((1, 64, 64, 3)), None, jnp.ones(1, dtype=jnp.int16), imagen.get_key())
+    imagen.train_step(jnp.ones((16, 64, 64, 3)), jnp.ones(16, dtype=jnp.int16) * 10)
     print("Training done")
     for i in tqdm(range(1000)):
         images = imagen.sample(None, 1)
