@@ -48,6 +48,40 @@ class ResNetBlock(nn.Module):
         return x
 
 
+class CrossAttention(nn.Module):
+    num_channels: int
+    dtype: jnp.dtype = jnp.float32
+    
+    @nn.compact
+    def __call__(self, x, s):
+        q = nn.Dense(features=self.num_channels, dtype=self.dtype)(x)
+        k_x = nn.Dense(features=self.num_channels, dtype=self.dtype)(x)
+        k_x = rearrange(k_x, 'b w h c -> b w h 1 c')
+        v_x = nn.Dense(features=self.num_channels, dtype=self.dtype)(x)
+        v_x = rearrange(v_x, 'b w h c -> b w h 1 c')
+
+        k_s = nn.Dense(features=self.num_channels, dtype=self.dtype)(s)
+        k_s = rearrange(k_s, 'b s d -> b 1 1 s d')
+        v_s = nn.Dense(features=self.num_channels, dtype=self.dtype)(s)
+        v_s = rearrange(v_s, 'b s d -> b 1 1 s d')
+
+        
+        k = k_x + k_s
+        v = v_x + v_s
+        v = rearrange(v, 'b w h s c -> b w h c s')
+
+        attention_matrix = jnp.einsum('...ij, ...jk -> ...ik', v, k) # dot product between v transpose and k
+        attention_matrix = attention_matrix / jnp.sqrt(self.num_channels)
+        attention_matrix = nn.softmax(attention_matrix, axis=-1)
+        output = jnp.einsum('...ij, ...jk -> ...ik', q, attention_matrix) # dot product between queries and attention matrix
+        output = reduce(z1, 'b w h s c -> b w h c', 'max')
+        output = nn.Dense(features=x.shape[-1], dtype=self.num_channels)
+
+        x = x + output
+
+        return x
+        
+
 class CombineEmbs(nn.Module):
     """Combine positional encoding with text/image encoding."""
 
@@ -81,19 +115,19 @@ class CombineEmbs(nn.Module):
 
 
         # add text/image encoding to x, Note for text, s is a tensor of dimension (batch_size, sequence_length, hidden_latent_size)
-        if s is not None:
-            text_embeds = s
-            # project to correct number of channels
-            text_embeds = nn.Dense(features=self.d, dtype=self.dtype)(text_embeds)
-            # mean pooling across sequence
-            text_embeds = jnp.mean(text_embeds, axis=2) 
-            # add axis for height
-            text_embeds = text_embeds[:, jnp.newaxis, :]
-            # project across height and width
-            text_embeds = jnp.repeat(text_embeds, x.shape[1], axis=1)
-            text_embeds = jnp.repeat(text_embeds, x.shape[2], axis=2)
-            # concatinate text_embeds
-            x = x + text_embeds
+        # if s is not None:
+        #     text_embeds = s
+        #     # project to correct number of channels
+        #     text_embeds = nn.Dense(features=self.d, dtype=self.dtype)(text_embeds)
+        #     # mean pooling across sequence
+        #     text_embeds = jnp.mean(text_embeds, axis=2) 
+        #     # add axis for height
+        #     text_embeds = text_embeds[:, jnp.newaxis, :]
+        #     # project across height and width
+        #     text_embeds = jnp.repeat(text_embeds, x.shape[1], axis=1)
+        #     text_embeds = jnp.repeat(text_embeds, x.shape[2], axis=2)
+        #     # concatinate text_embeds
+        #     x = x + text_embeds
 
         # use layer norm as suggested by the paper
         x = nn.LayerNorm(dtype=self.dtype)(x)
