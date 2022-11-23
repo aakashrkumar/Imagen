@@ -48,12 +48,13 @@ class ResNetBlock(nn.Module):
         return x
 
 
-class CrossAttention(nn.Module):
+class CrossAttentionResidualBlock(nn.Module):
     num_channels: int
     dtype: jnp.dtype = jnp.float32
     
     @nn.compact
     def __call__(self, x, s):
+
         q = nn.Dense(features=self.num_channels, dtype=self.dtype)(x)
         k_x = nn.Dense(features=self.num_channels, dtype=self.dtype)(x)
         k_x = rearrange(k_x, 'b w h c -> b w h 1 c')
@@ -68,19 +69,20 @@ class CrossAttention(nn.Module):
         
         k = k_x + k_s
         v = v_x + v_s
-        v = rearrange(v, 'b w h s c -> b w h c s')
+        v = rearrange(v, 'b w h s c -> b w h c s') # take the transpose of the v vector
 
         attention_matrix = jnp.einsum('...ij, ...jk -> ...ik', v, k) # dot product between v transpose and k
-        attention_matrix = attention_matrix / jnp.sqrt(self.num_channels)
+        attention_matrix = attention_matrix / jnp.sqrt(self.num_channels) # scale the attention matrix
         attention_matrix = nn.softmax(attention_matrix, axis=-1)
         output = jnp.einsum('...ij, ...jk -> ...ik', q, attention_matrix) # dot product between queries and attention matrix
         output = reduce(z1, 'b w h s c -> b w h c', 'max')
-        output = nn.Dense(features=x.shape[-1], dtype=self.num_channels)
+        output = nn.Dense(features=x.shape[-1], dtype=self.num_channels) # reshape channels
 
-        x = x + output
+        x = x + output # add original information
+        x = nn.LayerNorm(dtype=self.dtype)(x) # normalize
 
         return x
-        
+
 
 class CombineEmbs(nn.Module):
     """Combine positional encoding with text/image encoding."""
