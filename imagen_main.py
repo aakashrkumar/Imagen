@@ -15,7 +15,6 @@ from einops import rearrange, repeat, reduce, pack, unpack
 from flax.training import train_state
 
 from jax import tree_util
-
 @jax.jit
 def j_sample(state, sampler, x, texts, t, t_index, rng):
     betas_t = extract(sampler.betas, t, x.shape)
@@ -26,6 +25,14 @@ def j_sample(state, sampler, x, texts, t, t_index, rng):
     model_mean = sqrt_recip_alphas_t * \
         (x - betas_t * state.apply_fn({"params": state.params}, x, texts, t) /
             sqrt_one_minus_alphas_cumprod_t)
+   # s = jnp.percentile(
+    #    jnp.abs(model_mean), 0.95,
+      #  axis=(1, *tuple(range(1, model_mean.ndim)))
+     #   )
+    # s = jnp.max(s, 1.0)
+    
+    model_mean = jnp.clip(model_mean, -1., 1.)
+    
     return model_mean
 def p_sample(state, sampler, x, texts, t, t_index, rng):
     model_mean = j_sample(state, sampler, x, texts, t, t_index, rng)
@@ -39,6 +46,7 @@ def p_sample(state, sampler, x, texts, t, t_index, rng):
         return model_mean + noise * jnp.sqrt(posterior_variance_t)
 
 def p_sample_loop(state, sampler, img, texts, rng):
+    # img is x0
     batch_size = img.shape[0]
     rng, key = jax.random.split(rng)
     imgs = []
@@ -51,6 +59,7 @@ def p_sample_loop(state, sampler, img, texts, rng):
     # reshape batch, frames, height, width, channels
     imgs = jnp.stack(imgs, axis=1)
     return imgs
+
 
 def sample(state, sampler, noise, texts, rng):
     return p_sample_loop(state, sampler, noise, texts, rng)
@@ -76,7 +85,6 @@ class Imagen:
         self.lowres_scheduler = GaussianDiffusionContinuousTimes.create(
             noise_schedule="cosine", num_timesteps=1000
         )
-        
         self.unet = EfficentUNet()
         self.params = self.unet.init(self.get_key(), jnp.ones((batch_size, img_size, img_size, 3)), None, jnp.ones(batch_size, dtype=jnp.int16))
         
