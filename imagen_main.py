@@ -145,8 +145,8 @@ def test():
         images = imagen.sample(None, 1)
         print(images.shape)
         images = np.asarray(images * 127.5 + 127.5, dtype=np.uint8)
-        cv2.imshow("image", images[i])
-        cv2.waitKey(0)
+        # cv2.imshow("image", images[i])
+        #cv2.waitKey(0)
 if __name__ == "__main__":
     test()
     
