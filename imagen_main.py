@@ -15,7 +15,21 @@ from einops import rearrange, repeat, reduce, pack, unpack
 from flax.training import train_state
 
 from jax import tree_util
-@jax.jit
+from flax import struct
+
+
+class ImagenState(struct.PyTreeNode):
+    train_state: train_state.TrainState
+    sampler: GaussianDiffusionContinuousTimes
+    
+class GeneratorState(struct.PyTreeNode):
+    imagen_state: ImagenState
+    image: jnp.ndarray
+    text: jnp.ndarray
+    rng: jax.random.PRNGKey
+    
+    
+
 def j_sample(state, sampler, x, texts, t, t_index, rng):
     betas_t = extract(sampler.betas, t, x.shape)
     sqrt_one_minus_alphas_cumprod_t = extract(
@@ -34,35 +48,43 @@ def j_sample(state, sampler, x, texts, t, t_index, rng):
     model_mean = jnp.clip(model_mean, -1., 1.)
     
     return model_mean
-def p_sample(state, sampler, x, texts, t, t_index, rng):
-    model_mean = j_sample(state, sampler, x, texts, t, t_index, rng)
 
-    if t_index == 0:
-        return model_mean
-    else:
-        posterior_variance_t = extract(
-            sampler.posterior_variance, t, x.shape)
-        noise = jax.random.normal(rng, x.shape)  # TODO: use proper key
-        return model_mean + noise * jnp.sqrt(posterior_variance_t)
+def p_sample(t_index, state):
+    t_index = 999-t_index
+    t = jnp.ones(1, dtype=jnp.int16) * t_index
+    rng, key = jax.random.split(state.rng)
+    model_mean = j_sample(state.imagen_state.train_state, state.imagen_state.sampler, state.image, state.text, t, t_index, key)
+    rng, key = jax.random.split(rng)
+    posterior_variance_t = extract(
+    state.imagen_state.sampler.posterior_variance, t, state.image.shape)
+    noise = jax.random.normal(key, state.image.shape)  # TODO: use proper key
 
-def p_sample_loop(state, sampler, img, texts, rng):
+    x = jax.lax.cond(t_index > 0, lambda x: model_mean + noise * jnp.sqrt(posterior_variance_t), lambda x: model_mean, None)
+   #if t_index == 0:
+   #     x = model_mean
+   # else:
+    #    x = model_mean + noise * jnp.sqrt(posterior_variance_t)
+    return GeneratorState.replace(state, image=x, rng=rng)
+@jax.jit
+def p_sample_loop(state, img, texts, rng):
     # img is x0
     batch_size = img.shape[0]
     rng, key = jax.random.split(rng)
-    imgs = []
-
-    for i in reversed(range(sampler.num_timesteps)):
-        rng, key = jax.random.split(rng)
-        img = p_sample(state, sampler, img, texts, jnp.ones(batch_size, dtype=jnp.int16) * i, i, key)
-        imgs.append(img)
+    # imgs = []
+    generator_state = GeneratorState(imagen_state=state, image=img, text=texts, rng=rng)
+    generator_state = jax.lax.fori_loop(0, 1000, p_sample, generator_state)
+    img = generator_state.image
+    #for i in reversed(range(sampler.num_timesteps)):
+     #  rng, key = jax.random.split(rng)
+     #  img = p_sample(state, sampler, img, texts, jnp.ones(batch_size, dtype=jnp.int16) * i, i, key)
+       # imgs.append(img)
     # frames, batch, height, width, channels
     # reshape batch, frames, height, width, channels
-    imgs = jnp.stack(imgs, axis=1)
-    return imgs
+    return img
 
 
-def sample(state, sampler, noise, texts, rng):
-    return p_sample_loop(state, sampler, noise, texts, rng)
+def sample(state, noise, texts, rng):
+    return p_sample_loop(state, noise, texts, rng)
 
 @jax.jit
 def train_step(state, sampler, x, texts, timestep, rng):
@@ -89,11 +111,12 @@ class Imagen:
         self.params = self.unet.init(self.get_key(), jnp.ones((batch_size, img_size, img_size, 3)), None, jnp.ones(batch_size, dtype=jnp.int16))
         
         self.opt = optax.adafactor(1e-4)
-        self.state = train_state.TrainState.create(
+        self.train_state = train_state.TrainState.create(
             apply_fn=self.unet.apply,
             tx=self.opt,
             params=self.params['params']
         )
+        self.state = ImagenState(train_state=self.train_state, sampler=self.lowres_scheduler)
         
         self.image_size = img_size
 
@@ -103,7 +126,7 @@ class Imagen:
     
     def sample(self, texts, batch_size):
         noise = jax.random.normal(self.get_key(), (batch_size, self.image_size, self.image_size, 3))
-        return sample(self.state, self.lowres_scheduler, noise, texts, self.get_key())
+        return sample(self.state, noise, texts, self.get_key())
     
     def train_step(self, image_batch, texts_batchs, timestep):
         self.state, metrics = train_step(self.state, self.lowres_scheduler, image_batch, texts_batchs, timestep, self.get_key())
@@ -121,7 +144,7 @@ def test():
     for i in tqdm(range(1000)):
         images = imagen.sample(None, 1)
         print(images.shape)
-        images = np.asarray(images[0] * 255, dtype=np.uint8)
+        images = np.asarray(images * 127.5 + 127.5, dtype=np.uint8)
         for i in range(1000):
             cv2.imshow("image", images[i])
             cv2.waitKey(1)
