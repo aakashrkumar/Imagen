@@ -101,8 +101,8 @@ def train_step(imagen_state, imgs_start, timestep, texts, attention_masks, rng):
         return loss, predicted_noise
     gradient_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (loss, logits), grads = gradient_fn(imagen_state.train_state.params)
-    grads = jax.lax.pmean(grads, "batch")
-    loss = jax.lax.pmean(loss, "batch")
+    grads = jax.lax.pmean(grads, axis_name="batch")
+    loss = jax.lax.pmean(loss, axis_name="batch")
     train_state = imagen_state.train_state.apply_gradients(grads=grads)
     imagen_state = imagen_state.replace(train_state=train_state)
     return imagen_state, compute_metrics(loss, logits)
@@ -156,8 +156,7 @@ def test():
     batch_size = 8
     text_encoding, attention_mask = encode_text(["test"], tokenizer, model)
     for i in tqdm(range(1000)):
-        pass
-        #imagen.train_step(jnp.ones((batch_size, 64, 64, 3)), jnp.ones(batch_size, dtype=jnp.int16) * 10, jnp.ones((batch_size, 15, 1024)), jnp.ones((batch_size, 15)))
+        imagen.train_step(jnp.ones((batch_size, 64, 64, 3)), jnp.ones(batch_size, dtype=jnp.int16) * 10, jnp.ones((batch_size, 15, 1024)), jnp.ones((batch_size, 15)))
         
         #images = imagen.sample(text_encoding, attention_mask, 1)
        # print(images.shape)
