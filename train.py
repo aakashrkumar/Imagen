@@ -32,7 +32,7 @@ class config:
     seed = 0
     learning_rate = 1e-4
     image_size = 64
-    save_every = 1000
+    save_every = 1
     eval_every = 10
     steps = 1_000_000
 
@@ -49,7 +49,7 @@ def train(imagen: Imagen, steps):
         images, texts = ray.get(collector.get_batch.remote())
         images = jnp.array(images)
         # print(images.shape)
-        timesteps = list(range(0, 10))
+        timesteps = list(range(0, 2))
         # shuffle timesteps
         timesteps = np.random.permutation(timesteps)
         for ts in timesteps:
