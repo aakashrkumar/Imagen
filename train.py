@@ -93,7 +93,6 @@ def train(imagen: Imagen, steps):
             # wandb.log(metrics)
             pbar.update(1)
         if step % config.eval_every == 0:
-            samples = 4
             # TODO: Add text(None)
             prompts = ["1",
                        "2",
@@ -102,7 +101,7 @@ def train(imagen: Imagen, steps):
             text_sequence, attention_masks = encode_text(
                 prompts, tokenizer, encoder_model)
             imgs = imagen.sample(
-                texts=text_sequence, attention=attention_masks, batch_size=samples)
+                texts=text_sequence, attention=attention_masks)
             # print(imgs.shape) # (4, 64, 64, 3)
             # log as 16 gifs
             images = []

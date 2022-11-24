@@ -90,7 +90,7 @@ def p_sample_loop(imagen_state, img, texts, attention, rng):
 def sample(imagen_state, noise, texts, attention, rng):
     return p_sample_loop(imagen_state, noise, texts, attention, rng)
 
-@partial(jax.pmap, axis_name="batch", in_axes=(None, 0, 0, 0, 0, 0))
+@partial(jax.pmap, axis_name="batch")
 def train_step(imagen_state, imgs_start, timestep, texts, attention_masks, rng):
     rng,key = jax.random.split(rng)
     noise = jax.random.normal(key, imgs_start.shape)
@@ -126,13 +126,15 @@ class Imagen:
             params=self.params['params']
         )
         self.imagen_state = ImagenState(train_state=self.train_state, sampler=self.lowres_scheduler)
+        self.imagen_state = jax_utils.replicate(self.imagen_state)
         self.image_size = img_size
 
     def get_key(self):
         self.random_state,key = jax.random.split(self.random_state)
         return key
     
-    def sample(self, texts, attention, batch_size):
+    def sample(self, texts, attention):
+        batch_size = texts.shape[0] 
         noise = jax.random.normal(self.get_key(), (batch_size, self.image_size, self.image_size, 3))
         return sample(self.imagen_state, noise, texts, attention, self.get_key())
     
