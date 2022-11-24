@@ -23,7 +23,7 @@ import dataCollector
 import ray
 ray.init()
 
-wandb.init(project="imagen", entity="therealaakash")
+# wandb.init(project="imagen", entity="therealaakash")
 USER_AGENT = get_datasets_user_agent()
 
 
@@ -58,7 +58,7 @@ def train(imagen: Imagen, steps):
             timestep = jnp.array(timestep, dtype=jnp.int16)
             metrics = imagen.train_step(
                 images, timestep, texts_batchs=None)  # TODO: Add text(None)
-            wandb.log(metrics)
+            # wandb.log(metrics)
             pbar.update(1)
         if step % config.eval_every == 0:
             samples = 4
@@ -70,9 +70,9 @@ def train(imagen: Imagen, steps):
             for i in range(samples):
                 img = np.asarray(imgs[i])  # (64, 64, 3)
                 img = img * 127.5 + 127.5
-                img = wandb.Image(img)
+                # img = wandb.Image(img)
                 images.append(img)
-            wandb.log({"samples": images})
+            # wandb.log({"samples": images})
 
 
 def main():
