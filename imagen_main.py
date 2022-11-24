@@ -34,16 +34,15 @@ class GeneratorState(struct.PyTreeNode):
     attention: jnp.ndarray
     rng: jax.random.PRNGKey
     
-    
 
-def j_sample(train_state, sampler, x, timesteps, texts, attention, t_index, rng):
-    betas_t = extract(sampler.betas, timesteps, x.shape)
+def j_sample(train_state, sampler, imgs, timesteps, texts, attention, t_index, rng):
+    betas_t = extract(sampler.betas, timesteps, imgs.shape)
     sqrt_one_minus_alphas_cumprod_t = extract(
-        sampler.sqrt_one_minus_alphas_cumprod, timesteps, x.shape)
+        sampler.sqrt_one_minus_alphas_cumprod, timesteps, imgs.shape)
     sqrt_recip_alphas_t = extract(
-        sampler.sqrt_recip_alphas, timesteps, x.shape)
+        sampler.sqrt_recip_alphas, timesteps, imgs.shape)
     model_mean = sqrt_recip_alphas_t * \
-        (x - betas_t * train_state.apply_fn({"params": train_state.params}, x, timesteps, texts, attention) /
+        (imgs - betas_t * train_state.apply_fn({"params": train_state.params}, imgs, timesteps, texts, attention) /
             sqrt_one_minus_alphas_cumprod_t)
    # s = jnp.percentile(
     #    jnp.abs(model_mean), 0.95,
@@ -93,14 +92,14 @@ def sample(imagen_state, noise, texts, attention, rng):
     return p_sample_loop(imagen_state, noise, texts, attention, rng)
 
 @jax.jit
-def train_step(imagen_state, x, timestep, texts, attention_masks):
+def train_step(imagen_state, imgs_start, timestep, texts, attention_masks):
     imagen_state,key = imagen_state.get_key()
-    noise = jax.random.normal(key, x.shape)
-    x_noise = imagen_state.sampler.q_sample(x, timestep, noise)
+    noise = jax.random.normal(key, imgs_start.shape)
+    x_noise = imagen_state.sampler.q_sample(imgs_start, timestep, noise)
     def loss_fn(params):
-        predicted = imagen_state.train_state.apply_fn({"params": params}, x_noise, timestep, texts, attention_masks)
-        loss = jnp.mean((noise - predicted) ** 2)
-        return loss, predicted
+        predicted_noise = imagen_state.train_state.apply_fn({"params": params}, x_noise, timestep, texts, attention_masks)
+        loss = jnp.mean((noise - predicted_noise) ** 2)
+        return loss, predicted_noise
     gradient_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (loss, logits), grads = gradient_fn(imagen_state.train_state.params)
     train_state = imagen_state.train_state.apply_gradients(grads=grads)
