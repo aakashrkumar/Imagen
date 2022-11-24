@@ -22,7 +22,7 @@ from datasets.utils.file_utils import get_datasets_user_agent
 import dataCollector
 import ray
 
-from T5Utils import encode_text
+from T5Utils import encode_text, get_tokenizer_and_model
 
 ray.init()
 

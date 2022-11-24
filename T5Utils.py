@@ -1,5 +1,5 @@
 from transformers import T5Tokenizer, FlaxT5ForConditionalGeneration
-
+import jax
 
 def get_tokenizer_and_model():
     name = "t5-large"
@@ -7,7 +7,7 @@ def get_tokenizer_and_model():
     model = FlaxT5ForConditionalGeneration.from_pretrained(name)
     return tokenizer, model
 
-
+@jax.jit
 def encode_text(text, tokenizer, model):
     if tokenizer is None or model is None:
         return None, None
