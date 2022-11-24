@@ -34,7 +34,7 @@ import cv2
 # wandb.init(project="imagen", entity="therealaakash")
 
 class config:
-    batch_size = 1
+    batch_size = 8
     seed = 0
     learning_rate = 1e-4
     image_size = 64
