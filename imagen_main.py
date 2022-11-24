@@ -131,7 +131,7 @@ class Imagen:
 
     def get_key(self):
         self.random_state,key = jax.random.split(self.random_state)
-        return self.random_state
+        return key
     
     def sample(self, texts, attention, batch_size):
         noise = jax.random.normal(self.get_key(), (batch_size, self.image_size, self.image_size, 3))
