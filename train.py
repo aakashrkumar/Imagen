@@ -18,10 +18,12 @@ import PIL.Image
 
 from datasets import load_dataset
 from datasets.utils.file_utils import get_datasets_user_agent
-from transformers import T5Tokenizer, FlaxT5ForConditionalGeneration
 
 import dataCollector
 import ray
+
+from T5JaxUtils import encode_text, get_tokenizer_and_model
+
 ray.init()
 
 # wandb.init(project="imagen", entity="therealaakash")
@@ -33,39 +35,9 @@ class config:
     seed = 0
     learning_rate = 1e-4
     image_size = 64
-    save_every = 1
+    save_every = 100
     eval_every = 10
     steps = 1_000_000
-
-
-def get_tokenizer_and_model():
-    name = "t5-large"
-    tokenizer = T5Tokenizer.from_pretrained(name)
-    model = FlaxT5ForConditionalGeneration.from_pretrained(name)
-    return tokenizer, model
-
-
-def encode_text(text, tokenizer, model):
-    if tokenizer is None or model is None:
-        return None, None
-    
-    max_sequence_length = 512
-    encoding = tokenizer(
-        text,
-        padding="max_length", #longest to match largest input
-        max_length=max_sequence_length, 
-        truncation=True, 
-        return_tensors="np")
-    
-    input_ids, attention_mask = encoding.input_ids, encoding.attention_mask
-
-    outputs = model.encode(
-        input_ids=input_ids, 
-        attention_mask=attention_mask,
-        return_dict=True,
-        output_attentions=False)
-
-    return outputs[0], attention_mask
 
 
 def train(imagen: Imagen, steps, encoder_model=None, tokenizer=None):
@@ -78,7 +50,8 @@ def train(imagen: Imagen, steps, encoder_model=None, tokenizer=None):
     pbar = tqdm(range(1, steps * 1000 + 1))
     for step in range(1, steps + 1):
         images, texts = ray.get(collector.get_batch.remote())
-        text_sequence, attention_masks = encode_text(texts, tokenizer, encoder_model)
+        text_sequence, attention_masks = encode_text(
+            texts, tokenizer, encoder_model)
         images = jnp.array(images)
         # print(images.shape)
         timesteps = list(range(0, 1000))
@@ -95,7 +68,15 @@ def train(imagen: Imagen, steps, encoder_model=None, tokenizer=None):
         if step % config.eval_every == 0:
             samples = 4
             # TODO: Add text(None)
-            imgs = imagen.sample(texts=None, batch_size=samples)
+            prompts = ["An image of a supernova",
+                       "A brain riding a rocketship heading towards the moon.",
+                       "An image of a pizza",
+                       "An image of the earth"
+                       ]
+            text_sequence, attention_masks = encode_text(
+                prompts, tokenizer, encoder_model)
+            imgs = imagen.sample(
+                texts=text_sequence, attention=attention_masks, batch_size=samples)
             # print(imgs.shape) # (4, 64, 64, 3)
             # log as 16 gifs
             images = []
@@ -107,16 +88,17 @@ def train(imagen: Imagen, steps, encoder_model=None, tokenizer=None):
             # wandb.log({"samples": images})
         if step % config.save_every == 0:
             checkpoints.save_checkpoint(
-                f"ckpt/checkpoint_{step}", 
+                f"ckpt/checkpoint_{step}",
                 imagen.imagen_state,
                 step=step,
-                
-                )
+
+            )
 
 
 def main():
     imagen = Imagen()
     tokenizer, encoder_model = get_tokenizer_and_model()
     train(imagen, config.steps, encoder_model=encoder_model, tokenizer=tokenizer)
+
 
 main()
