@@ -125,12 +125,12 @@ class Imagen:
             tx=self.opt,
             params=self.params['params']
         )
-        self.imagen_state = ImagenState(train_state=self.train_state, sampler=self.lowres_scheduler, rng=self.random_state)
+        self.imagen_state = ImagenState(train_state=self.train_state, sampler=self.lowres_scheduler)
         self.imagen_state = jax_utils.replicate(self.imagen_state)
         self.image_size = img_size
 
     def get_key(self):
-        self.imagen_state, self.random_state = self.imagen_state.get_key()
+        self.random_state,key = jax.random.split(self.random_state)
         return self.random_state
     
     def sample(self, texts, attention, batch_size):
