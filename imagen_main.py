@@ -139,6 +139,13 @@ class Imagen:
     
     def train_step(self, image_batch, timestep, texts_batches=None, attention_batches=None):
         # shard prng key
+        # image_batch_shape = (batch_size, image_size, image_size, 3)
+        image_batch = jnp.array(image_batch)
+        # reshape images, texts, timestep, attention to (local_devices, device_batch_size, ...)
+        image_batch = jnp.reshape(image_batch, (jax.device_count(), -1, self.image_size, self.image_size, 3))
+        timestep = jnp.reshape(timestep, (jax.device_count(), -1))
+        texts_batches = jnp.reshape(texts_batches, (jax.device_count(), -1, texts_batches.shape[1], texts_batches.shape[2]))
+        attention_batches = jnp.reshape(attention_batches, (jax.device_count(), -1, attention_batches.shape[1]))
         keys = jax.random.split(self.get_key(), jax.local_device_count())
         self.imagen_state, metrics = train_step(self.imagen_state, image_batch, timestep, texts_batches, attention_batches, keys)
         return metrics

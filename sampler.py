@@ -40,7 +40,7 @@ def linear_beta_schedule(timesteps: int):
 def extract(a, t, x_shape):
     # extract the values of a at the positions given by t
     # batch_size = t.shape[0] # get the batch size
-    batch_size = 1 # get the batch size
+    batch_size = t.shape[0] # get the batch size
     out = jnp.take_along_axis(a, t, -1) # extract the values
     return jnp.reshape(out, (batch_size, *((1,) * (len(x_shape) - 1)))) # reshape the output
 
