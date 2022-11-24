@@ -23,7 +23,7 @@ import dataCollector
 import ray
 ray.init()
 
-wandb.init(project="imagen", entity="therealaakash")
+# wandb.init(project="imagen", entity="therealaakash")
 USER_AGENT = get_datasets_user_agent()
 
 
@@ -32,7 +32,7 @@ class config:
     seed = 0
     learning_rate = 1e-4
     image_size = 64
-    save_every = 1000
+    save_every = 1
     eval_every = 10
     steps = 1_000_000
 
@@ -49,7 +49,7 @@ def train(imagen: Imagen, steps):
         images, texts = ray.get(collector.get_batch.remote())
         images = jnp.array(images)
         # print(images.shape)
-        timesteps = list(range(0, 1000))
+        timesteps = list(range(0, 2))
         # shuffle timesteps
         timesteps = np.random.permutation(timesteps)
         for ts in timesteps:
@@ -58,7 +58,7 @@ def train(imagen: Imagen, steps):
             timestep = jnp.array(timestep, dtype=jnp.int16)
             metrics = imagen.train_step(
                 images, timestep, texts_batchs=None)  # TODO: Add text(None)
-            wandb.log(metrics)
+            # wandb.log(metrics)
             pbar.update(1)
         if step % config.eval_every == 0:
             samples = 4
@@ -70,9 +70,14 @@ def train(imagen: Imagen, steps):
             for i in range(samples):
                 img = np.asarray(imgs[i])  # (64, 64, 3)
                 img = img * 127.5 + 127.5
-                img = wandb.Image(img)
+                # img = wandb.Image(img)
                 images.append(img)
-            wandb.log({"samples": images})
+            # wandb.log({"samples": images})
+        if step % config.save_every == 0:
+            checkpoints.save_checkpoint(
+                f"checkpoint_{step}", 
+                imagen.imagen_state.train_state, 
+                imagen.imagen_state.train_state.opt)
 
 
 def main():
