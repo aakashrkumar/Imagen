@@ -52,7 +52,7 @@ def encode_text(text, tokenizer, model):
     max_sequence_length = 512
     encoding = tokenizer(
         text,
-        padding="longest", 
+        padding="max_length", #longest to match largest input
         max_length=max_sequence_length, 
         truncation=True, 
         return_tensors="np")
@@ -116,7 +116,7 @@ def train(imagen: Imagen, steps, encoder_model=None, tokenizer=None):
 
 def main():
     imagen = Imagen()
-    train(imagen, config.steps)
-
+    tokenizer, encoder_model = get_tokenizer_and_model()
+    train(imagen, config.steps, encoder_model=encoder_model, tokenizer=tokenizer)
 
 main()
