@@ -33,7 +33,7 @@ class config:
     seed = 0
     learning_rate = 1e-4
     image_size = 64
-    save_every = 1
+    save_every = 100
     eval_every = 10
     steps = 1_000_000
 
