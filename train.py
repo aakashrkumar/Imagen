@@ -1,32 +1,25 @@
-import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
-import tensorflow_datasets as tfds
-import jax
-from flax.training import checkpoints
-from tqdm import tqdm
-import optax
-import jax.numpy as jnp
-from imagen_main import Imagen
-import wandb
-import numpy as np
-from datasets import load_dataset
-
-from functools import partial
+import cv2
+from T5Utils import encode_text, get_tokenizer_and_model
+import ray
+import dataCollector
+from datasets.utils.file_utils import get_datasets_user_agent
+import PIL.Image
+import urllib
+import io
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
-import io
-import urllib
-
-import PIL.Image
-
 from datasets import load_dataset
-from datasets.utils.file_utils import get_datasets_user_agent
-
-import dataCollector
-import ray
-
-from T5Utils import encode_text, get_tokenizer_and_model
-import cv2
+import numpy as np
+import wandb
+from imagen_main import Imagen
+import jax.numpy as jnp
+import optax
+from tqdm import tqdm
+from flax.training import checkpoints
+import jax
+import tensorflow_datasets as tfds
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
 # ray.init()
@@ -34,7 +27,7 @@ import cv2
 # wandb.init(project="imagen", entity="therealaakash")
 
 class config:
-    batch_size = 8
+    batch_size = 64
     seed = 0
     learning_rate = 1e-4
     image_size = 64
@@ -58,9 +51,9 @@ def get_datasets():
 def train(imagen: Imagen, steps):
     tokenizer, encoder_model = get_tokenizer_and_model()
    # collector = dataCollector.DataManager.remote(
-     #   num_workers=5, batch_size=config.batch_size)
+    #   num_workers=5, batch_size=config.batch_size)
     # collector.start.remote()
-    train_dataset,_ = get_datasets()
+    train_dataset, _ = get_datasets()
     perms = np.random.permutation(len(train_dataset['image']))
     train_ds_size = len(train_dataset['image'])
     steps_per_epoch = train_ds_size // config.batch_size
@@ -73,7 +66,6 @@ def train(imagen: Imagen, steps):
         img, (config.image_size, config.image_size)) for img in train_dataset['image']], axis=0)
     train_dataset['image'] = np.stack(
         [cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) for img in train_dataset['image']], axis=0)
-
 
     pbar = tqdm(range(1, steps * 1000 + 1))
     step = 0
