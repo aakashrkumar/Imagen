@@ -49,7 +49,7 @@ def train(imagen: Imagen, steps):
         images, texts = ray.get(collector.get_batch.remote())
         images = jnp.array(images)
         # print(images.shape)
-        timesteps = list(range(0, 1000))
+        timesteps = list(range(0, 10))
         # shuffle timesteps
         timesteps = np.random.permutation(timesteps)
         for ts in timesteps:
@@ -73,6 +73,11 @@ def train(imagen: Imagen, steps):
                 # img = wandb.Image(img)
                 images.append(img)
             # wandb.log({"samples": images})
+        if step % config.save_every == 0:
+            checkpoints.save_checkpoint(
+                f"checkpoint_{step}", 
+                imagen.state.train_state, 
+                imagen.state.train_state.opt)
 
 
 def main():
