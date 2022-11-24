@@ -50,7 +50,8 @@ def train(imagen: Imagen, steps, encoder_model=None, tokenizer=None):
     pbar = tqdm(range(1, steps * 1000 + 1))
     for step in range(1, steps + 1):
         images, texts = ray.get(collector.get_batch.remote())
-        text_sequence, attention_masks = encode_text(texts, tokenizer, encoder_model)
+        text_sequence, attention_masks = encode_text(
+            texts, tokenizer, encoder_model)
         images = jnp.array(images)
         # print(images.shape)
         timesteps = list(range(0, 2))
@@ -67,7 +68,15 @@ def train(imagen: Imagen, steps, encoder_model=None, tokenizer=None):
         if step % config.eval_every == 0:
             samples = 4
             # TODO: Add text(None)
-            imgs = imagen.sample(texts=None, batch_size=samples)
+            prompts = ["An image of a supernova",
+                       "An image of a cat",
+                       "An image of a pizza",
+                       "An image of the earth"
+                       ]
+            text_sequence, attention_masks = encode_text(
+                prompts, tokenizer, encoder_model)
+            imgs = imagen.sample(
+                texts=text_sequence, attention=attention_masks, batch_size=samples)
             # print(imgs.shape) # (4, 64, 64, 3)
             # log as 16 gifs
             images = []
@@ -79,16 +88,17 @@ def train(imagen: Imagen, steps, encoder_model=None, tokenizer=None):
             # wandb.log({"samples": images})
         if step % config.save_every == 0:
             checkpoints.save_checkpoint(
-                f"ckpt/checkpoint_{step}", 
+                f"ckpt/checkpoint_{step}",
                 imagen.imagen_state,
                 step=step,
-                
-                )
+
+            )
 
 
 def main():
     imagen = Imagen()
     tokenizer, encoder_model = get_tokenizer_and_model()
     train(imagen, config.steps, encoder_model=encoder_model, tokenizer=tokenizer)
+
 
 main()
