@@ -54,7 +54,7 @@ def train(imagen: Imagen, steps, encoder_model=None, tokenizer=None):
             texts, tokenizer, encoder_model)
         images = jnp.array(images)
         # print(images.shape)
-        timesteps = list(range(0, 2))
+        timesteps = list(range(0, 1000))
         # shuffle timesteps
         timesteps = np.random.permutation(timesteps)
         for ts in timesteps:
