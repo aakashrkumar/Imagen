@@ -90,7 +90,7 @@ def p_sample_loop(imagen_state, img, texts, attention, rng):
 def sample(imagen_state, noise, texts, attention, rng):
     return p_sample_loop(imagen_state, noise, texts, attention, rng)
 
-@partial(jax.pmap, axis_name="batch", in_axis_resources=(None, 0, 0, 0, 0))
+@partial(jax.pmap, axis_name="batch", in_axes=(None, 0, 0, 0, 0))
 def train_step(imagen_state, imgs_start, timestep, texts, attention_masks, rng):
     rng,key = jax.random.split(rng)
     noise = jax.random.normal(key, imgs_start.shape)
