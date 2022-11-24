@@ -54,4 +54,4 @@ def encode_text(text, tokenizer, model):
         return_dict=True,
         output_attentions=False)
 
-    return outputs, attention_mask
+    return outputs[0], attention_mask
