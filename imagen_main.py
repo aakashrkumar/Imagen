@@ -21,7 +21,6 @@ from flax import struct, jax_utils
 class ImagenState(struct.PyTreeNode):
     train_state: train_state.TrainState
     sampler: GaussianDiffusionContinuousTimes
-    rng: jax.random.PRNGKey
     
     def get_key(self):
         rng, key = jax.random.split(self.rng)
@@ -92,8 +91,8 @@ def sample(imagen_state, noise, texts, attention, rng):
     return p_sample_loop(imagen_state, noise, texts, attention, rng)
 
 @jax.jit
-def train_step(imagen_state, imgs_start, timestep, texts, attention_masks):
-    imagen_state,key = imagen_state.get_key()
+def train_step(imagen_state, imgs_start, timestep, texts, attention_masks, rng):
+    rng,key = jax.random.split(rng)
     noise = jax.random.normal(key, imgs_start.shape)
     x_noise = imagen_state.sampler.q_sample(imgs_start, timestep, noise)
     def loss_fn(params):
@@ -125,7 +124,7 @@ class Imagen:
             params=self.params['params']
         )
         self.imagen_state = ImagenState(train_state=self.train_state, sampler=self.lowres_scheduler, rng=self.random_state)
-        # self.imagen_state = jax_utils.replicate(self.imagen_state)
+        self.imagen_state = jax_utils.replicate(self.imagen_state)
         self.image_size = img_size
 
     def get_key(self):
@@ -137,7 +136,9 @@ class Imagen:
         return sample(self.imagen_state, noise, texts, attention, self.get_key())
     
     def train_step(self, image_batch, timestep, texts_batches=None, attention_batches=None):
-        self.imagen_state, metrics = train_step(self.imagen_state, image_batch, timestep, texts_batches, attention_batches)
+        # shard prng key
+        keys = jax.random.split(self.get_key(), jax.local_device_count())
+        self.imagen_state, metrics = train_step(self.imagen_state, image_batch, timestep, texts_batches, attention_batches, keys)
         return metrics
 
 def compute_metrics(loss, logits):
@@ -155,7 +156,7 @@ def test():
     for i in tqdm(range(1000)):
         #imagen.train_step(jnp.ones((batch_size, 64, 64, 3)), jnp.ones(batch_size, dtype=jnp.int16) * 10, jnp.ones((batch_size, 15, 1024)), jnp.ones((batch_size, 15)))
         
-        images = imagen.sample(text_encoding, attention_mask, 1)
+        #images = imagen.sample(text_encoding, attention_mask, 1)
        # print(images.shape)
         #images = np.asarray(images * 127.5 + 127.5, dtype=np.uint8)
         # cv2.imshow("image", images[i])
