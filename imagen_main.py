@@ -101,6 +101,8 @@ def train_step(imagen_state, imgs_start, timestep, texts, attention_masks, rng):
         return loss, predicted_noise
     gradient_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (loss, logits), grads = gradient_fn(imagen_state.train_state.params)
+    grads = jax.lax.pmean(grads, "batch")
+    loss = jax.lax.pmean(loss, "batch")
     train_state = imagen_state.train_state.apply_gradients(grads=grads)
     imagen_state = imagen_state.replace(train_state=train_state)
     return imagen_state, compute_metrics(loss, logits)
