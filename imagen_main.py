@@ -154,6 +154,7 @@ def test():
     batch_size = 8
     text_encoding, attention_mask = encode_text(["test"], tokenizer, model)
     for i in tqdm(range(1000)):
+        pass
         #imagen.train_step(jnp.ones((batch_size, 64, 64, 3)), jnp.ones(batch_size, dtype=jnp.int16) * 10, jnp.ones((batch_size, 15, 1024)), jnp.ones((batch_size, 15)))
         
         #images = imagen.sample(text_encoding, attention_mask, 1)
