@@ -75,9 +75,11 @@ def train(imagen: Imagen, steps):
             # wandb.log({"samples": images})
         if step % config.save_every == 0:
             checkpoints.save_checkpoint(
-                f"checkpoint_{step}", 
-                imagen.imagen_state.train_state, 
-                imagen.imagen_state.train_state.opt)
+                f"ckpt/checkpoint_{step}", 
+                imagen.imagen_state,
+                step=step,
+                
+                )
 
 
 def main():
