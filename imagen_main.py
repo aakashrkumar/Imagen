@@ -15,17 +15,12 @@ from einops import rearrange, repeat, reduce, pack, unpack
 from flax.training import train_state
 
 from jax import tree_util
-from flax import struct, jax_utils
+from flax import struct
 
 
 class ImagenState(struct.PyTreeNode):
     train_state: train_state.TrainState
     sampler: GaussianDiffusionContinuousTimes
-    rng: jax.random.PRNGKey
-    
-    def get_key(self):
-        rng, key = jax.random.split(self.rng)
-        return self.replace(rng=rng), key
     
 class GeneratorState(struct.PyTreeNode):
     imagen_state: ImagenState
@@ -92,9 +87,8 @@ def sample(imagen_state, noise, texts, rng):
     return p_sample_loop(imagen_state, noise, texts, rng)
 
 @jax.jit
-def train_step(imagen_state, x, timestep, texts):
-    imagen_state,key = imagen_state.get_key()
-    noise = jax.random.normal(key, x.shape)
+def train_step(imagen_state, x, texts, timestep, rng):
+    noise = jax.random.normal(rng, x.shape)
     x_noise = imagen_state.sampler.q_sample(x, timestep, noise)
     def loss_fn(params):
         predicted = imagen_state.train_state.apply_fn({"params": params}, x_noise, timestep, texts)
@@ -115,8 +109,7 @@ class Imagen:
             noise_schedule="cosine", num_timesteps=1000
         )
         self.unet = EfficentUNet()
-        self.random_state, key = jax.random.split(self.random_state)
-        self.params = self.unet.init(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), None)
+        self.params = self.unet.init(self.get_key(), jnp.ones((batch_size, img_size, img_size, 3)), None, jnp.ones(batch_size, dtype=jnp.int16))
         
         self.opt = optax.adafactor(1e-4)
         self.train_state = train_state.TrainState.create(
@@ -124,20 +117,20 @@ class Imagen:
             tx=self.opt,
             params=self.params['params']
         )
-        self.imagen_state = ImagenState(train_state=self.train_state, sampler=self.lowres_scheduler, rng=self.random_state)
-        # self.imagen_state = jax_utils.replicate(self.imagen_state)
+        self.imagen_state = ImagenState(train_state=self.train_state, sampler=self.lowres_scheduler)
+        
         self.image_size = img_size
 
     def get_key(self):
-        self.imagen_state, self.random_state = self.imagen_state.get_key()
-        return self.random_state
+        self.random_state, key = jax.random.split(self.random_state)
+        return key
     
     def sample(self, texts, batch_size):
         noise = jax.random.normal(self.get_key(), (batch_size, self.image_size, self.image_size, 3))
         return sample(self.imagen_state, noise, texts, self.get_key())
     
-    def train_step(self, image_batch, timestep, texts_batchs=None):
-        self.imagen_state, metrics = train_step(self.imagen_state, image_batch, timestep, texts_batchs)
+    def train_step(self, image_batch, texts_batchs, timestep):
+        self.imagen_state, metrics = train_step(self.imagen_state, image_batch, texts_batchs, timestep, self.get_key())
         return metrics
 
 def compute_metrics(loss, logits):
@@ -147,13 +140,12 @@ def test():
     import cv2
     import numpy as np
     imagen = Imagen()
+    #train_step(imagen.imagen_state, imagen.lowres_scheduler, jnp.ones((1, 64, 64, 3)), None, jnp.ones(1, dtype=jnp.int16), imagen.get_key())
     print("Training done")
-    batch_size = 8
     for i in tqdm(range(1000)):
-        imagen.train_step(jnp.ones((batch_size, 64, 64, 3)), jnp.ones(batch_size, dtype=jnp.int16) * 10)
-        #images = imagen.sample(None, 1)
-       # print(images.shape)
-        #images = np.asarray(images * 127.5 + 127.5, dtype=np.uint8)
+        images = imagen.sample(None, 1)
+        print(images.shape)
+        images = np.asarray(images * 127.5 + 127.5, dtype=np.uint8)
         # cv2.imshow("image", images[i])
         #cv2.waitKey(0)
 if __name__ == "__main__":

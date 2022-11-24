@@ -46,6 +46,9 @@ def get_tokenizer_and_model():
 
 
 def encode_text(text, tokenizer, model):
+    if tokenizer is None or model is None:
+        return None, None
+    
     max_sequence_length = 512
     encoding = tokenizer(
         text,
@@ -65,7 +68,7 @@ def encode_text(text, tokenizer, model):
     return outputs[0], attention_mask
 
 
-def train(imagen: Imagen, steps):
+def train(imagen: Imagen, steps, encoder_model=None, tokenizer=None):
     collector = dataCollector.DataManager.remote(
         num_workers=5, batch_size=config.batch_size)
     collector.start.remote()
@@ -75,6 +78,7 @@ def train(imagen: Imagen, steps):
     pbar = tqdm(range(1, steps * 1000 + 1))
     for step in range(1, steps + 1):
         images, texts = ray.get(collector.get_batch.remote())
+        text_sequence, attention_masks = encode_text(texts, tokenizer, encoder_model)
         images = jnp.array(images)
         # print(images.shape)
         timesteps = list(range(0, 2))
@@ -85,7 +89,7 @@ def train(imagen: Imagen, steps):
             # jax.random.randint(imagen.get_key(), (1,), 0, 999)
             timestep = jnp.array(timestep, dtype=jnp.int16)
             metrics = imagen.train_step(
-                images, timestep, texts_batchs=None)  # TODO: Add text(None)
+                images, timestep, text_sequence, attention_masks)  # TODO: Add text(None)
             # wandb.log(metrics)
             pbar.update(1)
         if step % config.eval_every == 0:

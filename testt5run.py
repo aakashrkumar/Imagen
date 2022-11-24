@@ -9,15 +9,15 @@ text = [
 ]
 
 name = "t5-large"
+max_len = 512
 
-tokenizer = T5Tokenizer.from_pretrained(name)
+tokenizer = T5Tokenizer.from_pretrained(name, model_max_length=max_len)
 model = FlaxT5ForConditionalGeneration.from_pretrained(name)
 
-max_len = 512
 encoding = tokenizer(
     text,
-    padding="longest",
-    max_length=max_len,
+    padding="max_length", # do longest to pad to largest in batch
+    max_target_length=max_len, # or max_length
     truncation=True,
     return_tensors="np"
 )
@@ -31,5 +31,6 @@ outputs = model.encode(
     output_attentions=False
 )
 
-print(outputs.shape)
+print(len(outputs))
+print(outputs[0].shape)
 print(attention_mask.shape)
