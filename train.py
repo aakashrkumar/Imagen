@@ -81,7 +81,7 @@ def train(imagen: Imagen, steps, encoder_model=None, tokenizer=None):
         text_sequence, attention_masks = encode_text(texts, tokenizer, encoder_model)
         images = jnp.array(images)
         # print(images.shape)
-        timesteps = list(range(0, 2))
+        timesteps = list(range(0, 1000))
         # shuffle timesteps
         timesteps = np.random.permutation(timesteps)
         for ts in timesteps:
