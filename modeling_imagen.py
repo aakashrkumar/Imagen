@@ -53,7 +53,13 @@ class CrossAttentionBlock(nn.Module):
     dtype: jnp.dtype = jnp.float32
     
     @nn.compact
-    def __call__(self, x, s):
+    def __call__(self, x, s, a):
+
+        text_embeds = s
+        # repeat mask accross latent dimension
+        attention_mask = repeat(a, 'b s -> b s d', d=s.shape[-1])
+        # multiply attention mask and text sequence
+        text_embeds = text_embeds * attention_mask
 
         q = nn.Dense(features=self.num_channels, dtype=self.dtype)(x)
         k_x = nn.Dense(features=self.num_channels, dtype=self.dtype)(x)
@@ -61,9 +67,9 @@ class CrossAttentionBlock(nn.Module):
         v_x = nn.Dense(features=self.num_channels, dtype=self.dtype)(x)
         v_x = rearrange(v_x, 'b w h c -> b w h 1 c')
 
-        k_s = nn.Dense(features=self.num_channels, dtype=self.dtype)(s)
+        k_s = nn.Dense(features=self.num_channels, dtype=self.dtype)(text_embeds)
         k_s = rearrange(k_s, 'b s d -> b 1 1 s d')
-        v_s = nn.Dense(features=self.num_channels, dtype=self.dtype)(s)
+        v_s = nn.Dense(features=self.num_channels, dtype=self.dtype)(text_embeds)
         v_s = rearrange(v_s, 'b s d -> b 1 1 s d')
 
         
@@ -92,7 +98,7 @@ class CombineEmbs(nn.Module):
     dtype: jnp.dtype = jnp.float32
 
     @nn.compact
-    def __call__(self, x, t, s=None):
+    def __call__(self, x, t, s=None, a=None):
         # timestep encoding, Note t is a tensor of dimension (batch_size,)
 
         # dimension is nummber of channels
@@ -117,19 +123,25 @@ class CombineEmbs(nn.Module):
 
 
         # add text/image encoding to x, Note for text, s is a tensor of dimension (batch_size, sequence_length, hidden_latent_size)
-        # if s is not None:
-        #     text_embeds = s
-        #     # project to correct number of channels
-        #     text_embeds = nn.Dense(features=self.d, dtype=self.dtype)(text_embeds)
-        #     # mean pooling across sequence
-        #     text_embeds = jnp.mean(text_embeds, axis=1) 
-        #     # add axis for height and width
-        #     text_embeds = text_embeds[:, jnp.newaxis, jnp.newaxis, :]
-        #     # project across height and width
-        #     text_embeds = jnp.repeat(text_embeds, x.shape[1], axis=1)
-        #     text_embeds = jnp.repeat(text_embeds, x.shape[2], axis=2)
-        #     # concatinate text_embeds
-        #     x = x + text_embeds
+        if s is not None:
+            text_embeds = s
+            # repeat mask accross latent dimension
+            attention_mask = repeat(a, 'b s -> b s d', d=s.shape[-1])
+            # multiply attention mask and text sequence
+            text_embeds = text_embeds * attention_mask
+            # mean pooling of sequence with attention mask
+            text_embeds_pooled = jnp.sum(text_embeds, axis=1)
+            attention_mask_sum = jnp.clip(jnp.sum(attention_mask), a_min=1e-9, a_max=None)
+            text_embeds_pooled = text_embeds / attention_mask_sum
+            # project to correct number of channels
+            text_embed_proj = nn.Dense(features=self.d, dtype=self.dtype)(text_embeds_pooled)
+            # add axis for height and width
+            text_embed_proj = text_embed_proj[:, jnp.newaxis, jnp.newaxis, :]
+            # project across height and width
+            text_embed_proj = jnp.repeat(text_embed_proj, x.shape[1], axis=1)
+            text_embed_proj = jnp.repeat(text_embed_proj, x.shape[2], axis=2)
+            # concatinate text_embeds
+            x = x + text_embed_proj
 
         # use layer norm as suggested by the paper
         x = nn.LayerNorm(dtype=self.dtype)(x)
@@ -146,12 +158,12 @@ class UnetDBlock(nn.Module):
     num_attention_heads: int = 0
 
     @nn.compact
-    def __call__(self, x, time, texts=None):
+    def __call__(self, x, time, texts=None, attention_masks=None):
         x = nn.Conv(features=self.num_channels, kernel_size=(3, 3),
                     strides=self.strides, dtype=self.dtype, padding=1)(x)        
         x = CombineEmbs()(x, time)
         if self.text_cross_attention and texts is not None:
-            x = CrossAttentionBlock(num_channels=self.num_channels, dtype=self.dtype)(x, texts)
+            x = CrossAttentionBlock(num_channels=self.num_channels, dtype=self.dtype)(x, texts, attention_masks)
 
         x = ResNetBlock(num_layers=self.num_resnet_blocks,
                         num_channels=self.num_channels, strides=self.strides, dtype=self.dtype)(x)
@@ -171,12 +183,12 @@ class UnetUBlock(nn.Module):
     num_attention_heads: int = 0
 
     @nn.compact
-    def __call__(self, x, time, texts = None):
+    def __call__(self, x, time, texts = None, attention_masks=None):
         x = CombineEmbs()(x, time)
         x = ResNetBlock(num_layers=self.num_resnet_blocks,
                         num_channels=self.num_channels, strides=self.strides, dtype=self.dtype)(x)
         if self.text_cross_attention and texts is not None:
-            x = CrossAttentionBlock(num_channels=self.num_channels, dtype=self.dtype)(x, texts)
+            x = CrossAttentionBlock(num_channels=self.num_channels, dtype=self.dtype)(x, texts, attention_masks)
         if self.num_attention_heads > 0:
             x = nn.SelfAttention(num_heads=self.num_attention_heads, qkv_features=2 *
                                  self.num_channels, out_features=self.num_channels)(x)
@@ -197,7 +209,7 @@ class EfficentUNet(nn.Module):
     dtype: jnp.dtype = jnp.float32
 
     @nn.compact
-    def __call__(self, x, time, texts=None):
+    def __call__(self, x, time, texts=None, attention_masks=None):
         x = nn.Conv(features=128, kernel_size=(3, 3),
                     dtype=self.dtype, padding="same")(x)
 
