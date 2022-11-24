@@ -2,7 +2,7 @@ from transformers import T5Tokenizer, FlaxT5ForConditionalGeneration
 import jax
 
 def get_tokenizer_and_model():
-    name = "t5-base"
+    name = "t5-small"
     tokenizer = T5Tokenizer.from_pretrained(name)
     model = FlaxT5ForConditionalGeneration.from_pretrained(name)
     return tokenizer, model

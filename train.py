@@ -34,7 +34,7 @@ import cv2
 # wandb.init(project="imagen", entity="therealaakash")
 
 class config:
-    batch_size = 4
+    batch_size = 1
     seed = 0
     learning_rate = 1e-4
     image_size = 64
@@ -106,8 +106,7 @@ def train(imagen: Imagen, steps):
             prompts = ["1",
                        "2",
                        "3",
-                       "4"
-                       ]
+                       "4"]
             text_sequence, attention_masks = encode_text(
                 prompts, tokenizer, encoder_model)
             imgs = imagen.sample(
