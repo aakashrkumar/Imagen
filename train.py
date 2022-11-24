@@ -69,7 +69,7 @@ def train(imagen: Imagen, steps, encoder_model=None, tokenizer=None):
             samples = 4
             # TODO: Add text(None)
             prompts = ["An image of a supernova",
-                       "An image of a cat",
+                       "A brain riding a rocketship heading towards the moon.",
                        "An image of a pizza",
                        "An image of the earth"
                        ]
