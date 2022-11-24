@@ -76,8 +76,8 @@ def train(imagen: Imagen, steps):
         if step % config.save_every == 0:
             checkpoints.save_checkpoint(
                 f"checkpoint_{step}", 
-                imagen.state.train_state, 
-                imagen.state.train_state.opt)
+                imagen.imagen_state.train_state, 
+                imagen.imagen_state.train_state.opt)
 
 
 def main():
