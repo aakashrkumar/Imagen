@@ -17,5 +17,5 @@ conns = []
 for i in range(10):
     conns += ray_tpu.get_connection(f"ray-tpu-{i}", "us-central1-f")
 
-with multiprocessing.Pool(10) as p:
+with multiprocessing.Pool(processes=10) as p:
     p.map(partial(ray_tpu.start_ray, address=address), conns)
