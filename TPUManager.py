@@ -16,8 +16,14 @@ class TPUManager:
             ray_tpu.wait_til(tpu, 'us-central1-f', {"state": "READY"})
         threads = []
         for tpu in self.tpus:
-            threads.append(threading.Thread(target=ray_tpu.start_ray, args=(tpu, "us-central1-f", self.address)))
+            threads.append(threading.Thread(
+                target=ray_tpu.start_ray, args=(tpu, "us-central1-f", self.address)))
             threads[-1].start()
         for thread in threads:
             thread.join()
+        return True
+
+    def clear(self):
+        for tpu in self.tpus:
+            ray_tpu.delete_tpu(tpu, "us-central1-f")
         return True
