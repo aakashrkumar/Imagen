@@ -29,6 +29,11 @@ class TPUManager:
         return True
 
     def clear(self):
+        threads = []
         for tpu in self.tpus:
-            ray_tpu.delete_tpu(tpu, "us-central1-f")
+            threads.append(threading.Thread(
+                target=ray_tpu.delete_tpu, args=(tpu, "us-central1-f")))
+            threads[-1].start()
+        for thread in threads:
+            threads.join()
         return True
