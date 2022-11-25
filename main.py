@@ -4,8 +4,7 @@ import multiprocessing
 from functools import partial
 
 head_info = ray.init(address="auto")
-address = head_info.address_info
-print(address)
+address = "globaltpu2.aakashserver.org:6379"
 
 #for i in range(10):
     # ray_tpu.delete_tpu(f"ray-tpu-{i}", "us-central1-f")
