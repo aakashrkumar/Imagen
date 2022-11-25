@@ -25,6 +25,15 @@ import os
 @ray.remote(resources={"tpu": 1, "host": 1})
 class Trainer:
     def __init__(self):
+        wandb.init(project="imagen", entity="apcsc")
+        wandb.config.batch_size = 64
+        wandb.config.num_datacollectors = 300
+        wandb.config.seed = 0
+        wandb.config.learning_rate = 1e-4
+        wandb.config.image_size = 64
+        wandb.config.save_every = 100
+        wandb.config.eval_every = 3
+        
         self.imagen = Imagen()
         self.datacollector = dataCollector.DataManager.remote(wandb.config.num_datacollectors, wandb.config.batch_size)
         self.datacollector.start.remote()
