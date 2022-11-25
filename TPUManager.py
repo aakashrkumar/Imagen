@@ -1,7 +1,7 @@
 import ray_tpu
 import ray
 import threading
-
+import time
 
 class TPUManager:
     def __init__(self, num_tpus, address):
@@ -15,6 +15,11 @@ class TPUManager:
         for tpu in self.tpus:
             ray_tpu.wait_til(tpu, 'us-central1-f', {"state": "READY"})
         threads = []
+        # countdown 10 seconds
+        for i in range(10, 0, -1):
+            print(i)
+            time.sleep(1)
+        
         for tpu in self.tpus:
             threads.append(threading.Thread(
                 target=ray_tpu.start_ray, args=(tpu, "us-central1-f", self.address)))
