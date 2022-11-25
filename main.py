@@ -4,7 +4,7 @@ import multiprocessing
 from functools import partial
 
 head_info = ray.init(address="auto")
-address = head_info.address_info['redis_address']
+address = head_info.address_info
 print(address)
 
 #for i in range(10):
