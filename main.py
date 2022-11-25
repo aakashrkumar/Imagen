@@ -1,5 +1,7 @@
 import wandb
 import ray
+from Trainer import Trainer
+import TPUManager
 
 ray.init(address="auto")
 wandb.init(project="imagen", entity="apcsc")
@@ -12,3 +14,11 @@ wandb.config.image_size = 64
 wandb.config.save_every = 100
 wandb.config.eval_every = 3
 
+def main():
+    tpu_manager = TPUManager.TPUManager.remote(8, "auto")
+    ray.get(tpu_manager.setup.remote())
+    trainer = Trainer.remote(wandb.config)
+    trainer.train.remote()
+    
+if __name__ == "__main__":
+    main()
