@@ -16,7 +16,7 @@ class TPUManager:
         for tpu in self.tpus:
             ray_tpu.wait_til(tpu, 'us-central1-f', {"state": "READY"})
         for tpu in self.tpus:
-            self.conns += ray_tpu.get_connection(tpu)
+            self.conns += ray_tpu.get_connection(tpu, "us-central1-f")
 
         for conn in self.conns:
             ray_tpu.start_ray(conn, self.address)
