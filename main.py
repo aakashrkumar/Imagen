@@ -18,4 +18,5 @@ for i in range(10):
     conns += ray_tpu.get_connection(f"ray-tpu-{i}", "us-central1-f")
 
 for i in range(10):
-    threading.Thread(target=ray_tpu.start_ray, args=(conns[i], address)).start()
+    ray_tpu.start_ray(conns[i], address)
+    # threading.Thread(target=ray_tpu.start_ray, args=(conns[i], address)).start()
