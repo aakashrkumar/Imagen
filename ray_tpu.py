@@ -160,7 +160,8 @@ def get_connection(
     return outputs
 
 
-def start_ray(conn, address):
+def start_ray(name, zone, address):
+    conn = get_connection(name, zone)[0]
     hide = False
     # start afresh each launch (temporarily)
     conn.run("sudo rm -rf *.py *.sh Imagen")
