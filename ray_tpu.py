@@ -164,19 +164,19 @@ def start_ray(conn, address):
     # start afresh each launch (temporarily)
     conn.run("sudo rm -rf *.py Imagen")
     # make directory of structure: bloom_inference/bloom_inference/modeling_bloom
-    conn.run("git clone https://github.com/TheRealAakash/Imagen")
 
     # transfer start-up script from CPU -> hosts and give permissions
-    conn.sudo("chmod +x Imagen/scripts/serversetup.sh", hide=True)
-    conn.run("Imagen/scripts/serversetup.sh", hide=True)
+    conn.run("git clone https://github.com/TheRealAakash/Imagen")
+    conn.sudo("chmod +x Imagen/scripts/serversetup.sh")
+    conn.run("Imagen/scripts/serversetup.sh")
     
     try:
-        conn.run("ray stop -f", hide=True)
+        conn.run("ray stop -f")
     except:
         pass
 
     time.sleep(1)
     # run start-up script
     conn.run(f"TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD={32 * 1024**3} ray start --address={address} --resources='" +
-             '{"tpu": 1}\' --include-dashboard False', hide=True)
+             '{"tpu": 1}\' --include-dashboard False')
     # display result
