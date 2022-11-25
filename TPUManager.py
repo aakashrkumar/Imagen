@@ -2,7 +2,6 @@ import ray_tpu
 import ray
 
 
-@ray.remote(resources={"host": 1}, num_cpus=10)
 class TPUManager:
     def __init__(self, num_tpus, address):
         self.num_tpus = num_tpus
