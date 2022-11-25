@@ -10,6 +10,7 @@ class TPUManager:
         self.address = address
 
     def setup(self):
+        conns = []
         for tpu in self.tpus:
             ray_tpu.create_tpu(tpu, "us-central1-f", "v2-8", True)
         for tpu in self.tpus:
