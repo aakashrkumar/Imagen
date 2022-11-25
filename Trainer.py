@@ -19,6 +19,7 @@ import jax
 import tensorflow_datasets as tfds
 import wandb
 import time
+import os
 
 
 @ray.remote(resources={"tpu": 1, "host": 1})
@@ -53,6 +54,8 @@ class Trainer:
                 wandb.log(metrics)
                 
             if step % wandb.config.save_every == 0:
+                if not os.path.exists(f"ckpt/{wandb.run.id}/"):
+                    os.makedirs(f"ckpt/{wandb.run.id}/")
                 checkpoints.save_checkpoint(
                     f"ckpt/{wandb.run.id}/checkpoint_{step}", self.imagen.imagen_state)
             
