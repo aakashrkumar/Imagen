@@ -173,12 +173,12 @@ def start_ray(conn, address):
     conn.run("Imagen/scripts/serversetup.sh", hide=hide)
     
     try:
-        conn.run("ray stop -f", hide=hide)
+        conn.run("source ~/miniconda3/bin/activate && ray stop -f", hide=hide)
     except:
         pass
 
     time.sleep(1)
     # run start-up script
     conn.run(f"source ~/miniconda3/bin/activate && TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD={32 * 1024**3} ray start --address={address} --resources='" +
-             '{"tpu": 1}\' --include-dashboard False', hide=hide)
+             '{"tpu": 1}\'', hide=hide)
     # display result
