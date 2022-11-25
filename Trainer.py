@@ -22,7 +22,7 @@ import time
 import os
 
 
-@ray.remote(resources={"tpu": 1, "host": 1})
+@ray.remote(resources={"tpu": 1, "host": 1}, num_cpus=30)
 class Trainer:
     def __init__(self):
         wandb.init(project="imagen", entity="apcsc")
