@@ -161,23 +161,24 @@ def get_connection(
 
 
 def start_ray(conn, address):
+    hide = False
     # start afresh each launch (temporarily)
     conn.run("sudo rm -rf *.py Imagen")
     conn.run("sudo rm -rf miniconda3")
     # make directory of structure: bloom_inference/bloom_inference/modeling_bloom
 
     # transfer start-up script from CPU -> hosts and give permissions
-    conn.run("git clone https://github.com/TheRealAakash/Imagen")
-    conn.sudo("chmod +x Imagen/scripts/serversetup.sh")
-    conn.run("Imagen/scripts/serversetup.sh")
+    conn.run("git clone https://github.com/TheRealAakash/Imagen", hide=hide)
+    conn.sudo("chmod +x Imagen/scripts/serversetup.sh", hide=hide)
+    conn.run("Imagen/scripts/serversetup.sh", hide=hide)
     
     try:
-        conn.run("ray stop -f")
+        conn.run("ray stop -f", hide=hide)
     except:
         pass
 
     time.sleep(1)
     # run start-up script
     conn.run(f"TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD={32 * 1024**3} ray start --address={address} --resources='" +
-             '{"tpu": 1}\' --include-dashboard False')
+             '{"tpu": 1}\' --include-dashboard False', hide=hide)
     # display result
