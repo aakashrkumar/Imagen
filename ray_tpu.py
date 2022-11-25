@@ -37,7 +37,6 @@ def get_connection(
 ):
     info = check_tpu(name, zone)
     outputs = []
-    print(info)
     for i in info["networkEndpoints"]:
         outputs.append(Connection(i["ipAddress"],
                                   connect_kwargs={
