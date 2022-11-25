@@ -35,5 +35,5 @@ class TPUManager:
                 target=ray_tpu.delete_tpu, args=(tpu, "us-central1-f")))
             threads[-1].start()
         for thread in threads:
-            threads.join()
+            thread.join()
         return True
