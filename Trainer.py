@@ -44,7 +44,7 @@ class Trainer:
         step = 0
         while True:
             step += 1
-            images, captions, captions_encoded, attention_masks = ray.get(self.datacollector.get_data.remote())
+            images, captions, captions_encoded, attention_masks = ray.get(self.datacollector.get_batch.remote())
             images = jnp.array(images)
             captions_encoded = jnp.array(captions_encoded)
             attention_masks = jnp.array(attention_masks)
