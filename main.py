@@ -15,7 +15,7 @@ wandb.config.save_every = 100
 wandb.config.eval_every = 3
 
 def main():
-    tpu_manager = TPUManager(8, "auto")
+    tpu_manager = TPUManager.TPUManager(8, "auto")
     tpu_manager.setup()
     trainer = Trainer.remote(wandb.config)
     trainer.train.remote()
