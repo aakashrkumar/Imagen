@@ -163,7 +163,7 @@ def get_connection(
 def start_ray(conn, address):
     hide = False
     # start afresh each launch (temporarily)
-    conn.run("sudo rm -rf *.py Imagen")
+    conn.run("sudo rm -rf *.py *.sh Imagen")
     conn.run("sudo rm -rf miniconda3")
     # make directory of structure: bloom_inference/bloom_inference/modeling_bloom
 
