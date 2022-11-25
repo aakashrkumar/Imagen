@@ -161,7 +161,7 @@ def get_connection(
 
 
 def start_ray(conn, address):
-    hide = True
+    hide = False
     # start afresh each launch (temporarily)
     conn.run("sudo rm -rf *.py *.sh Imagen")
     conn.run("sudo rm -rf miniconda3")
