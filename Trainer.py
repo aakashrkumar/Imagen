@@ -27,7 +27,7 @@ class Trainer:
     def __init__(self):
         wandb.init(project="imagen", entity="apcsc")
         wandb.config.batch_size = 64
-        wandb.config.num_datacollectors = 200
+        wandb.config.num_datacollectors = 80
         wandb.config.seed = 0
         wandb.config.learning_rate = 1e-4
         wandb.config.image_size = 64
