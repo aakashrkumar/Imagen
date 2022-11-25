@@ -16,7 +16,7 @@ class TPUManager:
             ray_tpu.wait_til(tpu, 'us-central1-f', {"state": "READY"})
         threads = []
         # countdown 10 seconds
-        for i in range(10, 0, -1):
+        for i in range(60, 0, -1):
             print(i)
             time.sleep(1)
         
