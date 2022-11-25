@@ -1,7 +1,7 @@
 import ray_tpu
 import ray
-import multiprocessing
 from functools import partial
+import threading
 
 head_info = ray.init(address="auto")
 address = "globaltpu2.aakashserver.org:6379"
@@ -16,5 +16,6 @@ for i in range(10):
 conns = []
 for i in range(10):
     conns += ray_tpu.get_connection(f"ray-tpu-{i}", "us-central1-f")
-for conn in conns:
-    ray_tpu.start_ray(conn, address)
+
+for i in range(10):
+    threading.Thread(target=ray_tpu.start_ray, args=(conns[i], address)).start()
