@@ -82,5 +82,5 @@ class Trainer:
                     img = wandb.Image(img, caption=prompt)
                     images.append(img)
                 wandb.log({"samples": images})
-                
+        return 0     
             
