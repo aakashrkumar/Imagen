@@ -12,7 +12,7 @@ class TPUManager:
         
     def setup(self):
         for tpu in self.tpus:
-            ray_tpu.create_tpu(tpu)
+            ray_tpu.create_tpu(tpu, "us-central1-f", "v2-8", True)
         for tpu in self.tpus:
             ray_tpu.wait_til(tpu, {"state": "READY"})
         for tpu in self.tpus:
