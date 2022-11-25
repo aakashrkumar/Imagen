@@ -7,6 +7,9 @@ head_info = ray.init(address="auto")
 address = head_info['redis_address']
 
 for i in range(10):
+    ray_tpu.delete_tpu(f"ray-tpu-{i}", "us-central1-f")
+
+for i in range(10):
     ray_tpu.create_tpu(f"ray-tpu-{i}", "us-central1-f", "v2-8", True)
 for i in range(10):
     ray_tpu.wait_til(f"ray-tpu-{i}", "us-central1-f", {"state": "READY"})
