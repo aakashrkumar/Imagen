@@ -82,7 +82,7 @@ def create_tpu(
             "runtime_version":
                 'v2-alpha',
             "network_config":
-                {"enable_external_ips": True},
+                {"enable_external_ips": False},
             }
 
     if preemptible:
