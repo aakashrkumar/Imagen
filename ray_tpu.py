@@ -179,6 +179,6 @@ def start_ray(conn, address):
 
     time.sleep(1)
     # run start-up script
-    conn.run(f"TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD={32 * 1024**3} ray start --address={address} --resources='" +
+    conn.run(f"source ~/miniconda3/bin/activate && TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD={32 * 1024**3} ray start --address={address} --resources='" +
              '{"tpu": 1}\' --include-dashboard False', hide=hide)
     # display result
