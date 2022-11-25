@@ -105,7 +105,7 @@ def train(imagen: Imagen, steps):
             # print(imgs.shape) # (4, 64, 64, 3)
             # log as 16 gifs
             images = []
-            for i in range(len(prompts)):
+            for i in range(len(prompts  )):
                 img = np.asarray(imgs[i])  # (64, 64, 3)
                 img = img * 127.5 + 127.5
                 # img = wandb.Image(img)

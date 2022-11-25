@@ -13,3 +13,4 @@ ray[all]
 tensorflow-cpu
 opencv-python-headless
 sentencepiece
+fabric
