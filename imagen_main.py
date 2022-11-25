@@ -69,7 +69,7 @@ def p_sample(t_index, generator_state):
    # else:
     #    x = model_mean + noise * jnp.sqrt(posterior_variance_t)
     return GeneratorState.replace(generator_state, image=x, rng=rng)
-@jax.jit
+@partial(jax.pmap, axis_name="batch")
 def p_sample_loop(imagen_state, img, texts, attention, rng):
     # img is x0
     batch_size = img.shape[0]
@@ -136,6 +136,9 @@ class Imagen:
     def sample(self, texts, attention):
         batch_size = texts.shape[0] 
         noise = jax.random.normal(self.get_key(), (batch_size, self.image_size, self.image_size, 3))
+        texts = jnp.reshape(texts, (jax.device_count(), -1, texts.shape[1], texts.shape[2]))
+        attention = jnp.reshape(attention, (jax.device_count(), -1, attention.shape[1]))
+        noise = jnp.reshape(noise, (jax.device_count(), -1, noise.shape[1], noise.shape[2], noise.shape[3]))
         return sample(self.imagen_state, noise, texts, attention, self.get_key())
     
     def train_step(self, image_batch, timestep, texts_batches=None, attention_batches=None):
