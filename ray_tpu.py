@@ -167,8 +167,8 @@ def start_ray(conn, address):
     conn.run("git clone https://github.com/TheRealAakash/Imagen")
 
     # transfer start-up script from CPU -> hosts and give permissions
-    conn.sudo("chmod +x Imagen/scripts/ray_tpu.sh", hide=True)
-
+    conn.sudo("chmod +x Imagen/scripts/serversetup.sh", hide=True)
+    
     try:
         conn.run("ray stop -f", hide=True)
     except:
