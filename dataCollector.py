@@ -155,7 +155,7 @@ class Processor:
             if out:
                 images, texts = out
                 texts_encoded, attention_masks = ray.get(self.encoder.encode.remote(texts))
-                self.shared_storage.add_data.remote(images, texts, texts_encoded, attention_masks)
+                self.shared_storage.add_data_encoded.remote(images, texts, texts_encoded, attention_masks)
 
     
 @ray.remote(num_cpus=2, resources={"host": 1})
