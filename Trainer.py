@@ -35,9 +35,9 @@ class Trainer:
         wandb.config.eval_every = 3
         
         self.imagen = Imagen()
-        self.datacollector = dataCollector.DataManager.remote(wandb.config.num_datacollectors, wandb.config.batch_size)
-        self.datacollector.start.remote()
         self.T5Encoder = dataCollector.T5Encoder.remote()
+        self.datacollector = dataCollector.DataManager.remote(wandb.config.num_datacollectors, wandb.config.batch_size, self.T5Encoder)
+        self.datacollector.start.remote()
         
     def train(self):
         pbar = tqdm(range(1, 1_000_000))

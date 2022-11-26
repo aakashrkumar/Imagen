@@ -143,9 +143,10 @@ class T5Encoder:
 
 @ray.remote(resources={"host": 1})
 class Processor:
-    def __init__(self, storage):
-        self.encoder = T5Encoder.remote()
+    def __init__(self, storage, encoder):
+        self.encoder = encoder
         self.shared_storage = storage
+        
     
     def start_encoding(self):
         while True:
@@ -158,12 +159,12 @@ class Processor:
     
 @ray.remote(num_cpus=2, resources={"host": 1})
 class DataManager:
-    def __init__(self, num_workers, batch_size):
+    def __init__(self, num_workers, batch_size, encoder):
         self.shared_storage = SharedStorage.remote()
         self.batch_size = batch_size
         self.datasetFetcher = DatasetFetcher.remote()
         self.workers = [DataCollector.remote(self.shared_storage, self.datasetFetcher) for _ in range(num_workers)]
-        self.processor = Processor.remote(self.shared_storage)
+        self.processor = Processor.remote(self.shared_storage, encoder)
     def start(self):
         for worker in self.workers:
             worker.collect.remote()
