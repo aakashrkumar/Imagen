@@ -34,7 +34,7 @@ class GeneratorState(struct.PyTreeNode):
     rng: jax.random.PRNGKey
     
 
-def j_sample(train_state, sampler, imgs, timesteps, texts, attention, t_index, rng):
+def j_sample(train_state, sampler, imgs, timesteps, texts, attention):
     betas_t = extract(sampler.betas, timesteps, imgs.shape)
     sqrt_one_minus_alphas_cumprod_t = extract(
         sampler.sqrt_one_minus_alphas_cumprod, timesteps, imgs.shape)
@@ -58,7 +58,7 @@ def p_sample(t_index, generator_state):
     t = jnp.ones(1, dtype=jnp.int16) * t_index
     t = jnp.array(t, dtype=jnp.int16)
     rng, key = jax.random.split(generator_state.rng)
-    model_mean = j_sample(generator_state.imagen_state.train_state, generator_state.imagen_state.sampler, generator_state.image, generator_state.text, generator_state.attention, t, t_index, key)
+    model_mean = j_sample(generator_state.imagen_state.train_state, generator_state.imagen_state.sampler, generator_state.image, t, generator_state.text, generator_state.attention)
     rng, key = jax.random.split(rng)
     posterior_variance_t = extract(
     generator_state.imagen_state.sampler.posterior_variance, t, generator_state.image.shape)
