@@ -80,7 +80,7 @@ class Trainer:
                     "An image of an iPhone",
                     "An image of an apple watch",
                 ]
-                prompts_encoded, attention_masks = ray.get(self.T5Encoder.encode_text.remote(prompts))
+                prompts_encoded, attention_masks = ray.get(self.T5Encoder.encode.remote(prompts))
                 prompts_encoded = jnp.array(prompts_encoded)
                 attention_masks = jnp.array(attention_masks)
                 imgs = self.imagen.sample(texts=prompts_encoded, attention=attention_masks)
