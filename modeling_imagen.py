@@ -48,7 +48,7 @@ class ResNetBlock(nn.Module):
         return x
 
 
-class CrossAttentionBlock(nn.Module):
+class AlternateCrossAttentionBlock(nn.Module):
     num_channels: int
     dtype: jnp.dtype = jnp.float32
     
@@ -83,6 +83,48 @@ class CrossAttentionBlock(nn.Module):
         output = jnp.einsum('...ij, ...jk -> ...ik', q, attention_matrix) # dot product between queries and attention matrix
         output = reduce(output, 'b w h s c -> b w h c', 'max')
         output = nn.Dense(features=x.shape[-1], dtype=self.num_channels) # reshape channels
+
+        x = x + output # add original information
+        x = nn.LayerNorm(dtype=self.dtype)(x) # normalize
+
+        return x
+
+
+class CrossAttention(nn.Module):
+    # attempted to implement cross attention based on scaled dot product attention
+    num_channels: int
+    dtype: jnp.dtype = jnp.float32
+    
+    @nn.compact
+    def __call__(self, x, s, a):
+
+        text_embeds = s
+        # repeat mask accross latent dimension
+        attention_mask = repeat(a, 'b s -> b s d', d=s.shape[-1])
+        # multiply attention mask and text sequence
+        text_embeds = text_embeds * attention_mask
+
+        q = nn.Dense(features=self.num_channels, dtype=self.dtype)(x)
+        k_x = nn.Dense(features=self.num_channels, dtype=self.dtype)(x)
+        k_x = rearrange(k_x, 'b w h c -> b w h 1 c')
+        v_x = nn.Dense(features=x.shape[-1], dtype=self.dtype)(x)
+        v_x = rearrange(v_x, 'b w h c -> b w h 1 c')
+
+        k_s = nn.Dense(features=self.num_channels, dtype=self.dtype)(text_embeds)
+        k_s = rearrange(k_s, 'b s d -> b 1 1 s d')
+        v_s = nn.Dense(features=x.shape[-1], dtype=self.dtype)(text_embeds)
+        v_s = rearrange(v_s, 'b s d -> b 1 1 s d')
+
+        
+        k = k_x + k_s
+        v = v_x + v_s
+        k = rearrange(k, 'b w h s c -> b w h c s') # take the transpose of the k vector
+
+        attention_matrix = jnp.einsum('...ij, ...jk -> ...ik', q, k) # dot product between v transpose and k
+        attention_matrix = attention_matrix / jnp.sqrt(self.num_channels) # scale the attention matrix
+        attention_matrix = nn.softmax(attention_matrix, axis=-1)
+        output = jnp.einsum('...ij, ...jk -> ...ik', attention_matrix, v) # dot product between queries and attention matrix
+        output = reduce(output, 'b w h s c -> b w h c', 'max')
 
         x = x + output # add original information
         x = nn.LayerNorm(dtype=self.dtype)(x) # normalize
@@ -163,7 +205,7 @@ class UnetDBlock(nn.Module):
                     strides=self.strides, dtype=self.dtype, padding=1)(x)        
         x = CombineEmbs()(x, time)
         if self.text_cross_attention and texts is not None:
-            x = CrossAttentionBlock(num_channels=self.num_channels, dtype=self.dtype)(x, texts, attention_masks)
+            x = CrossAttention(num_channels=self.num_channels, dtype=self.dtype)(x, texts, attention_masks)
 
         x = ResNetBlock(num_layers=self.num_resnet_blocks,
                         num_channels=self.num_channels, strides=self.strides, dtype=self.dtype)(x)
@@ -188,7 +230,7 @@ class UnetUBlock(nn.Module):
         x = ResNetBlock(num_layers=self.num_resnet_blocks,
                         num_channels=self.num_channels, strides=self.strides, dtype=self.dtype)(x)
         if self.text_cross_attention and texts is not None:
-            x = CrossAttentionBlock(num_channels=self.num_channels, dtype=self.dtype)(x, texts, attention_masks)
+            x = CrossAttention(num_channels=self.num_channels, dtype=self.dtype)(x, texts, attention_masks)
         if self.num_attention_heads > 0:
             x = nn.SelfAttention(num_heads=self.num_attention_heads, qkv_features=2 *
                                  self.num_channels, out_features=self.num_channels)(x)

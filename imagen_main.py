@@ -36,14 +36,14 @@ class GeneratorState(struct.PyTreeNode):
     
     
 
-def j_sample(train_state, sampler, x, timesteps, texts, attention, t_index, rng):
-    betas_t = extract(sampler.betas, timesteps, x.shape)
+def j_sample(train_state, sampler, x, texts, t, attention, t_index, rng):
+    betas_t = extract(sampler.betas, t, x.shape)
     sqrt_one_minus_alphas_cumprod_t = extract(
-        sampler.sqrt_one_minus_alphas_cumprod, timesteps, x.shape)
+        sampler.sqrt_one_minus_alphas_cumprod, t, x.shape)
     sqrt_recip_alphas_t = extract(
-        sampler.sqrt_recip_alphas, timesteps, x.shape)
+        sampler.sqrt_recip_alphas, t, x.shape)
     model_mean = sqrt_recip_alphas_t * \
-        (x - betas_t * train_state.apply_fn({"params": train_state.params}, x, timesteps, texts, attention) /
+        (x - betas_t * train_state.apply_fn({"params": train_state.params}, x, t, texts, attention) /
             sqrt_one_minus_alphas_cumprod_t)
    # s = jnp.percentile(
     #    jnp.abs(model_mean), 0.95,
@@ -57,12 +57,12 @@ def j_sample(train_state, sampler, x, timesteps, texts, attention, t_index, rng)
 
 def p_sample(t_index, generator_state):
     t_index = 999-t_index
-    timesteps = jnp.ones(1, dtype=jnp.int16) * t_index
+    t = jnp.ones(1, dtype=jnp.int16) * t_index
     rng, key = jax.random.split(generator_state.rng)
-    model_mean = j_sample(generator_state.imagen_state.train_state, generator_state.imagen_state.sampler, generator_state.image, timesteps, generator_state.text, generator_state.attention, t_index, key)
+    model_mean = j_sample(generator_state.imagen_state.train_state, generator_state.imagen_state.sampler, generator_state.image, generator_state.text, generator_state.attention, t, t_index, key)
     rng, key = jax.random.split(rng)
     posterior_variance_t = extract(
-    generator_state.imagen_state.sampler.posterior_variance, timesteps, generator_state.image.shape)
+    generator_state.imagen_state.sampler.posterior_variance, t, generator_state.image.shape)
     noise = jax.random.normal(key, generator_state.image.shape)  # TODO: use proper key
 
     x = jax.lax.cond(t_index > 0, lambda x: model_mean + noise * jnp.sqrt(posterior_variance_t), lambda x: model_mean, None)
@@ -147,16 +147,12 @@ def compute_metrics(loss, logits):
 def test():
     import cv2
     import numpy as np
-    from T5Utils import get_tokenizer_and_model, encode_text
-    tokenizer, model = get_tokenizer_and_model()
     imagen = Imagen()
-    #print("Training done")
+    print("Training done")
     batch_size = 8
-    text_encoding, attention_mask = encode_text(["test"], tokenizer, model)
     for i in tqdm(range(1000)):
-        #imagen.train_step(jnp.ones((batch_size, 64, 64, 3)), jnp.ones(batch_size, dtype=jnp.int16) * 10, jnp.ones((batch_size, 15, 1024)), jnp.ones((batch_size, 15)))
-        
-        images = imagen.sample(text_encoding, attention_mask, 1)
+        imagen.train_step(jnp.ones((batch_size, 64, 64, 3)), jnp.ones(batch_size, dtype=jnp.int16) * 10, jnp.ones((batch_size, 15, 1024)), jnp.ones((batch_size, 15)))
+        #images = imagen.sample(None, 1)
        # print(images.shape)
         #images = np.asarray(images * 127.5 + 127.5, dtype=np.uint8)
         # cv2.imshow("image", images[i])
