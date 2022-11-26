@@ -60,7 +60,9 @@ class Trainer:
                 metrics = self.imagen.train_step(images, timestep, captions_encoded, attention_masks) # TODO: add guidance free conditioning 
                 pbar.update(1)
                 metrics["images_per_second"] = wandb.config.batch_size / (time.time() - start_time)
-                print(metrics)
+                metrics["loss"] = np.asarray(metrics["loss"])
+                metrics["loss"] = np.mean(metrics["loss"])
+                # print(metrics)
                 wandb.log(metrics)
                 
             if step % wandb.config.save_every == 0:
