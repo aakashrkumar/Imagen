@@ -14,7 +14,6 @@ from datasets import load_dataset
 from datasets.utils.file_utils import get_datasets_user_agent
 
 import ray
-import jax
 from T5Utils import encode_text, get_tokenizer_and_model
 
 USER_AGENT = get_datasets_user_agent()
