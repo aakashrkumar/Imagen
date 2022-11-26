@@ -40,7 +40,7 @@ class Trainer:
         self.datacollector.start.remote()
         
     def train(self):
-        pbar = tqdm(range(1, 1_000_000))
+        pbar = tqdm(range(1, 1_000_001))
         step = 0
         while True:
             step += 1
@@ -57,9 +57,10 @@ class Trainer:
                 start_time = time.time()
                 timestep = jnp.ones(wandb.config.batch_size) * ts
                 timestep = jnp.array(timestep, dtype=jnp.int16)
-                metrics = self.imagen.train_step(images, timestep, captions_encoded, attention_masks) # add guidance free conditioning 
+                metrics = self.imagen.train_step(images, timestep, captions_encoded, attention_masks) # TODO: add guidance free conditioning 
                 pbar.update(1)
                 metrics["images_per_second"] = wandb.config.batch_size / (time.time() - start_time)
+                print(metrics)
                 wandb.log(metrics)
                 
             if step % wandb.config.save_every == 0:
