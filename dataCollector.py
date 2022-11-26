@@ -49,21 +49,21 @@ def fetch_images(batch, num_threads, timeout=None, retries=0):
     return batch
 
 
-@ray.remote
+@ray.remote(resources={"host": 1})
 class SharedStorage:
     def __init__(self):
         self.images = []
         self.texts = []
         self.texts_encoded = []
         self.attention_masks = []
-        
+
         self.images_unencoded = []
         self.texts_unencoded = []
-        
-        
+
     def add_data(self, images, texts):
         self.images_unencoded.extend(images)
         self.texts_unencoded.extend(texts)
+
     def add_data_encoded(self, images, texts, texts_encoded, attention_masks):
         self.images.extend(images)
         self.texts.extend(texts)
@@ -86,7 +86,7 @@ class SharedStorage:
         texts_encoded = np.array(texts_encoded)
         attention_masks = np.array(attention_masks)
         return images, texts, texts_encoded, attention_masks
-    
+
     def get_batch_unencoded(self, batch_size):
         if len(self.images_unencoded) < batch_size:
             return None
@@ -98,9 +98,8 @@ class SharedStorage:
         images = np.array(images)
         return images, texts
 
-    
 
-@ray.remote(num_cpus=5)
+@ray.remote(num_cpus=5, resources={"host": 1})
 class DatasetFetcher:
     def __init__(self):
         dataset = load_dataset("red_caps", split="train")
@@ -111,11 +110,12 @@ class DatasetFetcher:
         dataset = dataset.remove_columns("score")
         self.dataset = dataset
         self.dataset, _ = get_datasets()
-        
 
     def get_data(self):
         key = np.random.randint(0, len(self.dataset))
         return self.dataset["image"][key], self.dataset["label"][key]
+
+
 def get_datasets():
     """Load MNIST train and test datasets into memory."""
     ds_builder = tfds.builder('mnist')
@@ -131,8 +131,8 @@ def get_datasets():
     train_ds['image'] = np.stack(
         [cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) for img in train_ds['image']], axis=0)
 
-    
     return train_ds, test_ds
+
 
 @ray.remote
 class DataCollector:
@@ -155,39 +155,44 @@ class DataCollector:
             """
             self.shared_storage.add_data.remote([image], [str(label)])
 
+
 @ray.remote(resources={"tpu": 1})
 class T5Encoder:
     def __init__(self):
         self.tokenizer, self.model = get_tokenizer_and_model()
-    
+
     def encode(self, texts):
         logits, attention_mask = encode_text(texts, self.tokenizer, self.model)
         return np.asarray(logits), np.asarray(attention_mask)
+
 
 @ray.remote(resources={"host": 1})
 class Processor:
     def __init__(self, storage, encoder):
         self.encoder = encoder
         self.shared_storage = storage
-        
-    
+
     def start_encoding(self):
         while True:
             out = ray.get(self.shared_storage.get_batch_unencoded.remote(32))
             if out:
                 images, texts = out
-                texts_encoded, attention_masks = ray.get(self.encoder.encode.remote(texts))
-                self.shared_storage.add_data_encoded.remote(images, texts, texts_encoded, attention_masks)
+                texts_encoded, attention_masks = ray.get(
+                    self.encoder.encode.remote(texts))
+                self.shared_storage.add_data_encoded.remote(
+                    images, texts, texts_encoded, attention_masks)
 
-    
+
 @ray.remote(num_cpus=2, resources={"host": 1})
 class DataManager:
     def __init__(self, num_workers, batch_size, encoder):
         self.shared_storage = SharedStorage.remote()
         self.batch_size = batch_size
         self.datasetFetcher = DatasetFetcher.remote()
-        self.workers = [DataCollector.remote(self.shared_storage, self.datasetFetcher) for _ in range(num_workers)]
+        self.workers = [DataCollector.remote(
+            self.shared_storage, self.datasetFetcher) for _ in range(num_workers)]
         self.processor = Processor.remote(self.shared_storage, encoder)
+
     def start(self):
         for worker in self.workers:
             worker.collect.remote()
@@ -196,5 +201,6 @@ class DataManager:
     def get_batch(self):
         data = None
         while data is None:
-            data = ray.get(self.shared_storage.get_batch.remote(self.batch_size))
+            data = ray.get(
+                self.shared_storage.get_batch.remote(self.batch_size))
         return data
