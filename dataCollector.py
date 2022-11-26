@@ -14,6 +14,8 @@ from datasets import load_dataset
 from datasets.utils.file_utils import get_datasets_user_agent
 
 import ray
+import jax
+from T5Utils import encode_text, get_tokenizer_and_model
 
 USER_AGENT = get_datasets_user_agent()
 
@@ -52,19 +54,47 @@ class SharedStorage:
     def __init__(self):
         self.images = []
         self.texts = []
-
+        self.texts_encoded = []
+        self.attention_masks = []
+        
+        self.images_unencoded = []
+        self.texts_unencoded = []
+        
+        
     def add_data(self, images, texts):
+        self.images_unencoded.extend(images)
+        self.texts_unencoded.extend(texts)
+    def add_data_encoded(self, images, texts, texts_encoded, attention_masks):
         self.images.extend(images)
         self.texts.extend(texts)
+        self.texts_encoded.extend(texts_encoded)
+        self.attention_masks.extend(attention_masks)
 
     def get_batch(self, batch_size):
         if len(self.images) < batch_size:
             return None
         images = []
         texts = []
+        texts_encoded = []
+        attention_masks = []
         for _ in range(batch_size):
             images.append(self.images.pop(0))
             texts.append(self.texts.pop(0))
+            texts_encoded.append(self.texts_encoded.pop(0))
+            attention_masks.append(self.attention_masks.pop(0))
+        images = np.array(images)
+        texts_encoded = np.array(texts_encoded)
+        attention_masks = np.array(attention_masks)
+        return images, texts, texts_encoded, attention_masks
+    
+    def get_batch_unencoded(self, batch_size):
+        if len(self.images_unencoded) < batch_size:
+            return None
+        images = []
+        texts = []
+        for _ in range(batch_size):
+            images.append(self.images_unencoded.pop(0))
+            texts.append(self.texts_unencoded.pop(0))
         images = np.array(images)
         return images, texts
 
@@ -103,17 +133,42 @@ class DataCollector:
                 continue
             self.shared_storage.add_data.remote([image], [item["caption"]])
 
-@ray.remote(num_cpus=2)
+@ray.remote(resources={"tpu": 1})
+class T5Encoder:
+    def __init__(self):
+        self.tokenizer, self.model = get_tokenizer_and_model()
+    
+    def encode(self, texts):
+        return encode_text(texts, self.tokenizer, self.model)
+
+@ray.remote(resources={"host": 1})
+class Processor:
+    def __init__(self, storage, encoder):
+        self.encoder = encoder
+        self.shared_storage = storage
+        
+    
+    def start_encoding(self):
+        while True:
+            out = ray.get(self.shared_storage.get_batch_unencoded.remote(32))
+            if out:
+                images, texts = out
+                texts_encoded, attention_masks = ray.get(self.encoder.encode.remote(texts))
+                self.shared_storage.add_data.remote(images, texts, texts_encoded, attention_masks)
+
+    
+@ray.remote(num_cpus=2, resources={"host": 1})
 class DataManager:
-    def __init__(self, num_workers, batch_size):
+    def __init__(self, num_workers, batch_size, encoder):
         self.shared_storage = SharedStorage.remote()
         self.batch_size = batch_size
         self.datasetFetcher = DatasetFetcher.remote()
         self.workers = [DataCollector.remote(self.shared_storage, self.datasetFetcher) for _ in range(num_workers)]
-        
+        self.processor = Processor.remote(self.shared_storage, encoder)
     def start(self):
         for worker in self.workers:
             worker.collect.remote()
+        self.processor.start_encoding.remote()
 
     def get_batch(self):
         data = None
