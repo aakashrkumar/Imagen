@@ -139,7 +139,8 @@ class T5Encoder:
         self.tokenizer, self.model = get_tokenizer_and_model()
     
     def encode(self, texts):
-        return np.asarray(encode_text(texts, self.tokenizer, self.model))
+        logits, attention_mask = encode_text(texts, self.tokenizer, self.model)
+        return np.asarray(logits), np.asarray(attention_mask)
 
 @ray.remote(resources={"host": 1})
 class Processor:

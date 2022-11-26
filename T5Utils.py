@@ -1,5 +1,5 @@
 from transformers import T5Tokenizer, FlaxT5ForConditionalGeneration
-import jax
+import numpy as np
 
 def get_tokenizer_and_model():
     name = "t5-small"
@@ -27,5 +27,5 @@ def encode_text(text, tokenizer, model):
         attention_mask=attention_mask,
         return_dict=True,
         output_attentions=False)
-
+    
     return outputs[0], attention_mask
