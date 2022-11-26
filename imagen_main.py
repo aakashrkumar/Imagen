@@ -126,7 +126,7 @@ class Imagen:
             warmup_steps=10000,
             decay_steps=2500000,
             end_value=2500000)
-        self.opt = optax.adafactor(learning_rate=lr, weight_decay=0)
+        self.opt = optax.adafactor(learning_rate=lr)
         self.train_state = train_state.TrainState.create(
             apply_fn=self.unet.apply,
             tx=self.opt,
