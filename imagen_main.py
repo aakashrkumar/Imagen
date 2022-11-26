@@ -56,6 +56,7 @@ def j_sample(train_state, sampler, imgs, timesteps, texts, attention, t_index, r
 def p_sample(t_index, generator_state):
     t_index = 999-t_index
     t = jnp.ones(1, dtype=jnp.int16) * t_index
+    t = jnp.array(t, dtype=jnp.int16)
     rng, key = jax.random.split(generator_state.rng)
     model_mean = j_sample(generator_state.imagen_state.train_state, generator_state.imagen_state.sampler, generator_state.image, generator_state.text, generator_state.attention, t, t_index, key)
     rng, key = jax.random.split(rng)
