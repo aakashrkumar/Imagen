@@ -88,7 +88,7 @@ class SharedStorage:
         return images, texts, texts_encoded, attention_masks
     
     def get_batch_unencoded(self, batch_size):
-        if len(self.images) < batch_size:
+        if len(self.images_unencoded) < batch_size:
             return None
         images = []
         texts = []
