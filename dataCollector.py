@@ -14,6 +14,7 @@ from datasets.utils.file_utils import get_datasets_user_agent
 
 import ray
 from T5Utils import encode_text, get_tokenizer_and_model
+import tensorflow_datasets as tfds
 
 USER_AGENT = get_datasets_user_agent()
 
@@ -108,10 +109,21 @@ class DatasetFetcher:
         dataset = dataset.remove_columns("subreddit")
         dataset = dataset.remove_columns("score")
         self.dataset = dataset
+        self.dataset, _ = get_datasets()
+        
 
     def get_data(self):
         return self.dataset[np.random.randint(len(self.dataset))]
-
+def get_datasets():
+    """Load MNIST train and test datasets into memory."""
+    ds_builder = tfds.builder('mnist')
+    ds_builder.download_and_prepare()
+    train_ds = tfds.as_numpy(
+        ds_builder.as_dataset(split='train', batch_size=-1))
+    test_ds = tfds.as_numpy(ds_builder.as_dataset(split='test', batch_size=-1))
+    train_ds['image'] = np.float32(train_ds['image']) / 127.5 - 1.
+    test_ds['image'] = np.float32(test_ds['image']) / 127.5 - 1.
+    return train_ds, test_ds
 
 @ray.remote
 class DataCollector:
@@ -122,6 +134,8 @@ class DataCollector:
     def collect(self):
         while True:
             item = self.dataset.get_data.remote()
+            image, label = ray.get(item)
+            """
             item = ray.get(item)
             image = fetch_single_image(item["image_url"])
             if image is None:
@@ -129,7 +143,8 @@ class DataCollector:
             image = np.array(image, dtype=np.float32)
             if image.shape != (64, 64, 3):
                 continue
-            self.shared_storage.add_data.remote([image], [item["caption"]])
+            """
+            self.shared_storage.add_data.remote([image], [label])
 
 @ray.remote(resources={"tpu": 1})
 class T5Encoder:
