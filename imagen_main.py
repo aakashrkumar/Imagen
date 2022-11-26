@@ -139,7 +139,8 @@ class Imagen:
         texts = jnp.reshape(texts, (jax.device_count(), -1, texts.shape[1], texts.shape[2]))
         attention = jnp.reshape(attention, (jax.device_count(), -1, attention.shape[1]))
         noise = jnp.reshape(noise, (jax.device_count(), -1, noise.shape[1], noise.shape[2], noise.shape[3]))
-        return sample(self.imagen_state, noise, texts, attention, self.get_key())
+        keys = jax.random.split(self.get_key(), jax.device_count())
+        return sample(self.imagen_state, noise, texts, attention, keys)
     
     def train_step(self, image_batch, timestep, texts_batches=None, attention_batches=None):
         # shard prng key
