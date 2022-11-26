@@ -113,7 +113,8 @@ class DatasetFetcher:
         
 
     def get_data(self):
-        return self.dataset[np.random.randint(len(self.dataset))]
+        key = np.random.randint(0, len(self.dataset))
+        return self.dataset["image"][key], self.dataset["label"][key]
 def get_datasets():
     """Load MNIST train and test datasets into memory."""
     ds_builder = tfds.builder('mnist')
@@ -144,7 +145,7 @@ class DataCollector:
             if image.shape != (64, 64, 3):
                 continue
             """
-            self.shared_storage.add_data.remote([image], [label])
+            self.shared_storage.add_data.remote([image], [str(label)])
 
 @ray.remote(resources={"tpu": 1})
 class T5Encoder:
