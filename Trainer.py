@@ -70,6 +70,7 @@ class Trainer:
                     os.makedirs(f"ckpt/{wandb.run.id}/")
                 checkpoints.save_checkpoint(
                     f"ckpt/{wandb.run.id}/checkpoint_{step}", self.imagen.imagen_state)
+                wandb.save(f"ckpt/{wandb.run.id}/checkpoint_{step}.pkl")
             
             if step % wandb.config.eval_every == 0:
                 prompts = [
