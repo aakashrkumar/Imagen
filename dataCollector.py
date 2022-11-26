@@ -15,6 +15,7 @@ from datasets.utils.file_utils import get_datasets_user_agent
 import ray
 from T5Utils import encode_text, get_tokenizer_and_model
 import tensorflow_datasets as tfds
+import cv2
 
 USER_AGENT = get_datasets_user_agent()
 
@@ -124,6 +125,13 @@ def get_datasets():
     test_ds = tfds.as_numpy(ds_builder.as_dataset(split='test', batch_size=-1))
     train_ds['image'] = np.float32(train_ds['image']) / 127.5 - 1.
     test_ds['image'] = np.float32(test_ds['image']) / 127.5 - 1.
+    train_ds['image'] = np.asarray(train_ds['image'])
+    train_ds['image'] = np.stack([cv2.resize(
+        img, (64, 64)) for img in train_ds['image']], axis=0)
+    train_ds['image'] = np.stack(
+        [cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) for img in train_ds['image']], axis=0)
+
+    
     return train_ds, test_ds
 
 @ray.remote
