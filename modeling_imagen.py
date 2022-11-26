@@ -118,12 +118,12 @@ class CrossAttention(nn.Module):
         
         k = k_x + k_s
         v = v_x + v_s
-        k = rearrange(k, 'b w h s c -> b w h c s') # take the transpose of the k vector
+        k = rearrange(k, 'b w h s c -> b w h c s') # take the transpose of the k matrix
 
-        attention_matrix = jnp.einsum('...ij, ...jk -> ...ik', q, k) # dot product between v transpose and k
+        attention_matrix = jnp.einsum('...ij, ...jk -> ...ik', q, k) # dot product between q  and k transpose
         attention_matrix = attention_matrix / jnp.sqrt(self.num_channels) # scale the attention matrix
         attention_matrix = nn.softmax(attention_matrix, axis=-1)
-        output = jnp.einsum('...ij, ...jk -> ...ik', attention_matrix, v) # dot product between queries and attention matrix
+        output = jnp.einsum('...ij, ...jk -> ...ik', attention_matrix, v) # dot product between attention matrix and values
         output = reduce(output, 'b w h s c -> b w h c', 'max')
 
         x = x + output # add original information
