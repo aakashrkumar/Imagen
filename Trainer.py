@@ -31,8 +31,8 @@ class Trainer:
         wandb.config.seed = 0
         wandb.config.learning_rate = 1e-4
         wandb.config.image_size = 64
-        wandb.config.save_every = 1000
-        wandb.config.eval_every = 300
+        wandb.config.save_every = 10
+        wandb.config.eval_every = 3
         
         self.imagen = Imagen()
         self.T5Encoder = dataCollector.T5Encoder.remote()
