@@ -70,7 +70,7 @@ class SharedStorage:
     def add_data(self, images, texts):
         self.images_unencoded.extend(images)
         self.texts_unencoded.extend(texts)
-        print(len(self.images_unencoded))
+        # print(len(self.images_unencoded))
 
     def add_data_encoded(self, images, texts, texts_encoded, attention_masks):
         self.images.extend(images)
