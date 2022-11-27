@@ -8,7 +8,7 @@ import TPUManager
 
 ray.init()
 
-tpuManager = TPUManager.TPUManager()
+tpuManager = TPUManager.TPUManager(6, "globaltpu2.aakashserver.org")
 tpuManager.setup()
 collector = dataCollector.DataManager.remote(num_workers=90, batch_size=64)
 # T5Encoder = dataCollector.T5Encoder.remote()
