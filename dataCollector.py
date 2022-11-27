@@ -185,22 +185,22 @@ class Processor:
 
 @ray.remote(num_cpus=2, resources={"host": 1})
 class DataManager:
-    def __init__(self, num_workers, batch_size, encoder):
+    def __init__(self, num_workers, batch_size):#, encoder):
         self.shared_storage = SharedStorage.remote()
         self.batch_size = batch_size
         self.datasetFetcher = DatasetFetcher.remote()
         self.workers = [DataCollector.remote(
             self.shared_storage, self.datasetFetcher) for _ in range(num_workers)]
-        self.processor = Processor.remote(self.shared_storage, encoder)
+        # self.processor = Processor.remote(self.shared_storage, encoder)
 
     def start(self):
         for worker in self.workers:
             worker.collect.remote()
-        self.processor.start_encoding.remote()
+        # self.processor.start_encoding.remote()
 
     def get_batch(self):
         data = None
         while data is None:
             data = ray.get(
-                self.shared_storage.get_batch.remote(self.batch_size))
+                self.shared_storage.get_batch_unencoded.remote(self.batch_size))
         return data
