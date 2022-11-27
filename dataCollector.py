@@ -98,11 +98,10 @@ class SharedStorage:
     def get_batch_unencoded(self, batch_size):
         if len(self.images_unencoded) < batch_size:
             return None
-        images = []
-        texts = []
-        for _ in range(batch_size):
-            images.append(self.images_unencoded.pop(0))
-            texts.append(self.texts_unencoded.pop(0))
+        images = self.images_unencoded[:batch_size]
+        texts = self.texts_unencoded[:batch_size]
+        self.images_unencoded = self.images_unencoded[batch_size:]
+        self.texts_unencoded = self.texts_unencoded[batch_size:]
         images = np.array(images)
         return images, texts
 
@@ -120,8 +119,9 @@ class DatasetFetcher:
         self.dataset, _ = get_datasets()
 
     def get_data(self):
-        key = np.random.randint(0, len(self.dataset))
-        return self.dataset["image"][key], self.dataset["label"][key]
+        batch_size = 1024
+        key = np.random.randint(0, len(self.dataset["image"]) - batch_size)
+        return self.dataset["image"][key:key+batch_size], self.dataset["label"][key:key+batch_size]
 
 
 def get_datasets():
@@ -147,14 +147,20 @@ class DataCollector:
     def __init__(self, shared_storage, dataset):
         self.shared_storage = shared_storage
         self.dataset = dataset
+        self.images_collected = 0
 
     def collect(self):
         while True:
-            if ray.get(self.shared_storage.get_unencoded_size.remote()) > 10_000 or ray.get(self.shared_storage.get_encoded_size.remote()) > 10_000:
+            if ray.get(self.shared_storage.get_unencoded_size.remote()) > 1_000*64 or ray.get(self.shared_storage.get_encoded_size.remote()) > 1_000 * 64:
                 time.sleep(10)
                 continue
-            item = self.dataset.get_data.remote()
-            image, label = ray.get(item)
+            images = []
+            labels = []
+            batches = ray.get(self.dataset.get_data.remote())
+            for batch in zip(*batches):
+                image, label = batch
+                images.append(image)
+                labels.append(str(label))
             """
             item = ray.get(item)
             image = fetch_single_image(item["image_url"])
@@ -164,7 +170,7 @@ class DataCollector:
             if image.shape != (64, 64, 3):
                 continue
             """
-            self.shared_storage.add_data.remote([image], [str(label)])
+            self.shared_storage.add_data.remote(images, labels)
 
 
 @ray.remote(resources={"tpu": 1})
@@ -177,15 +183,15 @@ class T5Encoder:
         return np.asarray(logits), np.asarray(attention_mask)
 
 
-@ray.remote(resources={"host": 1})
+@ray.remote
 class Processor:
-    def __init__(self, storage, encoder):
-        self.encoder = encoder
+    def __init__(self, storage):
+        self.encoder = T5Encoder.remote()
         self.shared_storage = storage
 
     def start_encoding(self):
         while True:
-            out = ray.get(self.shared_storage.get_batch_unencoded.remote(32))
+            out = ray.get(self.shared_storage.get_batch_unencoded.remote(64))
             if out:
                 images, texts = out
                 texts_encoded, attention_masks = ray.get(
@@ -196,22 +202,24 @@ class Processor:
 
 @ray.remote(num_cpus=2, resources={"host": 1})
 class DataManager:
-    def __init__(self, num_workers, batch_size):  # , encoder):
+    def __init__(self, num_workers, batch_size, encoder):
         self.shared_storage = SharedStorage.remote()
         self.batch_size = batch_size
         self.datasetFetcher = DatasetFetcher.remote()
         self.workers = [DataCollector.remote(
             self.shared_storage, self.datasetFetcher) for _ in range(num_workers)]
-        # self.processor = Processor.remote(self.shared_storage, encoder)
-
+        self.processors = [Processor.remote(self.shared_storage)
+                           for _ in range(4)]
+        
     def start(self):
         for worker in self.workers:
             worker.collect.remote()
-        # self.processor.start_encoding.remote()
+        for processor in self.processors:
+            processor.start_encoding.remote()
 
     def get_batch(self):
         data = None
         while data is None:
             data = ray.get(
-                self.shared_storage.get_batch_unencoded.remote(self.batch_size))
+                self.shared_storage.get_batch.remote(self.batch_size))
         return data
