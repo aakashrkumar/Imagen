@@ -16,6 +16,7 @@ import ray
 from T5Utils import encode_text, get_tokenizer_and_model
 import tensorflow_datasets as tfds
 import cv2
+import time
 
 USER_AGENT = get_datasets_user_agent()
 
@@ -59,6 +60,12 @@ class SharedStorage:
 
         self.images_unencoded = []
         self.texts_unencoded = []
+
+    def get_encoded_size(self):
+        return len(self.images)
+
+    def get_unencoded_size(self):
+        return len(self.images_unencoded)
 
     def add_data(self, images, texts):
         self.images_unencoded.extend(images)
@@ -143,6 +150,9 @@ class DataCollector:
 
     def collect(self):
         while True:
+            if self.shared_storage.get_unencoded_size() > 10_000:
+                time.sleep(10)
+                continue
             item = self.dataset.get_data.remote()
             image, label = ray.get(item)
             """
@@ -186,7 +196,7 @@ class Processor:
 
 @ray.remote(num_cpus=2, resources={"host": 1})
 class DataManager:
-    def __init__(self, num_workers, batch_size):#, encoder):
+    def __init__(self, num_workers, batch_size):  # , encoder):
         self.shared_storage = SharedStorage.remote()
         self.batch_size = batch_size
         self.datasetFetcher = DatasetFetcher.remote()
