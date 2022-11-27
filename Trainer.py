@@ -51,7 +51,7 @@ class Trainer:
             
             timesteps = list(range(0, 1000))
             
-            timesteps = np.random.permutation(timesteps)[:5]
+            timesteps = np.random.permutation(timesteps)[:1000]
             
             for ts in timesteps:
                 start_time = time.time()
@@ -69,7 +69,7 @@ class Trainer:
                 if not os.path.exists(f"ckpt/{wandb.run.id}/"):
                     os.makedirs(f"ckpt/{wandb.run.id}/")
                 checkpoints.save_checkpoint(
-                    f"ckpt/{wandb.run.id}/checkpoint_{step}", self.imagen.imagen_state)
+                    f"ckpt/{wandb.run.id}/checkpoint_{step}", self.imagen.imagen_state, step=step)
                 wandb.save(f"ckpt/{wandb.run.id}/checkpoint_{step}.pkl")
             
             if step % wandb.config.eval_every == 0:
