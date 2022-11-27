@@ -150,7 +150,7 @@ class DataCollector:
 
     def collect(self):
         while True:
-            if self.shared_storage.get_unencoded_size() > 10_000:
+            if self.shared_storage.get_unencoded_size.remote() > 10_000:
                 time.sleep(10)
                 continue
             item = self.dataset.get_data.remote()
