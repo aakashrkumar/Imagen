@@ -186,9 +186,9 @@ class Processor:
 @ray.remote(num_cpus=2, resources={"host": 1})
 class DataManager:
     def __init__(self, num_workers, batch_size):#, encoder):
-        self.shared_storage = SharedStorage.remote(max_concurrency=10)
+        self.shared_storage = SharedStorage.options(max_concurrency=10).remote()
         self.batch_size = batch_size
-        self.datasetFetcher = DatasetFetcher.remote()
+        self.datasetFetcher = DatasetFetcher.options(max_concurrency=10).remote()
         self.workers = [DataCollector.remote(
             self.shared_storage, self.datasetFetcher) for _ in range(num_workers)]
         # self.processor = Processor.remote(self.shared_storage, encoder)
