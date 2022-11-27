@@ -191,7 +191,7 @@ class Processor:
 
     def start_encoding(self):
         while True:
-            out = ray.get(self.shared_storage.get_batch_unencoded.remote(64))
+            out = ray.get(self.shared_storage.get_batch_unencoded.remote(32))
             if out:
                 images, texts = out
                 texts_encoded, attention_masks = ray.get(
