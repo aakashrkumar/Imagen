@@ -209,7 +209,7 @@ class DataManager:
         self.workers = [DataCollector.remote(
             self.shared_storage, self.datasetFetcher) for _ in range(num_workers)]
         self.processors = [Processor.remote(self.shared_storage)
-                           for _ in range(4)]
+                           for _ in range(2)]
         
     def start(self):
         for worker in self.workers:
