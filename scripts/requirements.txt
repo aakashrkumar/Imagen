@@ -14,3 +14,4 @@ tensorflow-cpu
 opencv-python-headless
 sentencepiece
 fabric
+tensorflow-datasets
