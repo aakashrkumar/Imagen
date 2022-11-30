@@ -64,9 +64,9 @@ class Trainer:
         step = 0
         while True:
             step += 1
-            random = np.random.randint(0, len(self.train_dataset['image']-64), wandb.config.batch_size)
-            images = self.train_dataset['image'][random:random+64]
-            captions = self.train_dataset['label'][random:random+64]
+            key = np.random.randint(0, len(self.train_dataset['image'])-wandb.config.batch_size, wandb.config.batch_size)
+            images = self.train_dataset['image'][key:key+wandb.config.batch_size]
+            captions = self.train_dataset['label'][key:key+wandb.config.batch_size]
             captions = [str(caption) for caption in captions]
             captions_encoded, attention_masks = encode_text(self.tokenizer, captions)
             
