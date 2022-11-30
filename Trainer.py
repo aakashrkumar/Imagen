@@ -112,7 +112,7 @@ class Trainer:
                 prompts = [
                     str(i) for i in range(1, 9)
                 ]
-                prompts_encoded, attention_masks = ray.get(self.T5Encoder.encode.remote(prompts))
+                prompts_encoded, attention_masks = encode_text(prompts, self.tokenizer, self.model)
                 prompts_encoded = jnp.array(prompts_encoded)
                 attention_masks = jnp.array(attention_masks)
                 imgs = self.imagen.sample(texts=prompts_encoded, attention=attention_masks)
