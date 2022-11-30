@@ -1,4 +1,3 @@
-import math
 from typing import Any, Dict, Tuple
 import jax
 import flax
@@ -189,36 +188,6 @@ class CombineEmbs(nn.Module):
         # use layer norm as suggested by the paper
         x = nn.LayerNorm(dtype=self.dtype)(x)
         return x
-class SinusoidalPosEmb(nn.Module):
-    """Build sinusoidal embeddings 
-    Attributes:
-      dim: dimension of the embeddings to generate
-      dtype: data type of the generated embeddings
-    """
-    dim: int
-    dtype: jnp.dtype = jnp.float32
-
-    @nn.compact
-    def __call__(self, x, time):
-        """
-        Args:
-          time: jnp.ndarray of shape [batch].
-        Returns:
-          out: embedding vectors with shape `[batch, dim]`
-        """
-        assert len(time.shape) == 1.
-        half_dim = self.dim // 2
-        emb = math.log(10000) / (half_dim - 1)
-        emb = jnp.exp(jnp.arange(half_dim, dtype=self.dtype) * -emb)
-        emb = time.astype(self.dtype)[:, None] * emb[None, :]
-        emb = jnp.concatenate([jnp.sin(emb), jnp.cos(emb)], axis=-1)
-        emb = nn.Dense(features=self.dim * 4, dtype=self.dtype)(emb)
-        emb = nn.Dense(features=self.dim * 4, dtype=self.dtype)(nn.gelu(emb))  # [B, 4*dim]
-        emb = nn.Dense(features=2 * self.dim,dtype=self.dtype)(nn.swish(emb))
-        emb = emb[:,  jnp.newaxis, jnp.newaxis, :]  # [B, H, W, C]
-        scale, shift = jnp.split(emb, 2, axis=-1)
-        x = x * (1 + scale) + shift
-        return x
 
 
 class UnetDBlock(nn.Module):
@@ -234,7 +203,7 @@ class UnetDBlock(nn.Module):
     def __call__(self, x, time, texts=None, attention_masks=None):
         x = nn.Conv(features=self.num_channels, kernel_size=(3, 3),
                     strides=self.strides, dtype=self.dtype, padding=1)(x)        
-        x = SinusoidalPosEmb(self.num_channels)(x, time)
+        x = CombineEmbs()(x, time)
         if self.text_cross_attention and texts is not None:
             x = CrossAttention(num_channels=self.num_channels, dtype=self.dtype)(x, texts, attention_masks)
 
@@ -257,7 +226,7 @@ class UnetUBlock(nn.Module):
 
     @nn.compact
     def __call__(self, x, time, texts = None, attention_masks=None):
-        x = SinusoidalPosEmb(self.num_channels)(x, time)
+        x = CombineEmbs()(x, time)
         x = ResNetBlock(num_layers=self.num_resnet_blocks,
                         num_channels=self.num_channels, strides=self.strides, dtype=self.dtype)(x)
         if self.text_cross_attention and texts is not None:
@@ -306,4 +275,4 @@ class EfficentUNet(nn.Module):
 
         x = nn.Dense(features=3, dtype=self.dtype)(uNet256U)
 
-        return uNet256U
+        return x
