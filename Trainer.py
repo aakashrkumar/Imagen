@@ -68,7 +68,7 @@ class Trainer:
             images = self.train_dataset['image'][key:key+wandb.config.batch_size]
             captions = self.train_dataset['label'][key:key+wandb.config.batch_size]
             captions = [str(caption) for caption in captions]
-            captions_encoded, attention_masks = encode_text(self.tokenizer, captions)
+            captions_encoded, attention_masks = encode_text(captions, self.tokenizer, self.model)
             
             # images, captions, captions_encoded, attention_masks = ray.get(self.datacollector.get_batch.remote())
             images = jnp.array(images)
