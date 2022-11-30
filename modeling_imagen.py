@@ -1,3 +1,4 @@
+import math
 from typing import Any, Dict, Tuple
 import jax
 import flax
@@ -10,6 +11,7 @@ import optax
 
 from sampler import GaussianDiffusionContinuousTimes, extract
 from einops import rearrange, repeat, reduce, pack, unpack
+from utils import exists
 
 
 class ResNetBlock(nn.Module):
@@ -21,17 +23,23 @@ class ResNetBlock(nn.Module):
     training: bool = True
 
     @nn.compact
-    def __call__(self, x):
+    def __call__(self, x, time_emb=None):
         # Iterate over the number of layers.
         for _ in range(self.num_layers):
             # Save the input for the residual connection.
             residual = x
 
             # Normalization, swish, and convolution.
+            x = nn.Conv(self.num_channels, kernel_size=(3, 3),
+                        dtype=self.dtype, padding="same")(x) # projection
             x = nn.GroupNorm(dtype=self.dtype)(x)
             x = nn.swish(x)
-            x = nn.Conv(self.num_channels, kernel_size=(3, 3),
-                        dtype=self.dtype, padding="same")(x)
+            
+            if exists(time_emb):
+                time_emb = nn.Dense(self.num_channels, dtype=self.dtype)(time_emb)
+                time_emb = nn.silu(time_emb)
+                x = rearrange(time_emb, "b c -> b c 1 1") + x
+
 
             # Normalization, swish, and convolution.
             x = nn.GroupNorm(dtype=self.dtype)(x)
@@ -131,7 +139,19 @@ class CrossAttention(nn.Module):
 
         return x
 
+class SinusoidalPositionEmbeddings(nn.Module):
+    dim: int = 512
+    @nn.compact
+    def __call__(self, time):
+        half_dim = self.dim // 2
+        embeddings = math.log(10000) / (half_dim - 1)
+        embeddings = jnp.exp(jnp.arange(half_dim) * -embeddings)
+        embeddings = time[:, None] * embeddings[None, :]
+        embeddings = jnp.concatenate((jnp.sin(embeddings), jnp.cos(embeddings)), dim=-1)
+        return embeddings
 
+
+        
 class CombineEmbs(nn.Module):
     """Combine positional encoding with text/image encoding."""
 
@@ -203,12 +223,12 @@ class UnetDBlock(nn.Module):
     def __call__(self, x, time, texts=None, attention_masks=None):
         x = nn.Conv(features=self.num_channels, kernel_size=(3, 3),
                     strides=self.strides, dtype=self.dtype, padding=1)(x)        
-        x = CombineEmbs()(x, time)
+        time = SinusoidalPositionEmbeddings()(time)
         if self.text_cross_attention and texts is not None:
             x = CrossAttention(num_channels=self.num_channels, dtype=self.dtype)(x, texts, attention_masks)
 
         x = ResNetBlock(num_layers=self.num_resnet_blocks,
-                        num_channels=self.num_channels, strides=self.strides, dtype=self.dtype)(x)
+                        num_channels=self.num_channels, strides=self.strides, dtype=self.dtype)(x, time)
         if self.num_attention_heads > 0:
             x = nn.SelfAttention(num_heads=self.num_attention_heads, qkv_features=2 *
                                  self.num_channels, out_features=self.num_channels)(x)
@@ -226,9 +246,9 @@ class UnetUBlock(nn.Module):
 
     @nn.compact
     def __call__(self, x, time, texts = None, attention_masks=None):
-        x = CombineEmbs()(x, time)
+        time = SinusoidalPositionEmbeddings()(time)
         x = ResNetBlock(num_layers=self.num_resnet_blocks,
-                        num_channels=self.num_channels, strides=self.strides, dtype=self.dtype)(x)
+                        num_channels=self.num_channels, strides=self.strides, dtype=self.dtype)(x, time)
         if self.text_cross_attention and texts is not None:
             x = CrossAttention(num_channels=self.num_channels, dtype=self.dtype)(x, texts, attention_masks)
         if self.num_attention_heads > 0:

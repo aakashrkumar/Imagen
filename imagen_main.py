@@ -54,6 +54,8 @@ def j_sample(train_state, sampler, imgs, timesteps, texts, attention):
 
 def p_sample(t_index, generator_state):
     t_index = 999-t_index
+    t_index = min(t_index, 999)
+    t_index = max(t_index, 0)
     t = jnp.ones(1, dtype=jnp.int16) * t_index
     t = jnp.array(t, dtype=jnp.int16)
     rng, key = jax.random.split(generator_state.rng)
