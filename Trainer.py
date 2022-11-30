@@ -20,7 +20,25 @@ import tensorflow_datasets as tfds
 import wandb
 import time
 import os
+from T5Utils import get_tokenizer_and_model, encode_text
 
+
+def get_datasets():
+    """Load MNIST train and test datasets into memory."""
+    ds_builder = tfds.builder('mnist')
+    ds_builder.download_and_prepare()
+    train_ds = tfds.as_numpy(
+        ds_builder.as_dataset(split='train', batch_size=-1))
+    test_ds = tfds.as_numpy(ds_builder.as_dataset(split='test', batch_size=-1))
+    train_ds['image'] = np.float32(train_ds['image'])
+    test_ds['image'] = np.float32(test_ds['image']) 
+    train_ds['image'] = np.asarray(train_ds['image'])
+    train_ds['image'] = np.stack([cv2.resize(
+        img, (64, 64)) for img in train_ds['image']], axis=0)
+    train_ds['image'] = np.stack(
+        [cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) for img in train_ds['image']], axis=0)
+
+    return train_ds, test_ds
 
 @ray.remote(resources={"tpu": 1, "host": 1}, num_cpus=30)
 class Trainer:
@@ -35,16 +53,24 @@ class Trainer:
         wandb.config.eval_every = 3
         
         self.imagen = Imagen()
-        self.T5Encoder = dataCollector.T5Encoder.remote()
-        self.datacollector = dataCollector.DataManager.remote(wandb.config.num_datacollectors, wandb.config.batch_size, self.T5Encoder)
-        self.datacollector.start.remote()
+        # self.T5Encoder = dataCollector.T5Encoder.remote()
+        # self.datacollector = dataCollector.DataManager.remote(wandb.config.num_datacollectors, wandb.config.batch_size, self.T5Encoder)
+        # self.datacollector.start.remote()
+        self.tokenizer, self.model = get_tokenizer_and_model()
+        self.train_dataset, _ = get_datasets()
         
     def train(self):
         pbar = tqdm(range(1, 1_000_001))
         step = 0
         while True:
             step += 1
-            images, captions, captions_encoded, attention_masks = ray.get(self.datacollector.get_batch.remote())
+            random = np.random.randint(0, len(self.train_dataset['image']-64), wandb.config.batch_size)
+            images = self.train_dataset['image'][random:random+64]
+            captions = self.train_dataset['label'][random:random+64]
+            captions = [str(caption) for caption in captions]
+            captions_encoded, attention_masks = encode_text(self.tokenizer, captions)
+            
+            # images, captions, captions_encoded, attention_masks = ray.get(self.datacollector.get_batch.remote())
             images = jnp.array(images)
             captions_encoded = jnp.array(captions_encoded)
             attention_masks = jnp.array(attention_masks)
