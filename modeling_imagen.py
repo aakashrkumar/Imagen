@@ -212,10 +212,9 @@ class SinusoidalPosEmb(nn.Module):
         emb = jnp.exp(jnp.arange(half_dim, dtype=self.dtype) * -emb)
         emb = time.astype(self.dtype)[:, None] * emb[None, :]
         emb = jnp.concatenate([jnp.sin(emb), jnp.cos(emb)], axis=-1)
-        emb = nn.Dense(features=self.dim * 4, dtype=self.dtype, name='time_mlp.dense_0')(emb)
-        emb = nn.Dense(features=self.dim * 4, dtype=self.dtype, name='time_mlp.dense_1')(nn.gelu(emb))  # [B, 4*dim]
-        emb = nn.Dense(features=2 * self.dim,dtype=self.dtype,
-                    name='time_mlp.dense_0')(nn.swish(emb))
+        emb = nn.Dense(features=self.dim * 4, dtype=self.dtype)(emb)
+        emb = nn.Dense(features=self.dim * 4, dtype=self.dtype)(nn.gelu(emb))  # [B, 4*dim]
+        emb = nn.Dense(features=2 * self.dim,dtype=self.dtype)(nn.swish(emb))
         emb = emb[:,  jnp.newaxis, jnp.newaxis, :]  # [B, H, W, C]
         scale, shift = jnp.split(emb, 2, axis=-1)
         x = x * (1 + scale) + shift
