@@ -37,7 +37,7 @@ def get_datasets():
         img, (64, 64)) for img in train_ds['image']], axis=0)
     train_ds['image'] = np.stack(
         [cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) for img in train_ds['image']], axis=0)
-
+    train_ds["image"] =  np.array(train_ds["image"], dtype=np.float32)
     return train_ds, test_ds
 
 @ray.remote(resources={"tpu": 1, "host": 1}, num_cpus=30)
@@ -64,7 +64,7 @@ class Trainer:
         step = 0
         while True:
             step += 1
-            key = np.random.randint(0, len(self.train_dataset['image'])-wandb.config.batch_size, wandb.config.batch_size)
+            key = np.random.randint(0, len(self.train_dataset["image"]) - wandb.config.batch_size)
             images = self.train_dataset['image'][key:key+wandb.config.batch_size]
             captions = self.train_dataset['label'][key:key+wandb.config.batch_size]
             captions = [str(caption) for caption in captions]
