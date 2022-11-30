@@ -131,8 +131,8 @@ def get_datasets():
     train_ds = tfds.as_numpy(
         ds_builder.as_dataset(split='train', batch_size=-1))
     test_ds = tfds.as_numpy(ds_builder.as_dataset(split='test', batch_size=-1))
-    train_ds['image'] = np.float32(train_ds['image']) / 127.5 - 1.
-    test_ds['image'] = np.float32(test_ds['image']) / 127.5 - 1.
+    train_ds['image'] = np.float32(train_ds['image'])
+    test_ds['image'] = np.float32(test_ds['image']) 
     train_ds['image'] = np.asarray(train_ds['image'])
     train_ds['image'] = np.stack([cv2.resize(
         img, (64, 64)) for img in train_ds['image']], axis=0)
