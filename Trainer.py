@@ -31,7 +31,7 @@ class Trainer:
         wandb.config.seed = 0
         wandb.config.learning_rate = 1e-4
         wandb.config.image_size = 64
-        wandb.config.save_every = 10
+        wandb.config.save_every = 100
         wandb.config.eval_every = 3
         
         self.imagen = Imagen()
