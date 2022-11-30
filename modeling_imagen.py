@@ -36,7 +36,7 @@ class ResNetBlock(nn.Module):
             x = nn.swish(x)
             
             if exists(time_emb):
-                time_emb = nn.Dense(self.num_channels, dtype=self.dtype)(time_emb)
+                time_emb = nn.Dense(self.num_channels * 2, dtype=self.dtype)(time_emb)
                 time_emb = nn.silu(time_emb)
                 x = rearrange(time_emb, "b c -> b c 1 1") + x
 
