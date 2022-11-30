@@ -31,12 +31,12 @@ class ResNetBlock(nn.Module):
 
             # Normalization, swish, and convolution.
             x = nn.Conv(self.num_channels, kernel_size=(3, 3),
-                        dtype=self.dtype, padding="same")(x) # projection
+                        dtype=self.dtype, padding=1)(x) # projection
             x = nn.GroupNorm(dtype=self.dtype)(x)
             x = nn.swish(x)
             
             if exists(time_emb):
-                time_emb = nn.Dense(self.num_channels * 2, dtype=self.dtype)(time_emb)
+                time_emb = nn.Dense(self.num_channels, dtype=self.dtype)(time_emb)
                 time_emb = nn.silu(time_emb)
                 x = rearrange(time_emb, "b c -> b c 1 1") + x
 
@@ -45,7 +45,7 @@ class ResNetBlock(nn.Module):
             x = nn.GroupNorm(dtype=self.dtype)(x)
             x = nn.swish(x)
             x = nn.Conv(self.num_channels, kernel_size=(3, 3),
-                        dtype=self.dtype, padding="same")(x)
+                        dtype=self.dtype, padding=1)(x)
 
             # Projection shortcut.
             residual = nn.Conv(features=self.num_channels,
