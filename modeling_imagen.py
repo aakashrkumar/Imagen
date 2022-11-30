@@ -147,7 +147,7 @@ class SinusoidalPositionEmbeddings(nn.Module):
         embeddings = math.log(10000) / (half_dim - 1)
         embeddings = jnp.exp(jnp.arange(half_dim) * -embeddings)
         embeddings = time[:, None] * embeddings[None, :]
-        embeddings = jnp.concatenate((jnp.sin(embeddings), jnp.cos(embeddings)), dim=-1)
+        embeddings = jnp.concatenate((jnp.sin(embeddings), jnp.cos(embeddings)), axis=-1)
         return embeddings
 
 
