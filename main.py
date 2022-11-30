@@ -9,7 +9,7 @@ ray.init(address="auto")
 
 def main():
     tpu_manager = TPUManager.TPUManager(6, "globaltpu2.aakashserver.org:6379")
-    tpu_manager.clear()
+    # tpu_manager.clear()
     tpu_manager.setup()
     trainer = Trainer.remote()
     ray.get(trainer.train.remote())
