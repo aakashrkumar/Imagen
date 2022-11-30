@@ -39,7 +39,8 @@ class ResNetBlock(nn.Module):
                 time_emb = nn.Dense(self.num_channels * 2, dtype=self.dtype)(time_emb)
                 time_emb = nn.silu(time_emb)
                 time_emb = time_emb[:,  jnp.newaxis, jnp.newaxis, :]
-                x = time_emb + x
+                scale, shift = jnp.split(time_emb, 2, axis=-1)
+                x = x * (1 + scale) + shift
 
 
             # Normalization, swish, and convolution.
