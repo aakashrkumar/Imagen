@@ -17,6 +17,7 @@ from layers import ResnetBlock, SinusoidalPositionEmbeddings, CrossEmbedLayer, T
 class UnetDBlock(nn.Module):
     """UnetD block with a projection shortcut and batch normalization."""
     num_channels: int
+    cond_dim: int
     strides: Tuple[int, int]
     dtype: jnp.dtype = jnp.float32
     num_resnet_blocks: int = 3

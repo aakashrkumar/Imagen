@@ -13,7 +13,14 @@ from sampler import GaussianDiffusionContinuousTimes, extract
 from einops import rearrange, repeat, reduce, pack, unpack
 from utils import exists, default
 
-
+class EinopsToAndFrom(nn.Module):
+    fn: Any
+    @nn.compact
+    def __call__(self, ar1, ar2, x):
+        x = rearrange(ar1, x)
+        x = self.fn(x)
+        x = rearrange(ar2, x)
+        return x
 class CrossEmbedLayer(nn.Module):
     dim_out: int = 128
     kernel_sizes: Tuple[int, ...] = (3, 7, 15)
@@ -271,3 +278,28 @@ class CombineEmbs(nn.Module):
         # use layer norm as suggested by the paper
         x = nn.LayerNorm(dtype=self.dtype)(x)
         return x
+
+class ChannelFeedForward(nn.Module):
+    dim: int
+    mult: int = 2
+    @nn.compact
+    def __call__(self, x):
+        x = ChannelLayerNorm(dim=self.dim)(x)
+        x = nn.Conv(features=self.dim * self.mult, kernel_size=(1, 1))(x)
+        x = nn.gelu(x)
+        x = ChannelLayerNorm(dim=self.dim)(x)
+        x = nn.Conv(features=self.dim, kernel_size=(1, 1))(x)
+        return x
+    
+class ChannelLayerNorm(nn.Module):
+    """
+    LayerNorm for :class:`.ChanFeedForward`.
+    """
+    dim: int
+    eps: float = 1e-5
+
+    @nn.compact
+    def __call__(self, x):
+        var = jnp.var(x, dim=-1, unbiased=False, keepdim=True)
+        mean = jnp.mean(x, dim=-1, keepdim=True)
+        return (x - mean) / (var + self.eps).sqrt() * jnp.ones(1, 1, 1, self.dim)
