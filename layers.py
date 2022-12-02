@@ -110,8 +110,8 @@ class ResnetBlock(nn.Module):
         if exists(time_emb):
             time_emb = nn.silu(time_emb)
             time_emb = nn.Dense(features=self.dim * 2)(time_emb)
-            time_emb = rearrange(time_emb, 'b c -> b c 1 1')
-            scale_shift = jnp.split(time_emb, 2, axis=1)
+            time_emb = rearrange(time_emb, 'b c -> b 1 1 c')
+            scale_shift = jnp.split(time_emb, 2, axis=-1)
         h = Block(self.dim)(x)
         if exists(self.cond_dim):
             h = CrossAttention(self.dim, self.cond_dim, time_cond_time=self.time_cond_time, dtype=self.dtype)(h, cond) + h
