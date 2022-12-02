@@ -26,6 +26,7 @@ class UnetDBlock(nn.Module):
     @nn.compact
     def __call__(self, x, time_emb, conditioning=None):
         # predownsample the input -- EfficientUNet maybe make optional
+        print(self.num_channels)
         x = nn.Conv(features=self.num_channels, kernel_size=(3, 3),
                     strides=self.strides, dtype=self.dtype, padding=1)(x)
 
@@ -71,7 +72,7 @@ class UnetUBlock(nn.Module):
 class EfficentUNet(nn.Module):
     # config: Dict[str, Any]
     dim: int = 128
-    dim_mults: tuple = (1, 2, 4, 8),
+    dim_mults: Tuple[int, ...] = (1, 2, 4, 8),
     num_time_tokens: int = 2
     cond_dim: int = None  # default to dim
     lowres_conditioning: bool = False
