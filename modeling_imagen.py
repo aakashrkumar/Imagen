@@ -303,7 +303,7 @@ class TextConditioning(nn.Module):
                 text_mask = jnp.pad(text_mask, (0, remainder), value=False)
                 text_mask = rearrange(text_mask, 'b n -> b n 1')
                 text_keep_mask_embed = text_mask & text_keep_mask_embed
-            null_text_embed = jax.random.normal(0, (1, self.max_token_length, self.cond_dim))
+            null_text_embed = jax.random.normal(jax.random.PRNGKey(0), (1, self.max_token_length, self.cond_dim))
             text_tokens = jnp.where(text_keep_mask_embed, text_tokens, null_text_embed)
             
             mean_pooled_text_tokens = jnp.mean(text_tokens, axis=-2)
@@ -313,7 +313,7 @@ class TextConditioning(nn.Module):
             text_hiddens = nn.Dense(features=self.time_cond_dim)(text_hiddens)
             
             text_keep_mask_hidden = rearrange(text_keep_mask, 'b -> b 1')
-            null_text_hidden = jax.random.normal(0, (1, self.time_cond_dim))
+            null_text_hidden = jax.random.normal(jax.random.PRNGKey(1), (1, self.time_cond_dim))
             text_hiddens = jnp.where(text_keep_mask_hidden, text_hiddens, null_text_hidden)
             
             t = t + text_hiddens
