@@ -308,6 +308,7 @@ class TextConditioning(nn.Module):
             
             mean_pooled_text_tokens = jnp.mean(text_tokens, axis=-2)
             text_hiddens = nn.LayerNorm(mean_pooled_text_tokens)
+            print("Hidden shape: ", text_hiddens.shape)
             text_hiddens = nn.Dense(features=self.time_cond_dim)(text_hiddens)
             text_hiddens = nn.silu(text_hiddens)
             text_hiddens = nn.Dense(features=self.time_cond_dim)(text_hiddens)
