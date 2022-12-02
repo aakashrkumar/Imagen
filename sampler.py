@@ -118,7 +118,7 @@ class GaussianDiffusionContinuousTimes(struct.PyTreeNode):
         # posterior_variance
         posterior_variance = betas * (1. - alphas_cumprod_prev) / (1. - alphas_cumprod)
         
-        posterior_log_variance_clipped = jnp.log(posterior_variance, eps=1e-20)
+        posterior_log_variance_clipped = jnp.log(jnp.clip(posterior_variance, 1e-20, 1e20))
         posterior_mean_coef1 = betas * jnp.sqrt(alphas_cumprod_prev) / (1. - alphas_cumprod)
         posterior_mean_coef2 = (1 - alphas_cumprod_prev) * jnp.sqrt(alphas) / (1. - alphas_cumprod)
         
