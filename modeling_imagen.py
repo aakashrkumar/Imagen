@@ -289,7 +289,6 @@ class TextConditioning(nn.Module):
     @nn.compact
     def __call__(self, text_embeds, text_mask, time_cond, time_tokens, rng):
         if exists(text_embeds):
-            
             text_tokens = nn.Dense(features=self.cond_dim)(text_embeds)
             text_tokens = text_tokens[:, :self.max_token_length]
             text_tokens_len = text_tokens.shape[1]
@@ -348,7 +347,7 @@ class EfficentUNet(nn.Module):
         t = nn.Dense(features=time_conditioning_dim,
                      dtype=self.dtype)(time_hidden)
 
-        time_tokens = nn.Dense(cond_dim, dtype=self.dtype)(t)
+        time_tokens = nn.Dense(cond_dim * self.num_time_tokens, dtype=self.dtype)(t)
         time_tokens = rearrange(
             time_tokens, 'b (r d) -> b r d', r=self.num_time_tokens)
 
