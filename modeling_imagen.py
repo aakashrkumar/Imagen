@@ -12,60 +12,65 @@ import optax
 from sampler import GaussianDiffusionContinuousTimes, extract
 from einops import rearrange, repeat, reduce, pack, unpack
 from utils import exists, default
-from layers import ResnetBlock, SinusoidalPositionEmbeddings, CrossEmbedLayer, TextConditioning
+from layers import ResnetBlock, SinusoidalPositionEmbeddings, CrossEmbedLayer, TextConditioning, TransformerBlock
 
 class UnetDBlock(nn.Module):
     """UnetD block with a projection shortcut and batch normalization."""
-    num_channels: int
-    cond_dim: int
+    dim: int # dim
+    cond_dim : int # text dim
+    time_cond_dim : int # text dim
+    
+    
     strides: Tuple[int, int]
-    dtype: jnp.dtype = jnp.float32
     num_resnet_blocks: int = 3
     text_cross_attention: bool = False
     num_attention_heads: int = 0
 
+    dtype: jnp.dtype = jnp.float32
+
     @nn.compact
     def __call__(self, x, time_emb, conditioning=None):
         # predownsample the input -- EfficientUNet maybe make optional
-        print(self.num_channels)
-        x = nn.Conv(features=self.num_channels, kernel_size=(3, 3),
+        print(self.dim)
+        x = nn.Conv(features=self.dim, kernel_size=(3, 3),
                     strides=self.strides, dtype=self.dtype, padding=1)(x)
 
-        x = ResnetBlock(num_channels=self.num_channels, dtype=self.dtype)(x, time_emb, conditioning) # and cond
+        x = ResnetBlock(dim=self.dim, dtype=self.dtype)(x, time_emb, conditioning) # and cond
         for _ in range(self.num_resnet_blocks):
-            x = ResnetBlock(num_channels=self.num_channels, dtype=self.dtype)(x)
+            x = ResnetBlock(dim=self.dim, dtype=self.dtype)(x)
         
         if self.num_attention_heads > 0:
-            x = nn.SelfAttention(num_heads=self.num_attention_heads, qkv_features=2 *
-                                 self.num_channels, out_features=self.num_channels)(x)
+            x = TransformerBlock(dim=self.dim, heads=self.num_attention_heads, dim_head=64, dtype=self.dtype)(x)
         return x
 
 
 class UnetUBlock(nn.Module):
     """UnetU block with a projection shortcut and batch normalization."""
-    num_channels: int
+    dim: int # dim
+    cond_dim : int # text dim
+    time_cond_dim : int # text dim
+    
     strides: Tuple[int, int]
-    dtype: jnp.dtype = jnp.float32
     num_resnet_blocks: int = 3
     text_cross_attention: bool = False
     num_attention_heads: int = 0
 
+    dtype: jnp.dtype = jnp.float32
     @nn.compact
     def __call__(self, x, time_emb, conditioning=None):
-        x = ResnetBlock(num_channels=self.num_channels, dtype=self.dtype)(x, time_emb, conditioning) # and cond
+        x = ResnetBlock(dim=self.dim, dtype=self.dtype)(x, time_emb, conditioning) # and cond
         for _ in range(self.num_resnet_blocks):
-            x = ResnetBlock(num_channels=self.num_channels, dtype=self.dtype)(x, time_emb)
+            x = ResnetBlock(dim=self.dim, time_cond_time=self.time_cond_dim, dtype=self.dtype)(x, time_emb)
             
         if self.num_attention_heads > 0:
-            x = nn.SelfAttention(num_heads=self.num_attention_heads, qkv_features=2 *
-                                 self.num_channels, out_features=self.num_channels)(x)
+            x = TransformerBlock(dim=self.dim, heads=self.num_attention_heads, dim_head=64, dtype=self.dtype)(x)
 
         x = jax.image.resize(
             x,
             shape=(x.shape[0], x.shape[1] * 2, x. shape[2] * 2, x.shape[3]),
             method="nearest",
         )
-        x = nn.Conv(features=self.num_channels, kernel_size=(
+        x = nn.Conv(features=self.dim, kernel_size=(
             3, 3), dtype=self.dtype, padding=1)(x)
         return x
 
@@ -104,18 +109,17 @@ class EfficentUNet(nn.Module):
         t, c = TextConditioning(cond_dim=cond_dim, time_cond_dim=time_conditioning_dim, max_token_length=self.max_token_len)(texts, attention_masks, t, time_tokens, rng)
         # TODO: add lowres conditioning
         
-
         x = CrossEmbedLayer(dim_out=self.dim,
                             kernel_sizes=(3, 7, 15), stride=1)(x)
         hiddens = []
 
         for dim_mult in self.dim_mults:
-            x = UnetDBlock(num_channels=self.dim * dim_mult,
+            x = UnetDBlock(dim=self.dim * dim_mult, cond_dim=cond_dim, time_cond_dim=time_conditioning_dim,
                            strides=self.strides, dtype=self.dtype)(x, time_tokens, c)
             hiddens.append(x)
 
         for dim_mult, hidden in zip(reversed(self.dim_mults), reversed(hiddens)):
-            x = UnetUBlock(num_channels=self.dim * dim_mult,
+            x = UnetUBlock(dim=self.dim * dim_mult, cond_dim=cond_dim,  time_cond_dim=time_conditioning_dim,
                            strides=self.strides, dtype=self.dtype)(x, time_tokens, c)
             x = jnp.concatenate([x, hidden], axis=-1)
 

@@ -11,15 +11,20 @@ import optax
 
 from sampler import GaussianDiffusionContinuousTimes, extract
 from einops import rearrange, repeat, reduce, pack, unpack
-from utils import exists, default
+from utils import exists, default, jax_unstack
+from einops_exts import rearrange_many, repeat_many
 
 class EinopsToAndFrom(nn.Module):
     fn: Any
+    from_einops: str
+    to_einops: str
     @nn.compact
-    def __call__(self, ar1, ar2, x):
-        x = rearrange(ar1, x)
-        x = self.fn(x)
-        x = rearrange(ar2, x)
+    def __call__(self, x, **kwargs):
+        shape = x.shape
+        reconstitute_kwargs = dict(tuple(zip(self.from_einops.split(' '), shape)))
+        x = rearrange(f"{self.from_einops} -> {self.to_einops}", x)
+        x = self.fn(x, **kwargs)
+        x = rearrange(f"{self.to_einops} -> {self.from_einops}", x, **reconstitute_kwargs)
         return x
 class CrossEmbedLayer(nn.Module):
     dim_out: int = 128
@@ -94,8 +99,8 @@ class Block(nn.Module):
 class ResnetBlock(nn.Module):
     """ResNet block with a projection shortcut and batch normalization."""
     num_channels: int
-    cond_dim : int
-    time_cond_time: int=None
+    cond_dim : int = None
+    time_cond_time: int = None
     dtype: jnp.dtype = jnp.float32
 
     @nn.compact
@@ -107,10 +112,12 @@ class ResnetBlock(nn.Module):
             time_emb = rearrange(time_emb, 'b c -> b c 1 1')
             scale_shift = jnp.split(time_emb, 2, axis=1)
         h = Block(self.num_channels)(x)
-        h = CrossAttention(self.num_channels, self.cond_dim, time_cond_time=self.time_cond_time, dtype=self.dtype)(h, cond) + h
+        if exists(self.cond_dim):
+            h = CrossAttention(self.num_channels, self.cond_dim, time_cond_time=self.time_cond_time, dtype=self.dtype)(h, cond) + h
         h = Block(self.num_channels)(h, shift_scale=scale_shift)
             
         return h + nn.Conv(features=self.num_channels, kernel_size=(1, 1))(x)
+
 
 
 class AlternateCrossAttentionBlock(nn.Module):
@@ -290,7 +297,57 @@ class ChannelFeedForward(nn.Module):
         x = ChannelLayerNorm(dim=self.dim)(x)
         x = nn.Conv(features=self.dim, kernel_size=(1, 1))(x)
         return x
-    
+class Attention(nn.Module):
+    dim: int
+    dim_head: int = 64
+    heads: int = 8
+    @nn.compact
+    def __call__(self, x, context=None, mask=None, attn_bias=None):
+        b, n = x.shape[:2]
+        scale = self.dim_head ** -0.5
+        inner_dim = self.dim_head * self.heads
+        
+        x = nn.LayerNorm()(x)
+        
+        q = nn.Dense(features=inner_dim, use_bias=False)(x)
+        k, v = nn.Dense(features=self.dim_head * 2, use_bias=False)(x).split(2, axis=-1)
+        
+        q = rearrange(q, 'b n (h d) -> b h n d', h=self.heads)
+        q = q * scale
+        
+        null_kv = jax.random.normal(jax.random.PRNGKey(3), (2, self.dim_head))
+        # null kv for classifier free guidance
+        nk, nv = repeat_many(jax_unstack(null_kv, axis=-2), 'd -> b 1 d', b=b)
+        
+        k = jnp.concatenate((k, nk), axis=-2)
+        v = jnp.concatenate((v, nv), axis=-2)
+        
+        if exists(context):
+            context_hidden = nn.LayerNorm()(context)
+            context_hidden = nn.Dense(features=self.dim_head*2, use_bias=False)(context_hidden)
+            ck, cv = context_hidden.split(2, axis=-1)
+            
+            k = jnp.concatenate((k, ck), axis=-2)
+            v = jnp.concatenate((v, cv), axis=-2)
+        
+        sim = jnp.einsum('b h i d, b j d -> b h i j', q, k)
+        
+        if exists(attn_bias):
+            sim = sim + attn_bias
+            
+        max_neg_value = -jnp.finfo(sim.dtype).max
+        if exists(mask):
+            mask = jnp.pad(mask, (1, 0), constant_values=True)
+            mask = rearrange(mask, 'b j -> b 1 1 j')
+            sim = jnp.where(~mask, sim, max_neg_value)
+        attn = nn.softmax(sim, axis=-1)
+        out = jnp.einsum('b h i j, b j d -> b h i d', attn, v)
+        
+        out = rearrange(out, 'b h n d -> b n (h d)')
+        
+        out = nn.Dense(features=self.dim, use_bias=False)(out)
+        return out
+        
 class ChannelLayerNorm(nn.Module):
     """
     LayerNorm for :class:`.ChanFeedForward`.
@@ -303,3 +360,18 @@ class ChannelLayerNorm(nn.Module):
         var = jnp.var(x, dim=-1, unbiased=False, keepdim=True)
         mean = jnp.mean(x, dim=-1, keepdim=True)
         return (x - mean) / (var + self.eps).sqrt() * jnp.ones(1, 1, 1, self.dim)
+    
+class TransformerBlock(nn.Module):
+    dim: int
+    heads: int = 8
+    dim_head: int = 32
+    ff_mult: int = 2
+    context_dim: int = None
+    dtype: jnp.dtype = jnp.float32
+    
+    @nn.compact
+    def __call__(self, x, context=None):
+        x = EinopsToAndFrom(Attention(dim=self.dim, dim_head=self.dim_head, heads=self.heads), 'b h w c', 'b (h w) c')(x, context=context) + x
+        x = ChannelFeedForward(dim=self.dim, mult=self.ff_mult)(x) + x
+        return x
+        

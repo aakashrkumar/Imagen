@@ -15,3 +15,4 @@ opencv-python-headless
 sentencepiece
 fabric
 tensorflow-datasets
+einops_exts
