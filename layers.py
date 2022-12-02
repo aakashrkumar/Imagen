@@ -153,8 +153,7 @@ class AlternateCrossAttentionBlock(nn.Module):
 
         # dot product between v transpose and k
         attention_matrix = jnp.einsum('...ij, ...jk -> ...ik', v, k)
-        attention_matrix = attention_matrix / \
-            jnp.sqrt(self.num_channels)  # scale the attention matrix
+        attention_matrix = attention_matrix / jnp.sqrt(self.num_channels)  # scale the attention matrix
         attention_matrix = nn.softmax(attention_matrix, axis=-1)
         # dot product between queries and attention matrix
         output = jnp.einsum('...ij, ...jk -> ...ik', q, attention_matrix)
