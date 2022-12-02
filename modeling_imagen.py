@@ -118,9 +118,9 @@ class EfficentUNet(nn.Module):
             hiddens.append(x)
 
         for dim_mult, hidden in zip(reversed(self.dim_mults), reversed(hiddens)):
+            x = jnp.concatenate([x, hidden], axis=-1)
             x = UnetUBlock(dim=self.dim * dim_mult, cond_dim=cond_dim,  time_cond_dim=time_conditioning_dim,
                            strides=self.strides, dtype=self.dtype)(x, t, c)
-            x = jnp.concatenate([x, hidden], axis=-1)
 
         x = nn.Dense(features=3, dtype=self.dtype)(x)
 
