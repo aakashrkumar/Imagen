@@ -95,10 +95,11 @@ def sample(imagen_state, noise, texts, attention, rng):
 @partial(jax.pmap, axis_name="batch")
 def train_step(imagen_state, imgs_start, timestep, texts, attention_masks, rng):
     rng,key = jax.random.split(rng)
+    rng, key2 = jax.random.split(rng)
     noise = jax.random.normal(key, imgs_start.shape)
     x_noise = imagen_state.sampler.q_sample(imgs_start, timestep, noise)
     def loss_fn(params):
-        predicted_noise = imagen_state.train_state.apply_fn({"params": params}, x_noise, timestep, texts, attention_masks)
+        predicted_noise = imagen_state.train_state.apply_fn({"params": params}, x_noise, timestep, texts, attention_masks, key2)
         loss = jnp.mean((noise - predicted_noise) ** 2)
         return loss, predicted_noise
     gradient_fn = jax.value_and_grad(loss_fn, has_aux=True)

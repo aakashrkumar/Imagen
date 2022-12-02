@@ -335,7 +335,7 @@ class EfficentUNet(nn.Module):
     dtype: jnp.dtype = jnp.float32
 
     @nn.compact
-    def __call__(self, x, time, rng, texts=None, attention_masks=None):
+    def __call__(self, x, time, texts=None, attention_masks=None, rng=None):
         time_conditioning_dim = self.dim * 4 * \
             (2 if self.lowres_conditioning else 1)
         cond_dim = default(self.cond_dim, self.dim)
