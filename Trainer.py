@@ -40,7 +40,7 @@ def get_datasets():
     train_ds["image"] =  np.array(train_ds["image"], dtype=np.float32)
     return train_ds, test_ds
 
-@ray.remote(resources={"tpu": 1, "host": 1}, num_cpus=30)
+# @ray.remote(resources={"tpu": 1, "host": 1}, num_cpus=30)
 class Trainer:
     def __init__(self):
         wandb.init(project="imagen", entity="apcsc")
