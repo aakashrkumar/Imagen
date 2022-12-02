@@ -219,13 +219,12 @@ class SinusoidalPositionEmbeddings(nn.Module):
 
     @nn.compact
     def __call__(self, time):
-        half_dim = self.dim // 2
-        embeddings = math.log(10000) / (half_dim - 1)
-        embeddings = jnp.exp(jnp.arange(half_dim) * -embeddings)
-        embeddings = time[:, None] * embeddings[None, :]
-        embeddings = jnp.concatenate(
-            (jnp.sin(embeddings), jnp.cos(embeddings)), axis=-1)
-        return embeddings
+        half_dim = self.dim//2
+        emb = math.log(10000) / (half_dim - 1)
+        emb = jnp.exp(jnp.arange(half_dim, dtype=jnp.float32) * -emb)
+        emb = rearrange(time, "i -> i 1") * rearrange(emb, "j -> 1 j")
+        return jnp.concatenate([jnp.sin(emb), jnp.cos(emb)], axis=-1)
+    
 
 
 class CombineEmbs(nn.Module):
