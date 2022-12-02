@@ -295,7 +295,7 @@ class TextConditioning(nn.Module):
             text_tokens_len = text_tokens.shape[1]
             remainder = self.max_token_length - text_tokens_len
             if remainder > 0:
-                text_tokens = jnp.pad(text_tokens, (0, 0, 0, remainder))
+                text_tokens = jnp.pad(text_tokens, ((0, 0), (0, remainder)))
             rng, key = jax.random.split(rng)
             text_keep_mask = jax.random.uniform(key, (text_tokens.shape)) > self.cond_drop_prob
             text_keep_mask_embed = rearrange(text_keep_mask, 'b -> b 1 1')
