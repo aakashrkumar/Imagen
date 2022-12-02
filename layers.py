@@ -26,6 +26,7 @@ class EinopsToAndFrom(nn.Module):
         x = self.fn(x, **kwargs)
         x = rearrange(f"{self.to_einops} -> {self.from_einops}", x, **reconstitute_kwargs)
         return x
+
 class CrossEmbedLayer(nn.Module):
     dim_out: int = 128
     kernel_sizes: Tuple[int, ...] = (3, 7, 15)
@@ -107,6 +108,7 @@ class ResnetBlock(nn.Module):
     def __call__(self, x, time_emb=None, cond=None):
         scale_shift = None
         if exists(time_emb):
+            print(time_emb.shape)
             time_emb = nn.silu(time_emb)
             time_emb = nn.Dense(features=self.dim * 2)(time_emb)
             time_emb = rearrange(time_emb, 'b c -> b c 1 1')
@@ -117,8 +119,6 @@ class ResnetBlock(nn.Module):
         h = Block(self.dim)(h, shift_scale=scale_shift)
             
         return h + nn.Conv(features=self.dim, kernel_size=(1, 1))(x)
-
-
 
 class AlternateCrossAttentionBlock(nn.Module):
     num_channels: int
