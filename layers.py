@@ -108,7 +108,6 @@ class ResnetBlock(nn.Module):
     def __call__(self, x, time_emb=None, cond=None):
         scale_shift = None
         if exists(time_emb):
-            print(time_emb.shape)
             time_emb = nn.silu(time_emb)
             time_emb = nn.Dense(features=self.dim * 2)(time_emb)
             time_emb = rearrange(time_emb, 'b c -> b c 1 1')
@@ -116,10 +115,10 @@ class ResnetBlock(nn.Module):
         h = Block(self.dim)(x)
         if exists(self.cond_dim):
             h = CrossAttention(self.dim, self.cond_dim, time_cond_time=self.time_cond_time, dtype=self.dtype)(h, cond) + h
-        print(h.shape)
+        
         h = Block(self.dim)(h, shift_scale=scale_shift)
             
-        return h + nn.Conv(features=self.dim, kernel_size=(1, 1))(x)
+        return h + nn.Conv(features=self.dim, kernel_size=(1, 1), padding="same")(x)
 
 class AlternateCrossAttentionBlock(nn.Module):
     num_channels: int
