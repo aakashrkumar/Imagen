@@ -89,7 +89,7 @@ class Block(nn.Module):
     dim: int
     @nn.compact
     def __call__(self, x, shift_scale=None):
-        x = nn.GroupNorm(group_size=8)(x)
+        x = nn.GroupNorm(num_groups=8)(x)
         if exists(shift_scale):
             shift, scale = shift_scale
             x = x * (scale + 1) + shift
