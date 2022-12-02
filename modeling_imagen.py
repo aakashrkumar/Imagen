@@ -110,7 +110,7 @@ class EfficentUNet(nn.Module):
         
         x = CrossEmbedLayer(dim_out=self.dim,
                             kernel_sizes=(3, 7, 15), stride=1)(x)
-        hiddens = []
+        hiddens = [None]
 
         for dim_mult in self.dim_mults:
             x = UnetDBlock(dim=self.dim * dim_mult, cond_dim=cond_dim, time_cond_dim=time_conditioning_dim,
@@ -121,7 +121,8 @@ class EfficentUNet(nn.Module):
         for dim_mult, hidden in zip(reversed(self.dim_mults), reversed(hiddens)):
             x = UnetUBlock(dim=self.dim * dim_mult, cond_dim=cond_dim,  time_cond_dim=time_conditioning_dim,
                            strides=self.strides, dtype=self.dtype)(x, t, c)
-            x = jnp.concatenate([x, hidden], axis=-1)
+            if hidden is not None:
+                x = jnp.concatenate([x, hidden], axis=-1)
 
         x = nn.Dense(features=3, dtype=self.dtype)(x)
 
