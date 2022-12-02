@@ -307,8 +307,7 @@ class TextConditioning(nn.Module):
             text_tokens = jnp.where(text_keep_mask_embed, text_tokens, null_text_embed)
             
             mean_pooled_text_tokens = jnp.mean(text_tokens, axis=-2)
-            text_hiddens = nn.LayerNorm(mean_pooled_text_tokens)
-            print("Hidden shape: ", text_hiddens.shape)
+            text_hiddens = nn.LayerNorm()(mean_pooled_text_tokens)
             text_hiddens = nn.Dense(features=self.time_cond_dim)(text_hiddens)
             text_hiddens = nn.silu(text_hiddens)
             text_hiddens = nn.Dense(features=self.time_cond_dim)(text_hiddens)
@@ -319,7 +318,7 @@ class TextConditioning(nn.Module):
             
             time_cond = time_cond + text_hiddens
         c = time_tokens if not exists(text_embeds) else jnp.concatenate([time_tokens, text_hiddens], axis=-2)
-        c = nn.LayerNorm(c)
+        c = nn.LayerNorm()(c)
         return time_cond, c
 
 class EfficentUNet(nn.Module):
