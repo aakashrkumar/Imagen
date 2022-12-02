@@ -72,7 +72,7 @@ class UnetUBlock(nn.Module):
 class EfficentUNet(nn.Module):
     # config: Dict[str, Any]
     dim: int = 128
-    dim_mults: Tuple[int, ...] = (1, 2, 4, 8),
+    dim_mults: Tuple[int, ...] = (1, 2, 4, 8)
     num_time_tokens: int = 2
     cond_dim: int = None  # default to dim
     lowres_conditioning: bool = False
