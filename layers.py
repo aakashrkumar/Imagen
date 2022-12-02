@@ -116,6 +116,7 @@ class ResnetBlock(nn.Module):
         h = Block(self.dim)(x)
         if exists(self.cond_dim):
             h = CrossAttention(self.dim, self.cond_dim, time_cond_time=self.time_cond_time, dtype=self.dtype)(h, cond) + h
+        print(h.shape)
         h = Block(self.dim)(h, shift_scale=scale_shift)
             
         return h + nn.Conv(features=self.dim, kernel_size=(1, 1))(x)
