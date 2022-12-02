@@ -120,7 +120,7 @@ class Imagen:
         )
         self.unet = EfficentUNet()
         self.random_state, key = jax.random.split(self.random_state)
-        self.params = self.unet.init(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)))
+        self.params = self.unet.init(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), key)
         
         #lr = optax.warmup_cosine_decay_schedule(
        #     init_value=0.0,
