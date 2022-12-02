@@ -105,7 +105,7 @@ class EfficentUNet(nn.Module):
 
         x = CrossEmbedLayer(dim_out=self.dim,
                             kernel_sizes=(3, 7, 15), stride=1)(x)
-
+        print(x.shape)
         hiddens = []
 
         for dim_mult in self.dim_mults:
