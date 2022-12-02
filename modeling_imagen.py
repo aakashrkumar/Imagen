@@ -316,10 +316,10 @@ class TextConditioning(nn.Module):
             null_text_hidden = jax.random.normal(jax.random.PRNGKey(1), (1, self.time_cond_dim))
             text_hiddens = jnp.where(text_keep_mask_hidden, text_hiddens, null_text_hidden)
             
-            t = t + text_hiddens
+            time_cond = time_cond + text_hiddens
         c = time_tokens if not exists(text_embeds) else jnp.concatenate([time_tokens, text_hiddens], axis=-2)
         c = nn.LayerNorm(c)
-        return t, c
+        return time_cond, c
 
 class EfficentUNet(nn.Module):
     # config: Dict[str, Any]
