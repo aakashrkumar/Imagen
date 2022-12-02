@@ -12,7 +12,7 @@ import optax
 from sampler import GaussianDiffusionContinuousTimes, extract
 from einops import rearrange, repeat, reduce, pack, unpack
 from utils import exists, default
-from layers import ResnetBlock, SinusoidalPositionEmbeddings, 
+from layers import ResnetBlock, SinusoidalPositionEmbeddings, CrossEmbedLayer, TextConditioning
 
 class UnetDBlock(nn.Module):
     """UnetD block with a projection shortcut and batch normalization."""
