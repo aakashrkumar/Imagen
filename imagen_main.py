@@ -113,12 +113,12 @@ def train_step(imagen_state, imgs_start, timestep, texts, attention_masks, rng):
 
 
 class Imagen:
-    def __init__(self, img_size: int = 64, batch_size: int = 16, sequence_length: int = 512, encoder_latent_dims: int = 1024, num_timesteps: int = 1000, loss_type: str = "l2"):
+    def __init__(self, img_size: int = 64, batch_size: int = 16, sequence_length: int = 256, encoder_latent_dims: int = 512, num_timesteps: int = 1000, loss_type: str = "l2"):
         self.random_state = jax.random.PRNGKey(0)        
         self.lowres_scheduler = GaussianDiffusionContinuousTimes.create(
             noise_schedule="cosine", num_timesteps=1000
         )
-        self.unet = EfficentUNet()
+        self.unet = EfficentUNet(max_token_len=sequence_length)
         self.random_state, key = jax.random.split(self.random_state)
         self.params = self.unet.init(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), key)
         
@@ -166,21 +166,3 @@ class Imagen:
 
 def compute_metrics(loss, logits):
     return {"loss": loss}
-
-def test():
-    import cv2
-    import numpy as np
-    imagen = Imagen()
-    print("Training done")
-    batch_size = 8
-    for i in tqdm(range(1000)):
-        # imagen.train_step(jnp.ones((batch_size, 64, 64, 3)), jnp.ones(batch_size, dtype=jnp.int16) * 10, jnp.ones((batch_size, 15, 1024)), jnp.ones((batch_size, 15)))
-        
-        images = imagen.sample(text_encoding, attention_mask)
-       # print(images.shape)
-        #images = np.asarray(images * 127.5 + 127.5, dtype=np.uint8)
-        # cv2.imshow("image", images[i])
-        #cv2.waitKey(0)
-if __name__ == "__main__":
-    test()
-    
