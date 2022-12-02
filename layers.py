@@ -117,7 +117,7 @@ class ResnetBlock(nn.Module):
             h = CrossAttention(self.dim, self.cond_dim, time_cond_time=self.time_cond_time, dtype=self.dtype)(h, cond) + h
         
         h = Block(self.dim)(h, shift_scale=scale_shift)
-            
+        # padding was not same
         return h + nn.Conv(features=self.dim, kernel_size=(1, 1), padding="same")(x)
 
 class AlternateCrossAttentionBlock(nn.Module):
