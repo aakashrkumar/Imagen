@@ -106,10 +106,11 @@ class EfficentUNet(nn.Module):
 
         x = CrossEmbedLayer(dim_out=self.dim,
                             kernel_sizes=(3, 7, 15), stride=1)(x)
-        print(x.shape)
         hiddens = []
 
         for dim_mult in self.dim_mults:
+            print(self.dim)
+            print(dim_mult)
             x = UnetDBlock(num_channels=self.dim * dim_mult,
                            strides=self.strides, dtype=self.dtype)(x, time_tokens, c)
             hiddens.append(x)
