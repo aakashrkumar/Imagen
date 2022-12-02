@@ -89,7 +89,7 @@ class Block(nn.Module):
     dim: int
     @nn.compact
     def __call__(self, x, shift_scale=None):
-        x = nn.GroupNorm(group_size=8)(x)
+        x = nn.GroupNorm(num_groups=8)(x)
         if exists(shift_scale):
             shift, scale = shift_scale
             x = x * (scale + 1) + shift
@@ -116,6 +116,7 @@ class ResnetBlock(nn.Module):
         h = Block(self.dim)(x)
         if exists(self.cond_dim):
             h = CrossAttention(self.dim, self.cond_dim, time_cond_time=self.time_cond_time, dtype=self.dtype)(h, cond) + h
+        print(h.shape)
         h = Block(self.dim)(h, shift_scale=scale_shift)
             
         return h + nn.Conv(features=self.dim, kernel_size=(1, 1))(x)
