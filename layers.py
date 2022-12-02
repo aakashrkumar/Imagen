@@ -85,7 +85,7 @@ class TextConditioning(nn.Module):
         return time_cond, c
 
 class Block(nn.Module):
-    num_channels: int
+    dim: int
     @nn.compact
     def __call__(self, x, shift_scale=None):
         x = nn.GroupNorm(group_size=8)(x)
@@ -93,12 +93,12 @@ class Block(nn.Module):
             shift, scale = shift_scale
             x = x * (scale + 1) + shift
         x = nn.swish(x)
-        return nn.Conv(features=self.num_channels, kernel_size=(3, 3), padding=1)(x)
+        return nn.Conv(features=self.dim, kernel_size=(3, 3), padding=1)(x)
 
 
 class ResnetBlock(nn.Module):
     """ResNet block with a projection shortcut and batch normalization."""
-    num_channels: int
+    dim: int
     cond_dim : int = None
     time_cond_time: int = None
     dtype: jnp.dtype = jnp.float32
@@ -108,15 +108,15 @@ class ResnetBlock(nn.Module):
         scale_shift = None
         if exists(time_emb):
             time_emb = nn.silu(time_emb)
-            time_emb = nn.Dense(features=self.num_channels * 2)(time_emb)
+            time_emb = nn.Dense(features=self.dim * 2)(time_emb)
             time_emb = rearrange(time_emb, 'b c -> b c 1 1')
             scale_shift = jnp.split(time_emb, 2, axis=1)
-        h = Block(self.num_channels)(x)
+        h = Block(self.dim)(x)
         if exists(self.cond_dim):
-            h = CrossAttention(self.num_channels, self.cond_dim, time_cond_time=self.time_cond_time, dtype=self.dtype)(h, cond) + h
-        h = Block(self.num_channels)(h, shift_scale=scale_shift)
+            h = CrossAttention(self.dim, self.cond_dim, time_cond_time=self.time_cond_time, dtype=self.dtype)(h, cond) + h
+        h = Block(self.dim)(h, shift_scale=scale_shift)
             
-        return h + nn.Conv(features=self.num_channels, kernel_size=(1, 1))(x)
+        return h + nn.Conv(features=self.dim, kernel_size=(1, 1))(x)
 
 
 
