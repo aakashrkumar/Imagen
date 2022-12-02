@@ -317,7 +317,7 @@ class TextConditioning(nn.Module):
             text_hiddens = jnp.where(text_keep_mask_hidden, text_hiddens, null_text_hidden)
             
             time_cond = time_cond + text_hiddens
-        c = time_tokens if not exists(text_embeds) else jnp.concatenate([time_tokens, text_hiddens], axis=-2)
+        c = time_tokens if not exists(text_embeds) else jnp.concatenate([time_tokens, text_tokens], axis=-2)
         c = nn.LayerNorm()(c)
         return time_cond, c
 
