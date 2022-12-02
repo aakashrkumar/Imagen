@@ -40,25 +40,35 @@ def linear_beta_schedule(timesteps: int):
 def extract(a, t, x_shape):
     # extract the values of a at the positions given by t
     # batch_size = t.shape[0] # get the batch size
-    batch_size = t.shape[0] # get the batch size
-    out = jnp.take_along_axis(a, t, -1) # extract the values
-    return jnp.reshape(out, (batch_size, *((1,) * (len(x_shape) - 1)))) # reshape the output
+    batch_size = t.shape[0]  # get the batch size
+    out = jnp.take_along_axis(a, t, -1)  # extract the values
+    # reshape the output
+    return jnp.reshape(out, (batch_size, *((1,) * (len(x_shape) - 1))))
 
 
 class GaussianDiffusionContinuousTimes(struct.PyTreeNode):
     noise_schedule: str = struct.field(pytree_node=False)
     num_timesteps: int = struct.field(pytree_node=False)
     beta_schedule: Any = struct.field(pytree_node=False)
+    
     betas: Any
     alphas: Any
     alphas_cumprod: Any
     alphas_cumprod_prev: Any
-    sqrt_recip_alphas: Any
-
+    
     sqrt_alphas_cumprod: Any
-
     sqrt_one_minus_alphas_cumprod: Any
+    log_one_minus_alphas_cumprod: Any
+    sqrt_recip_alphas_cumprod: Any
+    sqrt_recipt_minus_one_alphas_cumprod: Any
+    
+    # posterior variance
     posterior_variance: Any
+    
+    posterior_log_variance_clipped: Any
+    posterior_mean_coef1: Any
+    posterior_mean_coef2: Any
+    
 
     def get_times(self):
         return self.beta_schedule(self.num_timesteps)
@@ -70,6 +80,21 @@ class GaussianDiffusionContinuousTimes(struct.PyTreeNode):
             self.sqrt_one_minus_alphas_cumprod, t, x_start.shape)
         return sqrt_alphas_cumprod_t * x_start + sqrt_one_minus_alphas_cumprod_t * noise
 
+    def predict_start_from_noise(self, x_t, t, noise):
+        return(
+            extract(self.sqrt_recip_alphas_cumprod,
+                    t, x_t.shape) * x_t - extract(self.sqrt_recipt_minus_one_alphas_cumprod, t, x_t.shape) * noise
+        )
+
+    def q_posterior(self, x_start, x_t, t):
+        posteior_mean = (
+            extract(self.posterior_mean_coef1, t, x_start.shape) * x_start + extract(self.posterior_mean_coef2, t, x_start.shape) * x_t
+        )
+        
+        posterior_variance = extract(self.posterior_variance, t, x_start.shape)
+        posterior_log_variance_clipped = extract(self.posterior_log_variance_clipped, t, x_start.shape)
+        return posteior_mean, posterior_variance, posterior_log_variance_clipped
+    
     @classmethod
     def create(cls, noise_schedule, num_timesteps):
         if noise_schedule == "cosine":
@@ -81,18 +106,40 @@ class GaussianDiffusionContinuousTimes(struct.PyTreeNode):
 
         betas = beta_schedule(num_timesteps)
         alphas = 1 - betas
-        alphas_cumprod = jnp.cumprod(alphas)
+        alphas_cumprod = jnp.cumprod(alphas, axis=0)
         alphas_cumprod_prev = jnp.pad(
             alphas_cumprod[:-1], ((1, 0),), constant_values=1.0)
-        sqrt_recip_alphas = jnp.sqrt(1.0 / alphas)
 
         sqrt_alphas_cumprod = jnp.sqrt(alphas_cumprod)
-
-        sqrt_one_minus_alphas_cumprod = jnp.sqrt(
-            1.0 - alphas_cumprod)
-        posterior_variance = betas * \
-            (1. - alphas_cumprod_prev) / (1. - alphas_cumprod)
-        return cls(noise_schedule, num_timesteps, beta_schedule, betas, alphas, alphas_cumprod, alphas_cumprod_prev, sqrt_recip_alphas, sqrt_alphas_cumprod, sqrt_one_minus_alphas_cumprod, posterior_variance)
+        sqrt_one_minus_alphas_cumprod = jnp.sqrt(1 - alphas_cumprod)
+        log_one_minus_alphas_cumprod = jnp.log(1 - alphas_cumprod)
+        sqrt_recip_alphas_cumprod = jnp.sqrt(1/alphas_cumprod)
+        sqrt_recipt_minus_one_alphas_cumprod = jnp.sqrt(1/alphas_cumprod - 1)
+        # posterior_variance
+        posterior_variance = betas * (1. - alphas_cumprod_prev) / (1. - alphas_cumprod)
+        
+        posterior_log_variance_clipped = jnp.log(posterior_variance, eps=1e-20)
+        posterior_mean_coef1 = betas * jnp.sqrt(alphas_cumprod_prev) / (1. - alphas_cumprod)
+        posterior_mean_coef2 = (1 - alphas_cumprod_prev) * jnp.sqrt(alphas) / (1. - alphas_cumprod)
+        
+        return cls(
+            noise_schedule=noise_schedule,
+            num_timesteps=num_timesteps,
+            beta_schedule=beta_schedule,
+            betas=betas,
+            alphas=alphas,
+            alphas_cumprod=alphas_cumprod,
+            alphas_cumprod_prev=alphas_cumprod_prev,
+            sqrt_alphas_cumprod=sqrt_alphas_cumprod,
+            sqrt_one_minus_alphas_cumprod=sqrt_one_minus_alphas_cumprod,
+            log_one_minus_alphas_cumprod=log_one_minus_alphas_cumprod,
+            sqrt_recip_alphas_cumprod=sqrt_recip_alphas_cumprod,
+            sqrt_recipt_minus_one_alphas_cumprod=sqrt_recipt_minus_one_alphas_cumprod,
+            posterior_variance=posterior_variance,
+            posterior_log_variance_clipped=posterior_log_variance_clipped,
+            posterior_mean_coef1=posterior_mean_coef1,
+            posterior_mean_coef2=posterior_mean_coef2
+        )
 
 
 def get_noisy_image(x, t, noise, sampler):
