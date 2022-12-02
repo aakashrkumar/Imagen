@@ -109,8 +109,6 @@ class EfficentUNet(nn.Module):
         hiddens = []
 
         for dim_mult in self.dim_mults:
-            print(self.dim)
-            print(dim_mult)
             x = UnetDBlock(num_channels=self.dim * dim_mult,
                            strides=self.strides, dtype=self.dtype)(x, time_tokens, c)
             hiddens.append(x)
