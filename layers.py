@@ -27,13 +27,12 @@ class CrossEmbedLayer(nn.Module):
         dim_scales = [int(self.dim_out / (2 ** i))
                       for i in range(1, num_scales)]
         dim_scales = dim_scales + [self.dim_out - sum(dim_scales)]
-        print(dim_scales)
         convs = []
         for kernel, dim_scale in zip(kernel_sizes, dim_scales):
             convs.append(nn.Conv(features=dim_scale, kernel_size=(kernel, kernel), strides=self.stride, padding=(kernel - self.stride) // 2)(x))
 
         # TODO: most implementations have axis=1, but we're using -1
-        return jnp.concatenate(convs, axis=1)
+        return jnp.concatenate(convs, axis=-1)
 
 class TextConditioning(nn.Module):
     cond_drop_prob: float = 0.1   
