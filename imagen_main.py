@@ -71,6 +71,34 @@ def p_sample(t_index, generator_state):
    # else:
     #    x = model_mean + noise * jnp.sqrt(posterior_variance_t)
     return GeneratorState.replace(generator_state, image=x, rng=rng)
+
+def p_mean_variance(t_index, generator_state):
+    t_index = 999-t_index
+    t_index = min(t_index, 999)
+    t_index = max(t_index, 0)
+    t = jnp.ones(1, dtype=jnp.int16) * t_index
+    pred = train_state.apply_fn({"params": train_state.params}, generator_state.image, generator_state.timesteps, generator_state.text, generator_state.attention, generator_state.key)
+    x_start = generator_state.imagen_state.sampler.predict_start_from_noise(generator_state.image, t=t, noise=pred)
+    
+    s = jnp.percentile(
+        rearrange(x_start, 'b ... -> b (...)').abs(),
+        0.95,
+        dim=-1
+    ) # dynamic thresholding percentile
+    
+    s = jnp.max(s, 1.0)
+    x_start = jnp.clip(x_start, -s, s) / s
+    
+    return generator_state.imagen_state.sampler.q_posterior(x_start, x_t=GeneratorState.image, t=t)
+
+def p_sample(t_index, generator_state):
+    model_mean, _, model_log_variance = p_mean_variance(t_index, generator_state)
+    rng, key = jax.random.split(generator_state.rng)
+    generator_state = generator_state.replace(rng=rng)
+    noise = jax.random.normal(key, generator_state.image.shape) 
+    x = jax.lax.cond(t_index > 0, lambda x: model_mean + noise * jnp.exp(0.5 * model_log_variance), lambda x: model_mean, None)
+    return generator_state.replace(image=x)
+
 @partial(jax.pmap, axis_name="batch")
 def p_sample_loop(imagen_state, img, texts, attention, rng):
     # img is x0
