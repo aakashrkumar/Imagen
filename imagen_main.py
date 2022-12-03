@@ -109,13 +109,13 @@ class Imagen:
         self.random_state, key = jax.random.split(self.random_state)
         self.params = self.unet.init(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, key)
         
-        #lr = optax.warmup_cosine_decay_schedule(
-       #     init_value=0.0,
-       #     peak_value=1e-4,
-        #    warmup_steps=10000,
-         #   decay_steps=2500000,
-         #   end_value=2500000)
-        self.opt = optax.adafactor(learning_rate=1e-4)
+        lr = optax.warmup_cosine_decay_schedule(
+            init_value=0.0,
+            peak_value=1e-4,
+            warmup_steps=10000,
+            decay_steps=2500000,
+            end_value=2500000)
+        self.opt = optax.adafactor(learning_rate=lr)
         self.train_state = train_state.TrainState.create(
             apply_fn=self.unet.apply,
             tx=self.opt,
