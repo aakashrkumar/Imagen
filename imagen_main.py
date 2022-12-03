@@ -40,7 +40,7 @@ def p_mean_variance(t_index, generator_state):
     x_start = generator_state.imagen_state.sampler.predict_start_from_noise(generator_state.image, t=t, noise=pred)
     
     s = jnp.percentile(
-        rearrange(x_start, 'b ... -> b (...)').abs(),
+        jnp.abs(rearrange(x_start, 'b ... -> b (...)')),
         0.95,
         dim=-1
     ) # dynamic thresholding percentile
