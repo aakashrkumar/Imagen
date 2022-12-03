@@ -42,7 +42,7 @@ def p_mean_variance(t_index, generator_state):
     s = jnp.percentile(
         jnp.abs(rearrange(x_start, 'b ... -> b (...)')),
         0.95,
-        dim=-1
+        axis=-1
     ) # dynamic thresholding percentile
     
     s = jnp.max(s, 1.0)
