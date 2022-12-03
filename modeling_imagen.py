@@ -89,7 +89,6 @@ class EfficentUNet(nn.Module):
 
     @nn.compact
     def __call__(self, x, time, texts=None, attention_masks=None, condition_drop_prob=0.1, rng=None):
-        assert rng is not None
         time_conditioning_dim = self.dim * 4 * \
             (2 if self.lowres_conditioning else 1)
         cond_dim = default(self.cond_dim, self.dim)
