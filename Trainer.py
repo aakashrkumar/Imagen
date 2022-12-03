@@ -44,7 +44,7 @@ def get_datasets():
 class Trainer:
     def __init__(self):
         wandb.init(project="imagen", entity="apcsc")
-        wandb.config.batch_size = 8
+        wandb.config.batch_size = 64
         wandb.config.num_datacollectors = 5
         wandb.config.seed = 0
         wandb.config.learning_rate = 1e-4
@@ -77,7 +77,7 @@ class Trainer:
             
             timesteps = list(range(0, 1000))
             
-            timesteps = np.random.permutation(timesteps)[:1000]
+            timesteps = np.random.permutation(timesteps)[:5]
             
             for ts in timesteps:
                 start_time = time.time()
