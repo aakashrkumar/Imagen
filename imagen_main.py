@@ -31,53 +31,14 @@ class GeneratorState(struct.PyTreeNode):
     text: jnp.ndarray
     attention: jnp.ndarray
     rng: jax.random.PRNGKey
-    
-
-def j_sample(train_state, sampler, imgs, timesteps, texts, attention, key):
-    betas_t = extract(sampler.betas, timesteps, imgs.shape)
-    sqrt_one_minus_alphas_cumprod_t = extract(
-        sampler.sqrt_one_minus_alphas_cumprod, timesteps, imgs.shape)
-    sqrt_recip_alphas_t = extract(
-        sampler.sqrt_recip_alphas, timesteps, imgs.shape)
-    model_mean = sqrt_recip_alphas_t * \
-        (imgs - betas_t * train_state.apply_fn({"params": train_state.params}, imgs, timesteps, texts, attention, key) /
-            sqrt_one_minus_alphas_cumprod_t)
-   # s = jnp.percentile(
-    #    jnp.abs(model_mean), 0.95,
-      #  axis=(1, *tuple(range(1, model_mean.ndim)))
-     #   )
-    # s = jnp.max(s, 1.0)
-    
-    model_mean = jnp.clip(model_mean, -1., 1.)
-    
-    return model_mean
-
-def p_sample(t_index, generator_state):
-    t_index = 999-t_index
-    t_index = min(t_index, 999)
-    t_index = max(t_index, 0)
-    t = jnp.ones(1, dtype=jnp.int16) * t_index
-    t = jnp.array(t, dtype=jnp.int16)
-    rng, key = jax.random.split(generator_state.rng)
-    model_mean = j_sample(generator_state.imagen_state.train_state, generator_state.imagen_state.sampler, generator_state.image, t, generator_state.text, generator_state.attention, key)
-    rng, key = jax.random.split(rng)
-    posterior_variance_t = extract(
-    generator_state.imagen_state.sampler.posterior_variance, t, generator_state.image.shape)
-    noise = jax.random.normal(key, generator_state.image.shape)  # TODO: use proper key
-
-    x = jax.lax.cond(t_index > 0, lambda x: model_mean + noise * jnp.sqrt(posterior_variance_t), lambda x: model_mean, None)
-   #if t_index == 0:
-   #     x = model_mean
-   # else:
-    #    x = model_mean + noise * jnp.sqrt(posterior_variance_t)
-    return GeneratorState.replace(generator_state, image=x, rng=rng)
+    conditioning_prob: float
 
 def p_mean_variance(t_index, generator_state):
     t_index = 999-t_index
     t_index = min(t_index, 999)
     t_index = max(t_index, 0)
     t = jnp.ones(1, dtype=jnp.int16) * t_index
-    pred = train_state.apply_fn({"params": train_state.params}, generator_state.image, generator_state.timesteps, generator_state.text, generator_state.attention, generator_state.key)
+    pred = train_state.apply_fn({"params": train_state.params}, generator_state.image, generator_state.timesteps, generator_state.text, generator_state.attention, generator_state.conditioning_prob, generator_state.key)
     x_start = generator_state.imagen_state.sampler.predict_start_from_noise(generator_state.image, t=t, noise=pred)
     
     s = jnp.percentile(
@@ -105,7 +66,7 @@ def p_sample_loop(imagen_state, img, texts, attention, rng):
     batch_size = img.shape[0]
     rng, key = jax.random.split(rng)
     # imgs = []
-    generator_state = GeneratorState(imagen_state=imagen_state, image=img, text=texts, attention=attention, rng=rng)
+    generator_state = GeneratorState(imagen_state=imagen_state, image=img, text=texts, attention=attention, rng=rng, conditioning_prob=0.1)
     generator_state = jax.lax.fori_loop(0, 1000, p_sample, generator_state)
     img = generator_state.image
     #for i in reversed(range(sampler.num_timesteps)):
@@ -127,7 +88,7 @@ def train_step(imagen_state, imgs_start, timestep, texts, attention_masks, rng):
     noise = jax.random.normal(key, imgs_start.shape)
     x_noise = imagen_state.sampler.q_sample(imgs_start, timestep, noise)
     def loss_fn(params):
-        predicted_noise = imagen_state.train_state.apply_fn({"params": params}, x_noise, timestep, texts, attention_masks, key2)
+        predicted_noise = imagen_state.train_state.apply_fn({"params": params}, x_noise, timestep, texts, attention_masks, 0.1, key2)
         loss = jnp.mean((noise - predicted_noise) ** 2)
         return loss, predicted_noise
     gradient_fn = jax.value_and_grad(loss_fn, has_aux=True)
