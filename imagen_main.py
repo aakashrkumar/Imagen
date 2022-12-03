@@ -48,7 +48,7 @@ def p_mean_variance(t_index, generator_state):
     s = jnp.maximum(s, 1.0)
     x_start = jnp.clip(x_start, -s, s) / s
     
-    return generator_state.imagen_state.sampler.q_posterior(x_start, x_t=GeneratorState.image, t=t)
+    return generator_state.imagen_state.sampler.q_posterior(x_start, x_t=generator_state.image, t=t)
 
 def p_sample(t_index, generator_state):
     model_mean, _, model_log_variance = p_mean_variance(t_index, generator_state)
