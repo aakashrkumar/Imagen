@@ -109,7 +109,7 @@ class Trainer:
                     "An image of an apple watch",
                 ]
                 prompts = [
-                    "An image of the number" + str(i) for i in range(1, 9)
+                    "An image of the number " + str(i) for i in range(1, 9)
                 ]
                 prompts_encoded, attention_masks = encode_text(prompts, self.tokenizer, self.model)
                 prompts_encoded = jnp.array(prompts_encoded)
