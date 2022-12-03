@@ -45,7 +45,7 @@ def p_mean_variance(t_index, generator_state):
         axis=-1
     ) # dynamic thresholding percentile
     
-    s = jnp.max(s, 1.0)
+    s = max(s, 1.0)
     x_start = jnp.clip(x_start, -s, s) / s
     
     return generator_state.imagen_state.sampler.q_posterior(x_start, x_t=GeneratorState.image, t=t)
