@@ -44,7 +44,7 @@ def get_datasets():
 class Trainer:
     def __init__(self):
         wandb.init(project="imagen", entity="apcsc")
-        wandb.config.batch_size = 64
+        wandb.config.batch_size = 128
         wandb.config.num_datacollectors = 5
         wandb.config.seed = 0
         wandb.config.learning_rate = 1e-4
@@ -58,9 +58,7 @@ class Trainer:
         # self.datacollector.start.remote()
         self.tokenizer, self.model = get_tokenizer_and_model()
         self.train_dataset, _ = get_datasets()
-        self.encode_dict = {}
-        for i in range(10):
-            self.encode_dict[i] = encode_text([str(i)], self.tokenizer, self.model)
+        
     def train(self):
         pbar = tqdm(range(1, 1_000_001))
         step = 0
@@ -70,11 +68,7 @@ class Trainer:
             images = self.train_dataset['image'][key:key+wandb.config.batch_size]
             captions = self.train_dataset['label'][key:key+wandb.config.batch_size]
             captions = [str(caption) for caption in captions]
-            # captions_encoded, attention_masks = encode_text(captions, self.tokenizer, self.model)
-            captions_encoded, attention_masks = [], []
-            for caption in captions:
-                captions_encoded.append(self.encode_dict[int(caption)][0])
-                attention_masks.append(self.encode_dict[int(caption)][1])
+            captions_encoded, attention_masks = encode_text(captions, self.tokenizer, self.model)
             # images, captions, captions_encoded, attention_masks = ray.get(self.datacollector.get_batch.remote())
             images = jnp.array(images)
             captions_encoded = jnp.array(captions_encoded)
