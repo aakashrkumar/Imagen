@@ -36,7 +36,7 @@ class GeneratorState(struct.PyTreeNode):
 def p_mean_variance(t_index, generator_state):
     t_index = 999-t_index
     t = jnp.ones(1, dtype=jnp.int16) * t_index
-    pred = generator_state.imagen_state.train_state.apply_fn({"params": generator_state.imagen_state.train_state.params}, generator_state.image, t, generator_state.text, generator_state.attention, generator_state.conditioning_prob, generator_state.key)
+    pred = generator_state.imagen_state.train_state.apply_fn({"params": generator_state.imagen_state.train_state.params}, generator_state.image, t, generator_state.text, generator_state.attention, generator_state.conditioning_prob, generator_state.rng)
     x_start = generator_state.imagen_state.sampler.predict_start_from_noise(generator_state.image, t=t, noise=pred)
     
     s = jnp.percentile(
