@@ -194,3 +194,8 @@ class Imagen:
 
 def compute_metrics(loss, logits):
     return {"loss": loss}
+
+def test():
+    imagen = Imagen()
+    imagen.sample(jnp.ones((16, 256, 512)), jnp.ones((16, 256)))
+    
