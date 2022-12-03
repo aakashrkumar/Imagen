@@ -67,7 +67,7 @@ class Trainer:
             key = np.random.randint(0, len(self.train_dataset["image"]) - wandb.config.batch_size)
             images = self.train_dataset['image'][key:key+wandb.config.batch_size]
             captions = self.train_dataset['label'][key:key+wandb.config.batch_size]
-            captions = [str(caption) for caption in captions]
+            captions = ["An image of the number " +  str(caption) for caption in captions]
             captions_encoded, attention_masks = encode_text(captions, self.tokenizer, self.model)
             # images, captions, captions_encoded, attention_masks = ray.get(self.datacollector.get_batch.remote())
             images = jnp.array(images)
@@ -109,7 +109,7 @@ class Trainer:
                     "An image of an apple watch",
                 ]
                 prompts = [
-                    str(i) for i in range(1, 9)
+                    "An image of the number" + str(i) for i in range(1, 9)
                 ]
                 prompts_encoded, attention_masks = encode_text(prompts, self.tokenizer, self.model)
                 prompts_encoded = jnp.array(prompts_encoded)
