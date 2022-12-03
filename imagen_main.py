@@ -38,6 +38,7 @@ def p_mean_variance(t_index, generator_state):
     t_index = min(t_index, 999)
     t_index = max(t_index, 0)
     t = jnp.ones(1, dtype=jnp.int16) * t_index
+    print(generator_state.rng)
     pred = train_state.apply_fn({"params": train_state.params}, generator_state.image, generator_state.timesteps, generator_state.text, generator_state.attention, generator_state.conditioning_prob, generator_state.key)
     x_start = generator_state.imagen_state.sampler.predict_start_from_noise(generator_state.image, t=t, noise=pred)
     
