@@ -116,6 +116,8 @@ class ResnetBlock(nn.Module):
         h = Block(self.dim)(x)
         if exists(cond):
             assert exists(self.cond_dim)
+            print(cond)
+            print(h)
             h = EinopsToAndFrom(CrossAttn(dim=self.dim, context_dim=self.cond_dim), 'b h w c', ' b (h w) c')(h, context=cond) + h
         
         h = Block(self.dim)(h, shift_scale=scale_shift)
