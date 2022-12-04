@@ -9,8 +9,8 @@ def get_tokenizer_and_model():
 
 
 def encode_text(text, tokenizer, model):
-    if tokenizer is None or model is None:
-        return None, None
+    assert tokenizer is not None
+    assert model is not None 
     
     max_sequence_length = 512
     encoding = tokenizer(
