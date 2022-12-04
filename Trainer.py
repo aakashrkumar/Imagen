@@ -55,6 +55,7 @@ class Trainer:
                 batch_labels = self.labels[i*wandb.config.batch_size:(i+1)*wandb.config.batch_size]
                 batch_images = self.images[i*wandb.config.batch_size:(i+1)*wandb.config.batch_size]
                 batch_labels_encoded, attention_masks = encode_text(batch_labels, self.tokenizer, self.model)
+                batch_labels_encoded = np.asarray(batch_labels_encoded)
                 self.batches.append((batch_images, batch_labels_encoded, attention_masks))
             # save the batches to disk
             np.save("batches.npy", self.batches, allow_pickle=True)
