@@ -28,7 +28,7 @@ def get_datasets():
         [cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) for img in train_ds['image']], axis=0)
     # print the max pixel value
     train_ds["image"] =  np.array(train_ds["image"], dtype=np.float32) / 127.5 - 1
-    np.save("train_ds.npy", train_ds)
+    # np.save("train_ds.npy", train_ds)
     return train_ds,None
 # @ray.remote(resources={"tpu": 1, "host": 1}, num_cpus=30)
 class Trainer:
