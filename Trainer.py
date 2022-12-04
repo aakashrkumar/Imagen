@@ -12,6 +12,8 @@ import os
 from T5Utils import get_tokenizer_and_model, encode_text
 import sklearn
 
+import pickle
+
 def get_datasets():
     """Load MNIST train and test datasets into memory."""
     ds_builder = tfds.builder('mnist')
@@ -48,7 +50,7 @@ class Trainer:
         self.tokenizer, self.model = get_tokenizer_and_model()
         # batch encode the text
         if os.path.exists("batches.npy"):
-            self.batches = np.load("batches.npy", allow_pickle=True)
+            self.batches = pickle.load(open("batches.npy", "rb"))
         else:
             self.batches = []
             for i in tqdm(range(len(self.labels)//wandb.config.batch_size)):
@@ -57,8 +59,10 @@ class Trainer:
                 batch_labels_encoded, attention_masks = encode_text(batch_labels, self.tokenizer, self.model)
                 batch_labels_encoded = np.asarray(batch_labels_encoded)
                 self.batches.append((batch_images, batch_labels_encoded, attention_masks))
-            # save the batches to disk
-            np.save("batches.npy", self.batches, allow_pickle=True)
+            # save the batches to disk as pickle
+            with open("batches.npy", "wb") as f:
+                pickle.dump(self.batches, f)
+                f.close()
         
         self.imagen = Imagen()
         # self.T5Encoder = dataCollector.T5Encoder.remote()
