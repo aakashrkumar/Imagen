@@ -373,3 +373,25 @@ class TransformerBlock(nn.Module):
         x = ChannelFeedForward(dim=self.dim, mult=self.ff_mult)(x) + x
         return x
         
+
+
+class Downsample(nn.Module):
+    dim_out: int
+    dtype: jnp.dtype = jnp.float32
+    @nn.compact
+    def __call__(self, x):
+        return nn.Conv(features=self.dim_out, kernel_size=(4, 4), strides=(2, 2), padding=1)(x)
+
+class Upsample(nn.Module):
+    dim_out: int
+    dtype: jnp.dtype = jnp.float32
+    @nn.compact
+    def __call__(self, x):
+        x = jax.image.resize(
+            x,
+            shape=(x.shape[0], x.shape[1] * 2, x. shape[2] * 2, x.shape[3]),
+            method="nearest",
+        )
+        x = nn.Conv(features=self.dim, kernel_size=(
+            3, 3), dtype=self.dtype, padding=1)(x)
+        return x

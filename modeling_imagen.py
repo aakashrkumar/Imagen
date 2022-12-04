@@ -12,7 +12,7 @@ import optax
 from sampler import GaussianDiffusionContinuousTimes, extract
 from einops import rearrange, repeat, reduce, pack, unpack
 from utils import exists, default
-from layers import ResnetBlock, SinusoidalPositionEmbeddings, CrossEmbedLayer, TextConditioning, TransformerBlock
+from layers import ResnetBlock, SinusoidalPositionEmbeddings, CrossEmbedLayer, TextConditioning, TransformerBlock, Downsample, Upsample
 
 class UnetDBlock(nn.Module):
     """UnetD block with a projection shortcut and batch normalization."""
@@ -32,9 +32,10 @@ class UnetDBlock(nn.Module):
     def __call__(self, x, time_emb, conditioning=None):
         x_proj = nn.Conv(features=self.dim, kernel_size=(1, 1),
                         strides=self.strides, dtype=self.dtype)(x)
+        x = Downsample(dim_out=self.dim)(x)
         # predownsample the input -- EfficientUNet maybe make optional
-        x = nn.Conv(features=self.dim, kernel_size=(5, 5),
-                    strides=self.strides, dtype=self.dtype, padding=2)(x)
+        x = nn.Conv(features=self.dim, kernel_size=(4, 4),
+                    strides=2, dtype=self.dtype, padding=1)(x)
 
         x = ResnetBlock(dim=self.dim, dtype=self.dtype)(x, time_emb, conditioning) # and cond
         for _ in range(self.num_resnet_blocks):
@@ -68,14 +69,7 @@ class UnetUBlock(nn.Module):
             
         if self.num_attention_heads > 0:
             x = TransformerBlock(dim=self.dim, heads=self.num_attention_heads, dim_head=64, dtype=self.dtype)(x)
-
-        x = jax.image.resize(
-            x,
-            shape=(x.shape[0], x.shape[1] * 2, x. shape[2] * 2, x.shape[3]),
-            method="nearest",
-        )
-        x = nn.Conv(features=self.dim, kernel_size=(
-            5, 5), dtype=self.dtype, padding=2)(x)
+        x = Upsample(dim=self.dim, dtype=self.dtype)(x)
         return x + x_proj
 
 
