@@ -12,7 +12,7 @@ import optax
 from sampler import GaussianDiffusionContinuousTimes, extract
 from einops import rearrange, repeat, reduce, pack, unpack
 from utils import exists, default
-from layers import ResnetBlock, SinusoidalPositionEmbeddings, CrossEmbedLayer, TextConditioning, TransformerBlock, Downsample, Upsample, Attention
+from layers import ResnetBlock, SinusoidalPositionEmbeddings, CrossEmbedLayer, TextConditioning, TransformerBlock, Downsample, Upsample, Attention, EinopsToAndFrom
 
 class UnetDBlock(nn.Module):
     """UnetD block with a projection shortcut and batch normalization."""
@@ -110,22 +110,22 @@ class EfficentUNet(nn.Module):
         hiddens = []
         for dim_mult in self.dim_mults:
             x = Downsample(dim=self.dim * dim_mult)(x)
-            x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x, t, c)
+            x = ResnetBlock(dim=self.dim * dim_mult, cond_dim=cond_dim, dtype=self.dtype)(x, t, c)
             for _ in range(3):
                 x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x)
                 hiddens.append(x)
             x = TransformerBlock(dim=self.dim * dim_mult, heads=8, dim_head=64, dtype=self.dtype)(x)
             hiddens.append(x)
         
-        x = ResnetBlock(dim=self.dim * self.dim_mults[-1], dtype=self.dtype)(x, t, c)
-        x = TransformerBlock(dim=self.dim * self.dim_mults[-1], dtype=self.dtype)(x)
+        x = ResnetBlock(dim=self.dim * self.dim_mults[-1], cond_dim=cond_dim, dtype=self.dtype)(x, t, c)
+        x = EinopsToAndFrom(Attention(self.dim * self.dim_mults[-1]), 'b h w c', 'b (h w) c')
         x = ResnetBlock(dim=self.dim * self.dim_mults[-1], dtype=self.dtype)(x, t, c)
         
         # Upsample
         add_skip_connection = lambda x: jnp.concatenate([x, hiddens.pop()], axis=-1)
         for dim_mult in reversed(self.dim_mults):
             x = add_skip_connection(x)
-            x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x, t, c)
+            x = ResnetBlock(dim=self.dim * dim_mult, cond_dim=cond_dim, dtype=self.dtype)(x, t, c)
             for _ in range(3):
                 x = add_skip_connection(x)
                 x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x)
@@ -133,7 +133,7 @@ class EfficentUNet(nn.Module):
             x = TransformerBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x)
             x = Upsample(dim=self.dim * dim_mult)(x)
         
-        x = ResnetBlock(dim=self.dim, dtype=self.dtype)(x, t, c)
+        x = ResnetBlock(dim=self.dim, cond_dim=cond_dim, dtype=self.dtype)(x, t, c)
             
         # x = nn.Dense(features=3, dtype=self.dtype)(x)
         x = nn.Conv(features=3, kernel_size=(3, 3), strides=1, dtype=self.dtype, padding=1)(x)
