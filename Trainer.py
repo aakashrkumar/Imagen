@@ -52,9 +52,8 @@ class Trainer:
         wandb.config.image_size = 64
         wandb.config.save_every = 10000
         wandb.config.eval_every = 10
-        self.tokenizer, self.model = get_tokenizer_and_model()
         self.train_dataset, _ = get_datasets()
-
+        self.tokenizer, self.model = get_tokenizer_and_model()
         self.imagen = Imagen()
         # self.T5Encoder = dataCollector.T5Encoder.remote()
         # self.datacollector = dataCollector.DataManager.remote(wandb.config.num_datacollectors, wandb.config.batch_size, self.T5Encoder)
