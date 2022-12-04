@@ -50,7 +50,9 @@ class Trainer:
         self.tokenizer, self.model = get_tokenizer_and_model()
         # batch encode the text
         if os.path.exists("batches.npy"):
-            self.batches = pickle.load(open("batches.npy", "rb"))
+            with open("batches.npy", "rb") as f:
+                self.batches = pickle.load(f)
+                f.close()
         else:
             self.batches = []
             for i in tqdm(range(len(self.labels)//wandb.config.batch_size)):
@@ -75,7 +77,7 @@ class Trainer:
         step = 0
         while True:
             step += 1
-            key = np.random.randint(0, len(self.batches["image"]) - 1)
+            key = np.random.randint(0, len(self.batches) - 1)
             images, captions_encoded, attention_masks = self.batches[key]
             # images, captions, captions_encoded, attention_masks = ray.get(self.datacollector.get_batch.remote())
             images = jnp.array(images)
