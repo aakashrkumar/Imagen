@@ -57,7 +57,7 @@ class UnetUBlock(nn.Module):
     @nn.compact
     def __call__(self, x, time_emb, conditioning=None):
         x_proj = nn.Conv(features=self.dim, kernel_size=(1, 1),
-            strides=self.strides, dtype=self.dtype)(x)
+            strides=1, dtype=self.dtype)(x)
 
         x = ResnetBlock(dim=self.dim, dtype=self.dtype)(x, time_emb, conditioning) # and cond
         for _ in range(self.num_resnet_blocks):
