@@ -53,6 +53,7 @@ class Trainer:
             with open("batches.npy", "rb") as f:
                 self.batches = pickle.load(f)
                 f.close()
+            print("Loaded batches from file")
         else:
             self.batches = []
             for i in tqdm(range(len(self.labels)//wandb.config.batch_size)):
