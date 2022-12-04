@@ -119,6 +119,6 @@ class EfficentUNet(nn.Module):
             if hidden is not None:
                 x = jnp.concatenate([x, hidden], axis=-1)
 
-        x = nn.Dense(features=3, dtype=self.dtype)(x)
-
+        # x = nn.Dense(features=3, dtype=self.dtype)(x)
+        x = nn.Conv(features=3, kernel_size=(3, 3), strides=1, dtype=self.dtype, padding=1)(x)
         return x    
