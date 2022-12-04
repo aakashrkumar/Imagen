@@ -22,9 +22,9 @@ class EinopsToAndFrom(nn.Module):
     def __call__(self, x, **kwargs):
         shape = x.shape
         reconstitute_kwargs = dict(tuple(zip(self.from_einops.split(' '), shape)))
-        x = rearrange(f"{self.from_einops} -> {self.to_einops}", x)
+        x = rearrange(x, f"{self.from_einops} -> {self.to_einops}")
         x = self.fn(x, **kwargs)
-        x = rearrange(f"{self.to_einops} -> {self.from_einops}", x, **reconstitute_kwargs)
+        x = rearrange(x, f"{self.to_einops} -> {self.from_einops}", **reconstitute_kwargs)
         return x
 
 class CrossEmbedLayer(nn.Module):
