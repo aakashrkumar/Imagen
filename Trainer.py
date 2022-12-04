@@ -76,6 +76,7 @@ class Trainer:
     def train(self):
         pbar = tqdm(range(1, 1_000_001))
         step = 0
+        timesteps_per_image = 1
         while True:
             step += 1
             key = np.random.randint(0, len(self.batches) - 1)
@@ -87,7 +88,7 @@ class Trainer:
             
             timesteps = list(range(0, 1000))
             
-            timesteps = np.random.permutation(timesteps)[:1]
+            timesteps = np.random.permutation(timesteps)[:timesteps_per_image]
             
             for ts in timesteps:
                 start_time = time.time()
@@ -133,6 +134,6 @@ class Trainer:
                     img = img.astype(np.uint8)
                     img = wandb.Image(img, caption=prompt)
                     images.append(img)
-                wandb.log({"samples": images})
+                wandb.log({"samples": images}, step=step * timesteps_per_image)
         return 0     
             
