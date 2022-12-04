@@ -129,7 +129,7 @@ class CrossAttn(nn.Module):
     heads: int = 8
     norm_context: bool = False
     @nn.compact
-    def __call__(self, x, context, mask):
+    def __call__(self, x, context, mask=None):
         scale = self.dim_head ** -0.5
         inner_dim = self.dim_head * self.heads
         
