@@ -114,7 +114,6 @@ class ResnetBlock(nn.Module):
             time_emb = rearrange(time_emb, 'b c -> b 1 1 c')
             scale_shift = jnp.split(time_emb, 2, axis=-1)
         h = Block(self.dim)(x)
-        print(h.shape)
         if exists(cond):
             assert exists(self.cond_dim)
             h = EinopsToAndFrom(CrossAttn(dim=self.dim, context_dim=self.cond_dim), 'b h w c', ' b (h w) c')(h, context=cond) + h
