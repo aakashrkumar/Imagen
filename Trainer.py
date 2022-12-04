@@ -63,6 +63,7 @@ class Trainer:
             with open("batches.npy", "wb") as f:
                 pickle.dump(self.batches, f)
                 f.close()
+                print("Saved batches to disk")
         
         self.imagen = Imagen()
         # self.T5Encoder = dataCollector.T5Encoder.remote()
@@ -74,7 +75,7 @@ class Trainer:
         step = 0
         while True:
             step += 1
-            key = np.random.randint(0, len(self.train_dataset["image"]) - 1)
+            key = np.random.randint(0, len(self.batches["image"]) - 1)
             images, captions_encoded, attention_masks = self.batches[key]
             # images, captions, captions_encoded, attention_masks = ray.get(self.datacollector.get_batch.remote())
             images = jnp.array(images)
