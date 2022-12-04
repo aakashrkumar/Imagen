@@ -114,7 +114,7 @@ class ResnetBlock(nn.Module):
             scale_shift = jnp.split(time_emb, 2, axis=-1)
         h = Block(self.dim)(x)
         if exists(self.cond_dim):
-            h = CrossAttention(self.dim, self.cond_dim, time_cond_time=self.time_cond_time, dtype=self.dtype)(h, cond) + h
+            h = EinopsToAndFrom('b h w c', ' b (h w) c', CrossAttn(dim=self.dim, context_dim=self.cond_dim))(h)
         
         h = Block(self.dim)(h, shift_scale=scale_shift)
         # padding was not same
@@ -128,7 +128,41 @@ class CrossAttn(nn.Module):
     norm_context: bool = False
     @nn.compact
     def __call__(self, x, context, mask):
+        scale = self.dim_head ** -0.5
+        inner_dim = self.dim_head * self.heads
         
+        b, n = x.shape[:2]
+        x = nn.LayerNorm()(x)
+        context = nn.LayerNorm()(context)
+        
+        q = nn.Dense(features=inner_dim)(x)
+        k, v = nn.Dense(features=inner_dim * 2)(context).split(2, axis=-1)
+        q, k, v = rearrange_many((q, k, v), 'b n (h d) -> h b n d', h=self.heads)
+        
+        null_kv = jax.random.normal(jax.random.PRNGKey(34), (2, self.dim_head))
+        
+        nk, nv = repeat_many(jax_unstack(null_kv, axis=-2), 'd -> b h 1 d', b=b, h=self.heads)
+        
+        k = jnp.concatenate((nk, k), axis=-2)
+        v = jnp.concatenate((nv, v), axis=-2)
+        
+        q = q * scale
+        
+        sim = jnp.einsum('bhid,bhjd->bhij', q, k)
+        max_neg_value = -jnp.finfo(sim.dtype).max
+        
+        if exists(mask):
+            mask = jnp.pad(mask, (1, 0), value=True)
+            mask = rearrange(mask, 'b j -> b 1 1 j')
+            sim = jnp.where(mask, sim, max_neg_value)
+        
+        attn = nn.softmax(sim, axis=-1)
+        
+        out = jnp.einsum('bhij,bhjd->bhid', attn, v)
+        out = rearrange(out, 'h b n d -> b n (h d)')
+        return nn.Dense(features=self.dim)(out)
+        
+            
     
 
 class AlternateCrossAttentionBlock(nn.Module):
@@ -348,7 +382,7 @@ class Attention(nn.Module):
         if exists(mask):
             mask = jnp.pad(mask, (1, 0), constant_values=True)
             mask = rearrange(mask, 'b j -> b 1 1 j')
-            sim = jnp.where(~mask, sim, max_neg_value)
+            sim = jnp.where(mask, sim, max_neg_value)
         attn = nn.softmax(sim, axis=-1)
         out = jnp.einsum('b h i j, b j d -> b h i d', attn, v)
         
