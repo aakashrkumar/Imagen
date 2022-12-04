@@ -28,7 +28,7 @@ class EinopsToAndFrom(nn.Module):
         return x
 
 class CrossEmbedLayer(nn.Module):
-    dim_out: int = 128
+    dim: int = 128
     kernel_sizes: Tuple[int, ...] = (3, 7, 15)
     stride: int = 2
 
@@ -37,9 +37,9 @@ class CrossEmbedLayer(nn.Module):
         kernel_sizes = sorted(self.kernel_sizes)
         num_scales = len(self.kernel_sizes)
         
-        dim_scales = [int(self.dim_out / (2 ** i))
+        dim_scales = [int(self.dim / (2 ** i))
                       for i in range(1, num_scales)]
-        dim_scales = dim_scales + [self.dim_out - sum(dim_scales)]
+        dim_scales = dim_scales + [self.dim - sum(dim_scales)]
         convs = []
         for kernel, dim_scale in zip(kernel_sizes, dim_scales):
             convs.append(nn.Conv(features=dim_scale, kernel_size=(kernel, kernel), strides=self.stride, padding=(kernel - self.stride) // 2)(x))
