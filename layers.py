@@ -147,7 +147,7 @@ class CrossAttn(nn.Module):
         
         null_kv = jax.random.normal(jax.random.PRNGKey(34), (2, self.dim_head))
         
-        nk, nv = repeat_many(jax_unstack(null_kv, axis=-2), 'd -> b h 1 d', h=self.heads b=b)
+        nk, nv = repeat_many(jax_unstack(null_kv, axis=-2), 'd -> b h 1 d', h=self.heads, b=b)
         k = jnp.concatenate((nk, k), axis=-2)
         v = jnp.concatenate((nv, v), axis=-2)
         
