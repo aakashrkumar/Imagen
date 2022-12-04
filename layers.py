@@ -31,6 +31,7 @@ class CrossEmbedLayer(nn.Module):
     dim: int = 128
     kernel_sizes: Tuple[int, ...] = (3, 7, 15)
     stride: int = 2
+    dtype: jnp.dtype = jnp.float32
 
     @nn.compact
     def __call__(self, x):
@@ -42,7 +43,7 @@ class CrossEmbedLayer(nn.Module):
         dim_scales = dim_scales + [self.dim - sum(dim_scales)]
         convs = []
         for kernel, dim_scale in zip(kernel_sizes, dim_scales):
-            convs.append(nn.Conv(features=dim_scale, kernel_size=(kernel, kernel), strides=self.stride, padding=(kernel - self.stride) // 2)(x))
+            convs.append(nn.Conv(features=dim_scale, kernel_size=(kernel, kernel), strides=self.stride, padding=(kernel - self.stride) // 2, dtype=self.dtype)(x))
 
         return jnp.concatenate(convs, axis=-1)
 

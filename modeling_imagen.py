@@ -80,7 +80,7 @@ class EfficentUNet(nn.Module):
 
     strides: Tuple[int, int] = (2, 2)
 
-    dtype: jnp.dtype = jnp.float32
+    dtype: jnp.dtype = jnp.bfloat16
 
     @nn.compact
     def __call__(self, x, time, texts=None, attention_masks=None, condition_drop_prob=0.1, rng=None):
@@ -104,7 +104,7 @@ class EfficentUNet(nn.Module):
         # TODO: add lowres conditioning
         
         x = CrossEmbedLayer(dim=self.dim,
-                            kernel_sizes=(3, 7, 15), stride=1)(x)
+                            kernel_sizes=(3, 7, 15), stride=1, dtype=self.dtype)(x)
         hiddens = [None]
 
         for dim_mult in self.dim_mults:
