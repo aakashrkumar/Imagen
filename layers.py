@@ -139,7 +139,7 @@ class CrossAttn(nn.Module):
         
         q = nn.Dense(features=inner_dim)(x)
         k, v = nn.Dense(features=inner_dim * 2)(context).split(2, axis=-1)
-        q, k, v = rearrange_many((q, k, v), 'b n (h d) -> h b n d', h=self.heads)
+        q = rearrange(q, 'b n (h d) -> b h n d', h=self.heads)
         
         null_kv = jax.random.normal(jax.random.PRNGKey(34), (2, self.dim_head))
         
