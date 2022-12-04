@@ -341,7 +341,7 @@ class ChannelFeedForward(nn.Module):
         x = ChannelLayerNorm(dim=self.dim)(x)
         x = nn.Conv(features=self.dim * self.mult, kernel_size=(1, 1))(x)
         x = nn.gelu(x)
-        x = ChannelLayerNorm(dim=self.dim)(x)
+        x = ChannelLayerNorm(dim=self.dim * self.mult)(x)
         x = nn.Conv(features=self.dim, kernel_size=(1, 1))(x)
         return x
 class Attention(nn.Module):
