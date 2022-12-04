@@ -1,6 +1,7 @@
 from typing import Any, Dict, Tuple
 from flax import linen as nn
 import jax.numpy as jnp
+
 from einops import rearrange, repeat, reduce, pack, unpack
 from utils import exists, default
 from layers import ResnetBlock, SinusoidalPositionEmbeddings, CrossEmbedLayer, TextConditioning, TransformerBlock, Downsample, Upsample, Attention, EinopsToAndFrom
@@ -26,8 +27,7 @@ class EfficentUNet(nn.Module):
         cond_dim = default(self.cond_dim, self.dim)
 
         time_hidden = SinusoidalPositionEmbeddings(dim=self.dim)(time)
-        time_hidden = nn.Dense(con
-            features=time_conditioning_dim, dtype=self.dtype)(time_hidden)
+        time_hidden = nn.Dense(features=time_conditioning_dim, dtype=self.dtype)(time_hidden)
         time_hidden = nn.silu(time_hidden)
 
         t = nn.Dense(features=time_conditioning_dim,
