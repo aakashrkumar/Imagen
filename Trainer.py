@@ -37,10 +37,12 @@ def get_datasets():
         img, (64, 64)) for img in train_ds['image']], axis=0)
     train_ds['image'] = np.stack(
         [cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) for img in train_ds['image']], axis=0)
-    print(train_ds['image'][0])
+    # print the max pixel value
+    print(np.max(train_ds['image']))
     train_ds["image"] =  np.array(train_ds["image"], dtype=np.float32)
     return train_ds, test_ds
 
+get_datasets()
 # @ray.remote(resources={"tpu": 1, "host": 1}, num_cpus=30)
 class Trainer:
     def __init__(self):
