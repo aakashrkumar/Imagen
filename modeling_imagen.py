@@ -30,9 +30,9 @@ class UnetDBlock(nn.Module):
 
     @nn.compact
     def __call__(self, x, time_emb, conditioning=None):
-        x = Downsample(dim=self.dim)(x)
         x_proj = nn.Conv(features=self.dim, kernel_size=(1, 1),
-                        strides=self.strides, dtype=self.dtype)(x)
+                strides=self.strides, dtype=self.dtype)(x)
+        x = Downsample(dim=self.dim)(x)
         x = ResnetBlock(dim=self.dim, dtype=self.dtype)(x, time_emb, conditioning) # and cond
         for _ in range(self.num_resnet_blocks):
             x = ResnetBlock(dim=self.dim, dtype=self.dtype)(x)
@@ -65,8 +65,8 @@ class UnetUBlock(nn.Module):
             
         if self.num_attention_heads > 0:
             x = TransformerBlock(dim=self.dim, heads=self.num_attention_heads, dim_head=64, dtype=self.dtype)(x)
-        x = Upsample(dim=self.dim, dtype=self.dtype)(x+ x_proj)
-        return x
+        x = Upsample(dim=self.dim, dtype=self.dtype)(x)
+        return x+ x_proj
 
 
 class EfficentUNet(nn.Module):
