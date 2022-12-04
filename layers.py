@@ -22,9 +22,6 @@ class EinopsToAndFrom(nn.Module):
     def __call__(self, x, **kwargs):
         shape = x.shape
         reconstitute_kwargs = dict(tuple(zip(self.from_einops.split(' '), shape)))
-        print(x)
-        print(self.from_einops)
-        print(self.to_einops)
         x = rearrange(f"{self.from_einops} -> {self.to_einops}", x)
         x = self.fn(x, **kwargs)
         x = rearrange(f"{self.to_einops} -> {self.from_einops}", x, **reconstitute_kwargs)
