@@ -65,7 +65,7 @@ class Trainer:
             
             timesteps = list(range(0, 1000))
             
-            timesteps = np.random.permutation(timesteps)[:50]
+            timesteps = np.random.permutation(timesteps)[:1]
             
             for ts in timesteps:
                 start_time = time.time()
