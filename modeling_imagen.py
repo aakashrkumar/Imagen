@@ -33,10 +33,6 @@ class UnetDBlock(nn.Module):
         x = Downsample(dim=self.dim)(x)
         x_proj = nn.Conv(features=self.dim, kernel_size=(1, 1),
                         strides=self.strides, dtype=self.dtype)(x)
-        # predownsample the input -- EfficientUNet maybe make optional
-        x = nn.Conv(features=self.dim, kernel_size=(4, 4),
-                    strides=2, dtype=self.dtype, padding=1)(x)
-
         x = ResnetBlock(dim=self.dim, dtype=self.dtype)(x, time_emb, conditioning) # and cond
         for _ in range(self.num_resnet_blocks):
             x = ResnetBlock(dim=self.dim, dtype=self.dtype)(x)
