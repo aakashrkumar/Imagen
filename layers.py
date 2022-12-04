@@ -68,8 +68,9 @@ class TextConditioning(nn.Module):
                 text_mask = jnp.pad(text_mask, (0, remainder), value=False)
                 text_mask = rearrange(text_mask, 'b n -> b n 1')
                 text_keep_mask_embed = text_mask & text_keep_mask_embed
+            
             null_text_embed = jax.random.normal(jax.random.PRNGKey(0), (1, self.max_token_length, self.cond_dim))
-            text_tokens = jnp.where(text_keep_mask_embed, text_tokens, null_text_embed)
+            text_tokens = jnp.where(~text_keep_mask_embed, text_tokens, null_text_embed) # TODO: should this be inverted?
             
             mean_pooled_text_tokens = jnp.mean(text_tokens, axis=-2)
             text_hiddens = nn.LayerNorm()(mean_pooled_text_tokens)
@@ -78,8 +79,9 @@ class TextConditioning(nn.Module):
             text_hiddens = nn.Dense(features=self.time_cond_dim)(text_hiddens)
             
             text_keep_mask_hidden = rearrange(text_keep_mask, 'b -> b 1')
+            
             null_text_hidden = jax.random.normal(jax.random.PRNGKey(1), (1, self.time_cond_dim))
-            text_hiddens = jnp.where(text_keep_mask_hidden, text_hiddens, null_text_hidden)
+            text_hiddens = jnp.where(~text_keep_mask_hidden, text_hiddens, null_text_hidden)# same question
             
             time_cond = time_cond + text_hiddens
         c = time_tokens if not exists(text_embeds) else jnp.concatenate([time_tokens, text_tokens], axis=-2)
@@ -101,8 +103,6 @@ class Block(nn.Module):
 class ResnetBlock(nn.Module):
     """ResNet block with a projection shortcut and batch normalization."""
     dim: int
-    cond_dim : int = None
-    time_cond_time: int = None
     dtype: jnp.dtype = jnp.float32
 
     @nn.compact
@@ -115,8 +115,7 @@ class ResnetBlock(nn.Module):
             scale_shift = jnp.split(time_emb, 2, axis=-1)
         h = Block(self.dim)(x)
         if exists(cond):
-            assert exists(self.cond_dim)
-            h = EinopsToAndFrom(CrossAttn(dim=self.dim, context_dim=self.cond_dim), 'b h w c', ' b (h w) c')(h, context=cond) + h
+            h = EinopsToAndFrom(CrossAttn(dim=self.dim), 'b h w c', ' b (h w) c')(h, context=cond) + h
         
         h = Block(self.dim)(h, shift_scale=scale_shift)
         # padding was not same
@@ -124,7 +123,6 @@ class ResnetBlock(nn.Module):
 
 class CrossAttn(nn.Module):
     dim: int
-    context_dim: int = None
     dim_head : int = 64
     heads: int = 8
     norm_context: bool = False
@@ -137,8 +135,8 @@ class CrossAttn(nn.Module):
         x = nn.LayerNorm()(x)
         context = nn.LayerNorm()(context)
         
-        q = nn.Dense(features=inner_dim)(x)
-        k, v = nn.Dense(features=inner_dim * 2)(context).split(2, axis=-1)
+        q = nn.Dense(features=inner_dim, use_bias=False)(x)
+        k, v = nn.Dense(features=inner_dim * 2, use_bias=False)(context).split(2, axis=-1)
         
         q, k, v = rearrange_many((q, k, v), 'b n (h d) -> b h n d', h=self.heads)
         
@@ -158,14 +156,16 @@ class CrossAttn(nn.Module):
         if exists(mask):
             mask = jnp.pad(mask, (1, 0), value=True)
             mask = rearrange(mask, 'b j -> b 1 1 j')
-            sim = jnp.where(mask, sim, max_neg_value)
+            sim = jnp.where(mask, sim, max_neg_value) # to do, check if mask should be inverted
         
         attn = nn.softmax(sim, axis=-1)
         
         out = jnp.einsum('b h i j, b h j d -> b h i d', attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
-        return nn.Dense(features=self.dim)(out)
+        out = nn.Dense(features=self.dim, use_bias=False)(out)
+        out = nn.LayerNorm()(out)
         
+        return out
             
     
 
@@ -371,7 +371,7 @@ class Attention(nn.Module):
         
         if exists(context):
             context_hidden = nn.LayerNorm()(context)
-            context_hidden = nn.Dense(features=self.dim_head*2, use_bias=False)(context_hidden)
+            context_hidden = nn.Dense(features=self.dim_head*2)(context_hidden)
             ck, cv = context_hidden.split(2, axis=-1)
             
             k = jnp.concatenate((k, ck), axis=-2)
@@ -393,6 +393,7 @@ class Attention(nn.Module):
         out = rearrange(out, 'b h n d -> b n (h d)')
         
         out = nn.Dense(features=self.dim, use_bias=False)(out)
+        out = nn.LayerNorm()(out)
         return out
         
 class ChannelLayerNorm(nn.Module):
@@ -413,7 +414,6 @@ class TransformerBlock(nn.Module):
     heads: int = 8
     dim_head: int = 32
     ff_mult: int = 2
-    context_dim: int = None
     dtype: jnp.dtype = jnp.float32
     
     @nn.compact
@@ -429,7 +429,7 @@ class Downsample(nn.Module):
     dtype: jnp.dtype = jnp.float32
     @nn.compact
     def __call__(self, x):
-        return nn.Conv(features=self.dim, kernel_size=(4, 4), strides=(2, 2), padding=1)(x)
+        return nn.Conv(features=self.dim, kernel_size=(5, 5), strides=(2, 2), padding=2)(x)
 
 class Upsample(nn.Module):
     dim: int
@@ -442,5 +442,5 @@ class Upsample(nn.Module):
             method="nearest",
         )
         x = nn.Conv(features=self.dim, kernel_size=(
-            3, 3), dtype=self.dtype, padding=1)(x)
+            5, 5), dtype=self.dtype, padding=2)(x)
         return x

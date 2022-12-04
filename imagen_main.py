@@ -33,10 +33,15 @@ class GeneratorState(struct.PyTreeNode):
     rng: jax.random.PRNGKey
     conditioning_prob: float
 
+def conditioning_pred(generator_state, t, cond_scale):
+    pred = generator_state.imagen_state.train_state.apply_fn({"params": generator_state.imagen_state.train_state.params}, generator_state.image, t, generator_state.text, generator_state.attention, generator_state.conditioning_prob, generator_state.rng)
+    null_logits = generator_state.imagen_state.train_state.apply_fn({"params": generator_state.imagen_state.train_state.params}, generator_state.image, t, generator_state.text, generator_state.attention, 1.0, generator_state.rng) 
+    return null_logits + (pred - null_logits) * cond_scale
+
 def p_mean_variance(t_index, generator_state):
     t_index = 999-t_index
     t = jnp.ones(1, dtype=jnp.int16) * t_index
-    pred = generator_state.imagen_state.train_state.apply_fn({"params": generator_state.imagen_state.train_state.params}, generator_state.image, t, generator_state.text, generator_state.attention, generator_state.conditioning_prob, generator_state.rng)
+    pred = conditioning_pred(generator_state, t, 4.0)
     x_start = generator_state.imagen_state.sampler.predict_start_from_noise(generator_state.image, t=t, noise=pred)
     
     s = jnp.percentile(

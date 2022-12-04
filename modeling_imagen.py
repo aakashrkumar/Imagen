@@ -83,7 +83,7 @@ class EfficentUNet(nn.Module):
     dtype: jnp.dtype = jnp.bfloat16
 
     @nn.compact
-    def __call__(self, x, time, texts=None, attention_masks=None, condition_drop_prob=0.1, rng=None):
+    def __call__(self, x, time, texts=None, attention_masks=None, condition_drop_prob=0.0, rng=None):
         time_conditioning_dim = self.dim * 4 * \
             (2 if self.lowres_conditioning else 1)
         cond_dim = default(self.cond_dim, self.dim)
@@ -110,32 +110,32 @@ class EfficentUNet(nn.Module):
         hiddens = []
         for dim_mult in self.dim_mults:
             x = Downsample(dim=self.dim * dim_mult)(x)
-            x = ResnetBlock(dim=self.dim * dim_mult, cond_dim=cond_dim, dtype=self.dtype)(x, t, c)
+            x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x, t, c)
             for _ in range(3):
                 x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x)
                 hiddens.append(x)
             x = TransformerBlock(dim=self.dim * dim_mult, heads=8, dim_head=64, dtype=self.dtype)(x)
             hiddens.append(x)
         
-        x = ResnetBlock(dim=self.dim * self.dim_mults[-1], cond_dim=cond_dim, dtype=self.dtype)(x, t, c)
+        x = ResnetBlock(dim=self.dim * self.dim_mults[-1], dtype=self.dtype)(x, t, c)
         x = EinopsToAndFrom(Attention(self.dim * self.dim_mults[-1]), 'b h w c', 'b (h w) c')(x)
-        x = ResnetBlock(dim=self.dim * self.dim_mults[-1], cond_dim=cond_dim, dtype=self.dtype)(x, t, c)
+        x = ResnetBlock(dim=self.dim * self.dim_mults[-1], dtype=self.dtype)(x, t, c)
         
         # Upsample
         add_skip_connection = lambda x: jnp.concatenate([x, hiddens.pop()], axis=-1)
         for dim_mult in reversed(self.dim_mults):
             x = add_skip_connection(x)
-            x = ResnetBlock(dim=self.dim * dim_mult, cond_dim=cond_dim, dtype=self.dtype)(x, t, c)
+            x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x, t, c)
             for _ in range(3):
                 x = add_skip_connection(x)
                 x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x)
             
-            x = TransformerBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x)
+            x = TransformerBlock(dim=self.dim * dim_mult, heads=8, dim_head=64, dtype=self.dtype)(x)
             x = Upsample(dim=self.dim * dim_mult)(x)
         
         x = jnp.concatenate([x, init_conv_residual], axis=-1)
         
-        x = ResnetBlock(dim=self.dim, cond_dim=cond_dim, dtype=self.dtype)(x, t, c)
+        x = ResnetBlock(dim=self.dim, dtype=self.dtype)(x, t, c)
             
         # x = nn.Dense(features=3, dtype=self.dtype)(x)
         x = nn.Conv(features=3, kernel_size=(3, 3), strides=1, dtype=self.dtype, padding=1)(x)
