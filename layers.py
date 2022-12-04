@@ -421,14 +421,14 @@ class TransformerBlock(nn.Module):
 
 
 class Downsample(nn.Module):
-    dim_out: int
+    dim: int
     dtype: jnp.dtype = jnp.float32
     @nn.compact
     def __call__(self, x):
-        return nn.Conv(features=self.dim_out, kernel_size=(4, 4), strides=(2, 2), padding=1)(x)
+        return nn.Conv(features=self.dim, kernel_size=(4, 4), strides=(2, 2), padding=1)(x)
 
 class Upsample(nn.Module):
-    dim_out: int
+    dim: int
     dtype: jnp.dtype = jnp.float32
     @nn.compact
     def __call__(self, x):
