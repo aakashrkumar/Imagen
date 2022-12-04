@@ -152,7 +152,7 @@ class CrossAttn(nn.Module):
         
         q = q * scale
 
-        sim = jnp.einsum('bhid,bhjd->bhij', q, k)
+        sim = jnp.einsum('b h i d, b h j d -> b h i j', q, k)
         max_neg_value = -jnp.finfo(sim.dtype).max
         
         if exists(mask):
@@ -162,8 +162,8 @@ class CrossAttn(nn.Module):
         
         attn = nn.softmax(sim, axis=-1)
         
-        out = jnp.einsum('bhij,bhjd->bhid', attn, v)
-        out = rearrange(out, 'h b n d -> b n (h d)')
+        out = jnp.einsum('b h i j, b h j d -> b h i d', attn, v)
+        out = rearrange(out, 'b h n d -> b n (h d)')
         return nn.Dense(features=self.dim)(out)
         
             
