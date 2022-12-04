@@ -118,7 +118,7 @@ class EfficentUNet(nn.Module):
             hiddens.append(x)
         
         x = ResnetBlock(dim=self.dim * self.dim_mults[-1], cond_dim=cond_dim, dtype=self.dtype)(x, t, c)
-        x = EinopsToAndFrom(Attention(self.dim * self.dim_mults[-1]), 'b h w c', 'b (h w) c')
+        x = EinopsToAndFrom(Attention(self.dim * self.dim_mults[-1]), 'b h w c', 'b (h w) c')(x)
         x = ResnetBlock(dim=self.dim * self.dim_mults[-1], dtype=self.dtype)(x, t, c)
         
         # Upsample
