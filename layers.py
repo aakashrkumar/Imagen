@@ -120,6 +120,17 @@ class ResnetBlock(nn.Module):
         # padding was not same
         return h + nn.Conv(features=self.dim, kernel_size=(1, 1), padding="same")(x)
 
+class CrossAttn(nn.Module):
+    dim: int
+    context_dim: int = None
+    dim_head : int = 64
+    heads: int = 8
+    norm_context: bool = False
+    @nn.compact
+    def __call__(self, x, context, mask):
+        
+    
+
 class AlternateCrossAttentionBlock(nn.Module):
     num_channels: int
     dtype: jnp.dtype = jnp.float32
