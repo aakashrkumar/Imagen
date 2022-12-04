@@ -50,7 +50,7 @@ class Trainer:
             self.batches = np.load("batches.npy", allow_pickle=True)
         else:
             self.batches = []
-            for i in tqdm(range(len(self.labels)/wandb.config.batch_size)):
+            for i in tqdm(range(len(self.labels)//wandb.config.batch_size)):
                 batch_labels = self.labels[i*wandb.config.batch_size:(i+1)*wandb.config.batch_size]
                 batch_images = self.images[i*wandb.config.batch_size:(i+1)*wandb.config.batch_size]
                 batch_labels_encoded, attention_masks = encode_text(batch_labels, self.tokenizer, self.model)
