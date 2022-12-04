@@ -123,7 +123,7 @@ class EfficentUNet(nn.Module):
         
         # Upsample
         add_skip_connection = lambda x: jnp.concatenate([x, hiddens.pop()], axis=-1)
-        for dim_mult, hidden in zip(reversed(self.dim_mults), reversed(hiddens)):
+        for dim_mult in reversed(self.dim_mults):
             x = add_skip_connection(x)
             x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x, t, c)
             for _ in range(3):
