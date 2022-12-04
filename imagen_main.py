@@ -69,7 +69,7 @@ def p_sample_loop(imagen_state, img, texts, attention, rng):
     batch_size = img.shape[0]
     rng, key = jax.random.split(rng)
     # imgs = []
-    generator_state = GeneratorState(imagen_state=imagen_state, image=img, text=texts, attention=attention, rng=rng, conditioning_prob=0.1)
+    generator_state = GeneratorState(imagen_state=imagen_state, image=img, text=texts, attention=attention, rng=rng)
     generator_state = jax.lax.fori_loop(0, 1000, p_sample, generator_state)
     img = generator_state.image
     #for i in reversed(range(sampler.num_timesteps)):
