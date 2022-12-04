@@ -29,3 +29,4 @@ def encode_text(text, tokenizer, model):
         output_attentions=False)
     
     return outputs[0], attention_mask
+

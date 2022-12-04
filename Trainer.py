@@ -10,7 +10,7 @@ import wandb
 import time
 import os
 from T5Utils import get_tokenizer_and_model, encode_text
-
+import sklearn
 
 def get_datasets():
     """Load MNIST train and test datasets into memory."""
@@ -28,6 +28,8 @@ def get_datasets():
         [cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) for img in train_ds['image']], axis=0)
     # print the max pixel value
     train_ds["image"] =  np.array(train_ds["image"], dtype=np.float32) / 127.5 - 1
+    
+    images, lables = sklearn.utils.shuffle(train_ds["image"], train_ds["label"])
     # np.save("train_ds.npy", train_ds)
     return train_ds,None
 # @ray.remote(resources={"tpu": 1, "host": 1}, num_cpus=30)
@@ -41,8 +43,21 @@ class Trainer:
         wandb.config.image_size = 64
         wandb.config.save_every = 10000
         wandb.config.eval_every = 10
-        self.train_dataset, _ = get_datasets()
+        self.images, self.labels = get_datasets()
         self.tokenizer, self.model = get_tokenizer_and_model()
+        # batch encode the text
+        if os.path.exists("batches.npy"):
+            self.batches = np.load("batches.npy", allow_pickle=True)
+        else:
+            self.batches = []
+            for i in tqdm(range(len(self.labels)/wandb.config.batch_size)):
+                batch_labels = self.labels[i*wandb.config.batch_size:(i+1)*wandb.config.batch_size]
+                batch_images = self.images[i*wandb.config.batch_size:(i+1)*wandb.config.batch_size]
+                batch_labels_encoded, attention_masks = encode_text(batch_labels, self.tokenizer, self.model)
+                self.batches.append((batch_images, batch_labels_encoded, attention_masks))
+            # save the batches to disk
+            np.save("batches.npy", self.batches, allow_pickle=True)
+        
         self.imagen = Imagen()
         # self.T5Encoder = dataCollector.T5Encoder.remote()
         # self.datacollector = dataCollector.DataManager.remote(wandb.config.num_datacollectors, wandb.config.batch_size, self.T5Encoder)
@@ -53,11 +68,8 @@ class Trainer:
         step = 0
         while True:
             step += 1
-            key = np.random.randint(0, len(self.train_dataset["image"]) - wandb.config.batch_size)
-            images = self.train_dataset['image'][key:key+wandb.config.batch_size]
-            captions = self.train_dataset['label'][key:key+wandb.config.batch_size]
-            captions = ["An image of the number " +  str(caption) for caption in captions]
-            captions_encoded, attention_masks = encode_text(captions, self.tokenizer, self.model)
+            key = np.random.randint(0, len(self.train_dataset["image"]))
+            images, labels, attention_masks = self.batches[key]
             # images, captions, captions_encoded, attention_masks = ray.get(self.datacollector.get_batch.remote())
             images = jnp.array(images)
             captions_encoded = jnp.array(captions_encoded)

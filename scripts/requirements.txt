@@ -16,3 +16,4 @@ sentencepiece
 fabric
 tensorflow-datasets
 einops_exts
+scikit-learn
