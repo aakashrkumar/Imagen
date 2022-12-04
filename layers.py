@@ -94,7 +94,7 @@ class Block(nn.Module):
         if exists(shift_scale):
             shift, scale = shift_scale
             x = x * (scale + 1) + shift
-        x = nn.swish(x)
+        x = nn.silu(x)
         return nn.Conv(features=self.dim, kernel_size=(3, 3), padding=1)(x)
 
 
