@@ -30,7 +30,7 @@ class UnetDBlock(nn.Module):
 
     @nn.compact
     def __call__(self, x, time_emb, conditioning=None):
-        x = Downsample(dim_out=self.dim)(x)
+        x = Downsample(dim=self.dim)(x)
         x_proj = nn.Conv(features=self.dim, kernel_size=(1, 1),
                         strides=self.strides, dtype=self.dtype)(x)
         # predownsample the input -- EfficientUNet maybe make optional
