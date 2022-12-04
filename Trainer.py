@@ -31,7 +31,7 @@ def get_datasets():
     
     images, lables = sklearn.utils.shuffle(train_ds["image"], train_ds["label"])
     # np.save("train_ds.npy", train_ds)
-    return train_ds,None
+    return images, lables
 # @ray.remote(resources={"tpu": 1, "host": 1}, num_cpus=30)
 class Trainer:
     def __init__(self):
