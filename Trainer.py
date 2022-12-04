@@ -70,8 +70,8 @@ class Trainer:
         step = 0
         while True:
             step += 1
-            key = np.random.randint(0, len(self.train_dataset["image"]))
-            images, labels, attention_masks = self.batches[key]
+            key = np.random.randint(0, len(self.train_dataset["image"]) - 1)
+            images, captions_encoded, attention_masks = self.batches[key]
             # images, captions, captions_encoded, attention_masks = ray.get(self.datacollector.get_batch.remote())
             images = jnp.array(images)
             captions_encoded = jnp.array(captions_encoded)
