@@ -38,8 +38,7 @@ def get_datasets():
             img, (64, 64)) for img in train_ds['image']], axis=0)
         train_ds['image'] = np.stack(
             [cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) for img in train_ds['image']], axis=0)
-    # print the max pixel value
-        print(np.max(train_ds['image']))
+        # print the max pixel value
         train_ds["image"] =  np.array(train_ds["image"], dtype=np.float32) / 127.5 - 1
         np.save("train_ds.npy", train_ds)
     else:
