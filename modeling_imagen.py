@@ -105,7 +105,7 @@ class EfficentUNet(nn.Module):
         
         x = CrossEmbedLayer(dim=self.dim,
                             kernel_sizes=(3, 7, 15), stride=1, dtype=self.dtype)(x)
-        
+        init_conv_residual = x
         # downsample
         hiddens = []
         for dim_mult in self.dim_mults:
@@ -132,6 +132,8 @@ class EfficentUNet(nn.Module):
             
             x = TransformerBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x)
             x = Upsample(dim=self.dim * dim_mult)(x)
+        
+        x = jnp.concatenate([x, init_conv_residual], axis=-1)
         
         x = ResnetBlock(dim=self.dim, cond_dim=cond_dim, dtype=self.dtype)(x, t, c)
             
