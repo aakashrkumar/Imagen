@@ -30,6 +30,7 @@ def get_datasets():
     train_ds["image"] =  np.array(train_ds["image"], dtype=np.float32) / 127.5 - 1
     
     images, lables = sklearn.utils.shuffle(train_ds["image"], train_ds["label"])
+    lables = list(map(lambda x: "An image of the number " + str(x), lables))
     # np.save("train_ds.npy", train_ds)
     return images, lables
 
