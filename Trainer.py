@@ -1,21 +1,10 @@
 import cv2
 from T5Utils import encode_text, get_tokenizer_and_model
-import ray
-import dataCollector
-from datasets.utils.file_utils import get_datasets_user_agent
-import PIL.Image
-import urllib
-import io
-from concurrent.futures import ThreadPoolExecutor
-from functools import partial
-from datasets import load_dataset
 import numpy as np
 from imagen_main import Imagen
 import jax.numpy as jnp
-import optax
 from tqdm import tqdm
 from flax.training import checkpoints
-import jax
 import tensorflow_datasets as tfds
 import wandb
 import time
@@ -25,24 +14,21 @@ from T5Utils import get_tokenizer_and_model, encode_text
 
 def get_datasets():
     """Load MNIST train and test datasets into memory."""
-    if not os.path.exists("train_ds.npy"):
-        ds_builder = tfds.builder('mnist')
-        ds_builder.download_and_prepare()
-        train_ds = tfds.as_numpy(
-            ds_builder.as_dataset(split='train', batch_size=-1))
-        test_ds = tfds.as_numpy(ds_builder.as_dataset(split='test', batch_size=-1))
-        train_ds['image'] = np.float32(train_ds['image'])
-        test_ds['image'] = np.float32(test_ds['image']) 
-        train_ds['image'] = np.asarray(train_ds['image'])
-        train_ds['image'] = np.stack([cv2.resize(
-            img, (64, 64)) for img in train_ds['image']], axis=0)
-        train_ds['image'] = np.stack(
-            [cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) for img in train_ds['image']], axis=0)
-        # print the max pixel value
-        train_ds["image"] =  np.array(train_ds["image"], dtype=np.float32) / 127.5 - 1
-        np.save("train_ds.npy", train_ds)
-    else:
-        train_ds = np.load("train_ds.npy", allow_pickle=True)
+    ds_builder = tfds.builder('mnist')
+    ds_builder.download_and_prepare()
+    train_ds = tfds.as_numpy(
+        ds_builder.as_dataset(split='train', batch_size=-1))
+    test_ds = tfds.as_numpy(ds_builder.as_dataset(split='test', batch_size=-1))
+    train_ds['image'] = np.float32(train_ds['image'])
+    test_ds['image'] = np.float32(test_ds['image']) 
+    train_ds['image'] = np.asarray(train_ds['image'])
+    train_ds['image'] = np.stack([cv2.resize(
+        img, (64, 64)) for img in train_ds['image']], axis=0)
+    train_ds['image'] = np.stack(
+        [cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) for img in train_ds['image']], axis=0)
+    # print the max pixel value
+    train_ds["image"] =  np.array(train_ds["image"], dtype=np.float32) / 127.5 - 1
+    np.save("train_ds.npy", train_ds)
     return train_ds,None
 # @ray.remote(resources={"tpu": 1, "host": 1}, num_cpus=30)
 class Trainer:

@@ -158,5 +158,3 @@ def compute_metrics(loss, logits):
 def test():
     imagen = Imagen()
     imagen.sample(jnp.ones((8, 256, 512)), jnp.ones((8, 256)))
-
-test()
