@@ -44,7 +44,7 @@ class Trainer:
         wandb.config.seed = 0
         wandb.config.learning_rate = 1e-4
         wandb.config.image_size = 64
-        wandb.config.save_every = 10000
+        wandb.config.save_every = 1_000_000
         wandb.config.eval_every = 500
         self.images, self.labels = get_datasets()
         self.tokenizer, self.model = get_tokenizer_and_model()
