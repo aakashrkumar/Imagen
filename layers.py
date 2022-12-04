@@ -27,101 +27,59 @@ class EinopsToAndFrom(nn.Module):
         x = rearrange(x, f"{self.to_einops} -> {self.from_einops}", **reconstitute_kwargs)
         return x
 
-class CrossEmbedLayer(nn.Module):
-    dim: int = 128
-    kernel_sizes: Tuple[int, ...] = (3, 7, 15)
-    stride: int = 2
-    dtype: jnp.dtype = jnp.float32
-
-    @nn.compact
-    def __call__(self, x):
-        kernel_sizes = sorted(self.kernel_sizes)
-        num_scales = len(self.kernel_sizes)
-        
-        dim_scales = [int(self.dim / (2 ** i))
-                      for i in range(1, num_scales)]
-        dim_scales = dim_scales + [self.dim - sum(dim_scales)]
-        convs = []
-        for kernel, dim_scale in zip(kernel_sizes, dim_scales):
-            convs.append(nn.Conv(features=dim_scale, kernel_size=(kernel, kernel), strides=self.stride, padding=(kernel - self.stride) // 2, dtype=self.dtype)(x))
-
-        return jnp.concatenate(convs, axis=-1)
-
-class TextConditioning(nn.Module):
-    cond_drop_prob: float = 0.1   
-    cond_dim: int = 128
-    time_cond_dim: int = 128
-    max_token_length: int = 256
-    @nn.compact
-    def __call__(self, text_embeds, text_mask, time_cond, time_tokens, rng):
-        if exists(text_embeds):
-            text_tokens = nn.Dense(features=self.cond_dim)(text_embeds)
-            text_tokens = text_tokens[:, :self.max_token_length]
-            text_tokens_len = text_tokens.shape[1]
-            remainder = self.max_token_length - text_tokens_len
-            if remainder > 0:
-                text_tokens = jnp.pad(text_tokens, ((0, 0), (0, remainder)))
-            rng, key = jax.random.split(rng)
-            text_keep_mask = jax.random.uniform(key, (text_tokens.shape[0],)) > self.cond_drop_prob
-            text_keep_mask_embed = rearrange(text_keep_mask, 'b -> b 1 1')
-            if remainder > 0:
-                text_mask = jnp.pad(text_mask, (0, remainder), value=False)
-                text_mask = rearrange(text_mask, 'b n -> b n 1')
-                text_keep_mask_embed = text_mask & text_keep_mask_embed
-            
-            null_text_embed = jax.random.normal(jax.random.PRNGKey(0), (1, self.max_token_length, self.cond_dim))
-            text_tokens = jnp.where(~text_keep_mask_embed, text_tokens, null_text_embed) # TODO: should this be inverted?
-            
-            mean_pooled_text_tokens = jnp.mean(text_tokens, axis=-2)
-            text_hiddens = nn.LayerNorm()(mean_pooled_text_tokens)
-            text_hiddens = nn.Dense(features=self.time_cond_dim)(text_hiddens)
-            text_hiddens = nn.silu(text_hiddens)
-            text_hiddens = nn.Dense(features=self.time_cond_dim)(text_hiddens)
-            
-            text_keep_mask_hidden = rearrange(text_keep_mask, 'b -> b 1')
-            
-            null_text_hidden = jax.random.normal(jax.random.PRNGKey(1), (1, self.time_cond_dim))
-            text_hiddens = jnp.where(~text_keep_mask_hidden, text_hiddens, null_text_hidden)# same question
-            
-            time_cond = time_cond + text_hiddens
-        c = time_tokens if not exists(text_embeds) else jnp.concatenate([time_tokens, text_tokens], axis=-2)
-        c = nn.LayerNorm()(c)
-        return time_cond, c
-
-class Block(nn.Module):
+class Attention(nn.Module):
     dim: int
+    dim_head: int = 64
+    heads: int = 8
     @nn.compact
-    def __call__(self, x, shift_scale=None):
-        x = nn.GroupNorm(num_groups=8)(x)
-        if exists(shift_scale):
-            shift, scale = shift_scale
-            x = x * (scale + 1) + shift
-        x = nn.silu(x)
-        return nn.Conv(features=self.dim, kernel_size=(3, 3), padding=1)(x)
-
-
-class ResnetBlock(nn.Module):
-    """ResNet block with a projection shortcut and batch normalization."""
-    dim: int
-    dtype: jnp.dtype = jnp.float32
-
-    @nn.compact
-    def __call__(self, x, time_emb=None, cond=None):
-        scale_shift = None
-        if exists(time_emb):
-            time_emb = nn.silu(time_emb)
-            time_emb = nn.Dense(features=self.dim * 2)(time_emb)
-            time_emb = rearrange(time_emb, 'b c -> b 1 1 c')
-            scale_shift = jnp.split(time_emb, 2, axis=-1)
-        h = Block(self.dim)(x)
-        if exists(cond):
-            h = EinopsToAndFrom(CrossAttn(dim=self.dim), 'b h w c', ' b (h w) c')(h, context=cond) + h
+    def __call__(self, x, context=None, mask=None, attn_bias=None):
+        b, n = x.shape[:2]
+        scale = self.dim_head ** -0.5
+        inner_dim = self.dim_head * self.heads
         
-        h = Block(self.dim)(h, shift_scale=scale_shift)
-        # padding was not same
-        return h + nn.Conv(features=self.dim, kernel_size=(1, 1), padding="same")(x)
+        x = nn.LayerNorm()(x)
+        
+        q = nn.Dense(features=inner_dim, use_bias=False)(x)
+        k, v = nn.Dense(features=self.dim_head * 2, use_bias=False)(x).split(2, axis=-1)
+        
+        q = rearrange(q, 'b n (h d) -> b h n d', h=self.heads)
+        q = q * scale
+        
+        null_kv = jax.random.normal(jax.random.PRNGKey(3), (2, self.dim_head))
+        # null kv for classifier free guidance
+        nk, nv = repeat_many(jax_unstack(null_kv, axis=-2), 'd -> b 1 d', b=b)
+        
+        k = jnp.concatenate((k, nk), axis=-2)
+        v = jnp.concatenate((v, nv), axis=-2)
+        
+        if exists(context):
+            context_hidden = nn.LayerNorm()(context)
+            context_hidden = nn.Dense(features=self.dim_head*2)(context_hidden)
+            ck, cv = context_hidden.split(2, axis=-1)
+            
+            k = jnp.concatenate((k, ck), axis=-2)
+            v = jnp.concatenate((v, cv), axis=-2)
+        
+        sim = jnp.einsum('b h i d, b j d -> b h i j', q, k)
+        
+        if exists(attn_bias):
+            sim = sim + attn_bias
+            
+        max_neg_value = -jnp.finfo(sim.dtype).max
+        if exists(mask):
+            mask = jnp.pad(mask, (1, 0), constant_values=True)
+            mask = rearrange(mask, 'b j -> b 1 1 j')
+            sim = jnp.where(mask, sim, max_neg_value)
+        attn = nn.softmax(sim, axis=-1)
+        out = jnp.einsum('b h i j, b j d -> b h i d', attn, v)
+        
+        out = rearrange(out, 'b h n d -> b n (h d)')
+        
+        out = nn.Dense(features=self.dim, use_bias=False)(out)
+        out = nn.LayerNorm()(out)
+        return out
 
-class CrossAttn(nn.Module):
+class CrossAttention(nn.Module):
     dim: int
     dim_head : int = 64
     heads: int = 8
@@ -167,6 +125,100 @@ class CrossAttn(nn.Module):
         
         return out
             
+class CrossEmbedLayer(nn.Module):
+    dim: int = 128
+    kernel_sizes: Tuple[int, ...] = (3, 7, 15)
+    stride: int = 2
+    dtype: jnp.dtype = jnp.float32
+
+    @nn.compact
+    def __call__(self, x):
+        kernel_sizes = sorted(self.kernel_sizes)
+        num_scales = len(self.kernel_sizes)
+        
+        dim_scales = [int(self.dim / (2 ** i))
+                      for i in range(1, num_scales)]
+        dim_scales = dim_scales + [self.dim - sum(dim_scales)]
+        convs = []
+        for kernel, dim_scale in zip(kernel_sizes, dim_scales):
+            convs.append(nn.Conv(features=dim_scale, kernel_size=(kernel, kernel), strides=self.stride, padding=(kernel - self.stride) // 2, dtype=self.dtype)(x))
+
+        return jnp.concatenate(convs, axis=-1)
+
+class TextConditioning(nn.Module):
+    cond_drop_prob: float = 0.1   
+    cond_dim: int = 128
+    time_cond_dim: int = 128
+    max_token_length: int = 256
+    @nn.compact
+    def __call__(self, text_embeds, text_mask, time_cond, time_tokens, rng):
+        if exists(text_embeds):
+            text_tokens = nn.Dense(features=self.cond_dim)(text_embeds)
+            text_tokens = text_tokens[:, :self.max_token_length]
+            text_tokens_len = text_tokens.shape[1]
+            remainder = self.max_token_length - text_tokens_len
+            if remainder > 0:
+                text_tokens = jnp.pad(text_tokens, ((0, 0), (0, remainder)))
+            rng, key = jax.random.split(rng)
+            text_keep_mask = jax.random.uniform(key, (text_tokens.shape[0],)) > self.cond_drop_prob
+            text_keep_mask_embed = rearrange(text_keep_mask, 'b -> b 1 1')
+            if remainder > 0:
+                text_mask = jnp.pad(text_mask, (0, remainder), value=False)
+                text_mask = rearrange(text_mask, 'b n -> b n 1')
+                text_keep_mask_embed = text_mask & text_keep_mask_embed
+            
+            null_text_embed = jax.random.normal(jax.random.PRNGKey(0), (1, self.max_token_length, self.cond_dim))
+            text_tokens = jnp.where(text_keep_mask_embed, text_tokens, null_text_embed) # TODO: should this be inverted?
+            
+            mean_pooled_text_tokens = jnp.mean(text_tokens, axis=-2)
+            text_hiddens = nn.LayerNorm()(mean_pooled_text_tokens)
+            text_hiddens = nn.Dense(features=self.time_cond_dim)(text_hiddens)
+            text_hiddens = nn.silu(text_hiddens)
+            text_hiddens = nn.Dense(features=self.time_cond_dim)(text_hiddens)
+            
+            text_keep_mask_hidden = rearrange(text_keep_mask, 'b -> b 1')
+            
+            null_text_hidden = jax.random.normal(jax.random.PRNGKey(1), (1, self.time_cond_dim))
+            text_hiddens = jnp.where(text_keep_mask_hidden, text_hiddens, null_text_hidden)# same question
+            
+            time_cond = time_cond + text_hiddens
+        c = time_tokens if not exists(text_embeds) else jnp.concatenate([time_tokens, text_tokens], axis=-2)
+        c = nn.LayerNorm()(c)
+        return time_cond, c
+
+class Block(nn.Module):
+    dim: int
+    @nn.compact
+    def __call__(self, x, shift_scale=None):
+        x = nn.GroupNorm(num_groups=8)(x)
+        if exists(shift_scale):
+            shift, scale = shift_scale
+            x = x * (scale + 1) + shift
+        x = nn.silu(x)
+        return nn.Conv(features=self.dim, kernel_size=(3, 3), padding=1)(x)
+
+
+class ResnetBlock(nn.Module):
+    """ResNet block with a projection shortcut and batch normalization."""
+    dim: int
+    dtype: jnp.dtype = jnp.float32
+
+    @nn.compact
+    def __call__(self, x, time_emb=None, cond=None):
+        scale_shift = None
+        if exists(time_emb):
+            time_emb = nn.silu(time_emb)
+            time_emb = nn.Dense(features=self.dim * 2)(time_emb)
+            time_emb = rearrange(time_emb, 'b c -> b 1 1 c')
+            scale_shift = jnp.split(time_emb, 2, axis=-1)
+        h = Block(self.dim)(x)
+        if exists(cond):
+            h = EinopsToAndFrom(CrossAttention(dim=self.dim), 'b h w c', ' b (h w) c')(h, context=cond) + h
+        
+        h = Block(self.dim)(h, shift_scale=scale_shift)
+        # padding was not same
+        return h + nn.Conv(features=self.dim, kernel_size=(1, 1), padding="same")(x)
+
     
 
 class AlternateCrossAttentionBlock(nn.Module):
@@ -216,7 +268,7 @@ class AlternateCrossAttentionBlock(nn.Module):
         return x
 
 
-class CrossAttention(nn.Module):
+class CrossAttentionBlock(nn.Module):
     # attempted to implement cross attention based on scaled dot product attention
     num_channels: int
     dtype: jnp.dtype = jnp.float32
@@ -344,57 +396,6 @@ class ChannelFeedForward(nn.Module):
         x = ChannelLayerNorm(dim=self.dim * self.mult)(x)
         x = nn.Conv(features=self.dim, kernel_size=(1, 1))(x)
         return x
-class Attention(nn.Module):
-    dim: int
-    dim_head: int = 64
-    heads: int = 8
-    @nn.compact
-    def __call__(self, x, context=None, mask=None, attn_bias=None):
-        b, n = x.shape[:2]
-        scale = self.dim_head ** -0.5
-        inner_dim = self.dim_head * self.heads
-        
-        x = nn.LayerNorm()(x)
-        
-        q = nn.Dense(features=inner_dim, use_bias=False)(x)
-        k, v = nn.Dense(features=self.dim_head * 2, use_bias=False)(x).split(2, axis=-1)
-        
-        q = rearrange(q, 'b n (h d) -> b h n d', h=self.heads)
-        q = q * scale
-        
-        null_kv = jax.random.normal(jax.random.PRNGKey(3), (2, self.dim_head))
-        # null kv for classifier free guidance
-        nk, nv = repeat_many(jax_unstack(null_kv, axis=-2), 'd -> b 1 d', b=b)
-        
-        k = jnp.concatenate((k, nk), axis=-2)
-        v = jnp.concatenate((v, nv), axis=-2)
-        
-        if exists(context):
-            context_hidden = nn.LayerNorm()(context)
-            context_hidden = nn.Dense(features=self.dim_head*2)(context_hidden)
-            ck, cv = context_hidden.split(2, axis=-1)
-            
-            k = jnp.concatenate((k, ck), axis=-2)
-            v = jnp.concatenate((v, cv), axis=-2)
-        
-        sim = jnp.einsum('b h i d, b j d -> b h i j', q, k)
-        
-        if exists(attn_bias):
-            sim = sim + attn_bias
-            
-        max_neg_value = -jnp.finfo(sim.dtype).max
-        if exists(mask):
-            mask = jnp.pad(mask, (1, 0), constant_values=True)
-            mask = rearrange(mask, 'b j -> b 1 1 j')
-            sim = jnp.where(mask, sim, max_neg_value)
-        attn = nn.softmax(sim, axis=-1)
-        out = jnp.einsum('b h i j, b j d -> b h i d', attn, v)
-        
-        out = rearrange(out, 'b h n d -> b n (h d)')
-        
-        out = nn.Dense(features=self.dim, use_bias=False)(out)
-        out = nn.LayerNorm()(out)
-        return out
         
 class ChannelLayerNorm(nn.Module):
     """

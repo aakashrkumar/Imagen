@@ -1,72 +1,9 @@
-import math
 from typing import Any, Dict, Tuple
-import jax
-import flax
 from flax import linen as nn
 import jax.numpy as jnp
-
-from tqdm import tqdm
-
-import optax
-
-from sampler import GaussianDiffusionContinuousTimes, extract
 from einops import rearrange, repeat, reduce, pack, unpack
 from utils import exists, default
 from layers import ResnetBlock, SinusoidalPositionEmbeddings, CrossEmbedLayer, TextConditioning, TransformerBlock, Downsample, Upsample, Attention, EinopsToAndFrom
-
-class UnetDBlock(nn.Module):
-    """UnetD block with a projection shortcut and batch normalization."""
-    dim: int # dim
-    cond_dim : int # text dim
-    time_cond_dim : int # text dim
-    
-    
-    strides: Tuple[int, int]
-    num_resnet_blocks: int = 3
-    text_cross_attention: bool = False
-    num_attention_heads: int = 0
-
-    dtype: jnp.dtype = jnp.float32
-
-    @nn.compact
-    def __call__(self, x, time_emb, conditioning=None):
-        x_proj = nn.Conv(features=self.dim, kernel_size=(1, 1),
-                strides=self.strides, dtype=self.dtype)(x)
-        x = Downsample(dim=self.dim)(x)
-        x = ResnetBlock(dim=self.dim, dtype=self.dtype)(x, time_emb, conditioning) # and cond
-        for _ in range(self.num_resnet_blocks):
-            x = ResnetBlock(dim=self.dim, dtype=self.dtype)(x)
-        
-        if self.num_attention_heads > 0:
-            x = TransformerBlock(dim=self.dim, heads=self.num_attention_heads, dim_head=64, dtype=self.dtype)(x)
-        return x + x_proj
-
-
-class UnetUBlock(nn.Module):
-    """UnetU block with a projection shortcut and batch normalization."""
-    dim: int # dim
-    cond_dim : int # text dim
-    time_cond_dim : int # text dim
-    
-    strides: Tuple[int, int]
-    num_resnet_blocks: int = 3
-    text_cross_attention: bool = False
-    num_attention_heads: int = 0
-
-    dtype: jnp.dtype = jnp.float32
-    @nn.compact
-    def __call__(self, x, time_emb, conditioning=None):
-        x_proj = nn.Conv(features=self.dim, kernel_size=(1, 1),
-            strides=1, dtype=self.dtype)(x)
-
-        x = ResnetBlock(dim=self.dim, dtype=self.dtype)(x, time_emb, conditioning) # and cond
-        for _ in range(self.num_resnet_blocks):
-            x = ResnetBlock(dim=self.dim, time_cond_time=self.time_cond_dim, dtype=self.dtype)(x, time_emb)
-            
-        if self.num_attention_heads > 0:
-            x = TransformerBlock(dim=self.dim, heads=self.num_attention_heads, dim_head=64, dtype=self.dtype)(x)
-        x = Upsample(dim=self.dim, dtype=self.dtype)(x + x_proj)
-        return x 
 
 
 class EfficentUNet(nn.Module):
@@ -89,7 +26,7 @@ class EfficentUNet(nn.Module):
         cond_dim = default(self.cond_dim, self.dim)
 
         time_hidden = SinusoidalPositionEmbeddings(dim=self.dim)(time)
-        time_hidden = nn.Dense(
+        time_hidden = nn.Dense(con
             features=time_conditioning_dim, dtype=self.dtype)(time_hidden)
         time_hidden = nn.silu(time_hidden)
 
