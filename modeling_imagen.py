@@ -65,8 +65,8 @@ class UnetUBlock(nn.Module):
             
         if self.num_attention_heads > 0:
             x = TransformerBlock(dim=self.dim, heads=self.num_attention_heads, dim_head=64, dtype=self.dtype)(x)
-        x = Upsample(dim=self.dim, dtype=self.dtype)(x)
-        return x + x_proj
+        x = Upsample(dim=self.dim, dtype=self.dtype)(x + x_proj)
+        return x 
 
 
 class EfficentUNet(nn.Module):
