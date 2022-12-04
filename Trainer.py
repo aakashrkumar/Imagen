@@ -76,6 +76,7 @@ class Trainer:
     def train(self):
         pbar = tqdm(range(1, 1_000_001))
         step = 0
+        passes = 0
         timesteps_per_image = 1
         while True:
             step += 1
@@ -91,6 +92,7 @@ class Trainer:
             timesteps = np.random.permutation(timesteps)[:timesteps_per_image]
             
             for ts in timesteps:
+                passes += 1
                 start_time = time.time()
                 timestep = jnp.ones(wandb.config.batch_size) * ts
                 timestep = jnp.array(timestep, dtype=jnp.int16)
@@ -100,7 +102,7 @@ class Trainer:
                 metrics["loss"] = np.asarray(metrics["loss"])
                 metrics["loss"] = np.mean(metrics["loss"])
                 # print(metrics)
-                wandb.log(metrics)
+                wandb.log(metrics, step=passes)
                 
             if step % wandb.config.save_every == 0:
                 if not os.path.exists(f"ckpt/{wandb.run.id}/"):
@@ -134,6 +136,6 @@ class Trainer:
                     img = img.astype(np.uint8)
                     img = wandb.Image(img, caption=prompt)
                     images.append(img)
-                wandb.log({"samples": images}, step=step * timesteps_per_image)
+                wandb.log({"samples": images}, step=passes)
         return 0     
             
