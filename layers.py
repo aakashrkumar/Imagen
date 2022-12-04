@@ -406,7 +406,7 @@ class ChannelLayerNorm(nn.Module):
     def __call__(self, x):
         var = jnp.var(x, axis=-1, keepdims=True)
         mean = jnp.mean(x, axis=-1, keepdims=True)
-        return (x - mean) / (var + self.eps).sqrt() * jnp.ones(1, 1, 1, self.dim)
+        return (x - mean) / jnp.sqrt(var + self.eps) * jnp.ones(1, 1, 1, self.dim)
     
 class TransformerBlock(nn.Module):
     dim: int
