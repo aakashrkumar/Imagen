@@ -12,7 +12,7 @@ import optax
 from sampler import GaussianDiffusionContinuousTimes, extract
 from einops import rearrange, repeat, reduce, pack, unpack
 from utils import exists, default
-from layers import ResnetBlock, SinusoidalPositionEmbeddings, CrossEmbedLayer, TextConditioning, TransformerBlock, Downsample, Upsample
+from layers import ResnetBlock, SinusoidalPositionEmbeddings, CrossEmbedLayer, TextConditioning, TransformerBlock, Downsample, Upsample, Attention
 
 class UnetDBlock(nn.Module):
     """UnetD block with a projection shortcut and batch normalization."""
@@ -105,20 +105,36 @@ class EfficentUNet(nn.Module):
         
         x = CrossEmbedLayer(dim=self.dim,
                             kernel_sizes=(3, 7, 15), stride=1, dtype=self.dtype)(x)
-        hiddens = [None]
-
+        
+        # downsample
+        hiddens = []
         for dim_mult in self.dim_mults:
-            x = UnetDBlock(dim=self.dim * dim_mult, cond_dim=cond_dim, time_cond_dim=time_conditioning_dim,
-                           strides=self.strides, dtype=self.dtype)(x, t, c)
+            x = Downsample(dim=self.dim * dim_mult)(x)
+            x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x, t, c)
+            for _ in range(3):
+                x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x)
+                hiddens.append(x)
+            x = TransformerBlock(dim=self.dim * dim_mult, heads=8, dim_head=64, dtype=self.dtype)(x)
             hiddens.append(x)
-        hiddens.pop()
-
+        
+        x = ResnetBlock(dim=self.dim * self.dim_mults[-1], dtype=self.dtype)(x, t, c)
+        x = TransformerBlock(dim=self.dim * self.dim_mults[-1], dtype=self.dtype)(x)
+        x = ResnetBlock(dim=self.dim * self.dim_mults[-1], dtype=self.dtype)(x, t, c)
+        
+        # Upsample
+        add_skip_connection = lambda x: jnp.concatenate([x, hiddens.pop()], axis=-1)
         for dim_mult, hidden in zip(reversed(self.dim_mults), reversed(hiddens)):
-            x = UnetUBlock(dim=self.dim * dim_mult, cond_dim=cond_dim,  time_cond_dim=time_conditioning_dim,
-                           strides=self.strides, dtype=self.dtype)(x, t, c)
-            if hidden is not None:
-                x = jnp.concatenate([x, hidden], axis=-1)
-
+            x = add_skip_connection(x)
+            x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x, t, c)
+            for _ in range(3):
+                x = add_skip_connection(x)
+                x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x)
+            
+            x = TransformerBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x)
+            x = Upsample(dim=self.dim * dim_mult)(x)
+        
+        x = ResnetBlock(dim=self.dim, dtype=self.dtype)(x, t, c)
+            
         # x = nn.Dense(features=3, dtype=self.dtype)(x)
         x = nn.Conv(features=3, kernel_size=(3, 3), strides=1, dtype=self.dtype, padding=1)(x)
         return x    
