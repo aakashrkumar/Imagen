@@ -167,9 +167,6 @@ def get_cifar100():
     return images, lables
 
 
-get_cifar100()
-
-
 class Trainer:
     def __init__(self):
         wandb.init(project="imagen", entity="apcsc")
