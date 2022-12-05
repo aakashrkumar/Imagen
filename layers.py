@@ -129,7 +129,7 @@ class CrossEmbedLayer(nn.Module):
     dim: int = 128
     kernel_sizes: Tuple[int, ...] = (3, 7, 15)
     stride: int = 2
-    dtype: jnp.dtype = jnp.float32
+    dtype: jnp.dtype = jnp.bfloat16
 
     @nn.compact
     def __call__(self, x):
@@ -201,7 +201,7 @@ class Block(nn.Module):
 class ResnetBlock(nn.Module):
     """ResNet block with a projection shortcut and batch normalization."""
     dim: int
-    dtype: jnp.dtype = jnp.float32
+    dtype: jnp.dtype = jnp.bfloat16
 
     @nn.compact
     def __call__(self, x, time_emb=None, cond=None):
@@ -223,7 +223,7 @@ class ResnetBlock(nn.Module):
 
 class AlternateCrossAttentionBlock(nn.Module):
     num_channels: int
-    dtype: jnp.dtype = jnp.float32
+    dtype: jnp.dtype = jnp.bfloat16
 
     @nn.compact
     def __call__(self, x, s, a):
@@ -271,7 +271,7 @@ class AlternateCrossAttentionBlock(nn.Module):
 class CrossAttentionBlock(nn.Module):
     # attempted to implement cross attention based on scaled dot product attention
     num_channels: int
-    dtype: jnp.dtype = jnp.float32
+    dtype: jnp.dtype = jnp.bfloat16
 
     @nn.compact
     def __call__(self, x, s, a):
@@ -316,12 +316,12 @@ class CrossAttentionBlock(nn.Module):
 
 class SinusoidalPositionEmbeddings(nn.Module):
     dim: int = 512
-
+    dtype: jnp.dtype = jnp.bfloat16
     @nn.compact
     def __call__(self, time):
         half_dim = self.dim//2
         emb = math.log(10000) / (half_dim - 1)
-        emb = jnp.exp(jnp.arange(half_dim, dtype=jnp.float32) * -emb)
+        emb = jnp.exp(jnp.arange(half_dim, dtype=self.dtype) * -emb)
         emb = rearrange(time, "i -> i 1") * rearrange(emb, "j -> 1 j")
         return jnp.concatenate([jnp.sin(emb), jnp.cos(emb)], axis=-1)
     
@@ -332,7 +332,7 @@ class CombineEmbs(nn.Module):
 
     d: int = 32  # should be the dimensions of x
     n: int = 10000  # user defined scalor
-    dtype: jnp.dtype = jnp.float32
+    dtype: jnp.dtype = jnp.bfloat16
 
     @nn.compact
     def __call__(self, x, t, s=None, a=None):
@@ -415,7 +415,7 @@ class TransformerBlock(nn.Module):
     heads: int = 8
     dim_head: int = 32
     ff_mult: int = 2
-    dtype: jnp.dtype = jnp.float32
+    dtype: jnp.dtype = jnp.bfloat16
     
     @nn.compact
     def __call__(self, x, context=None):
@@ -427,14 +427,14 @@ class TransformerBlock(nn.Module):
 
 class Downsample(nn.Module):
     dim: int
-    dtype: jnp.dtype = jnp.float32
+    dtype: jnp.dtype = jnp.bfloat16
     @nn.compact
     def __call__(self, x):
         return nn.Conv(features=self.dim, kernel_size=(5, 5), strides=(2, 2), padding=2)(x)
 
 class Upsample(nn.Module):
     dim: int
-    dtype: jnp.dtype = jnp.float32
+    dtype: jnp.dtype = jnp.bfloat16
     @nn.compact
     def __call__(self, x):
         x = jax.image.resize(
