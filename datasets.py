@@ -46,7 +46,6 @@ def get_cifar100():
     # print the max pixel value
     train_ds["image"] = np.array(
         train_ds["image"], dtype=np.float32) / 127.5 - 1
-    print(train_ds)
     images, lables = sklearn.utils.shuffle(
         train_ds["image"], train_ds["label"])
     labels_ids = {

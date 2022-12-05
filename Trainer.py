@@ -49,8 +49,9 @@ class Trainer:
                     pickle.dump(self.batches, f)
                     f.close()
                     print("Saved batches to disk")
-
+        print("Loaded batches, now preparing imagen")
         self.imagen = Imagen()
+        print("Prepared imagen, now begining training")
 
     def train(self):
         pbar = tqdm(range(1, 1_000_001))
