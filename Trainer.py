@@ -198,10 +198,10 @@ class Trainer:
                 self.batches.append(
                     (batch_images, batch_labels_encoded, attention_masks))
             # save the batches to disk as pickle
-            with open("batches.npy", "wb") as f:
-                pickle.dump(self.batches, f)
-                f.close()
-                print("Saved batches to disk")
+            #with open("batches.npy", "wb") as f:
+             #   pickle.dump(self.batches, f)
+             #   f.close()
+               # print("Saved batches to disk")
 
         self.imagen = Imagen()
         # self.T5Encoder = dataCollector.T5Encoder.remote()
