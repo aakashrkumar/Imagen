@@ -14,7 +14,7 @@ import sklearn
 
 import pickle
 
-def get_datasets():
+def get_mnist():
     """Load MNIST train and test datasets into memory."""
     ds_builder = tfds.builder('mnist')
     ds_builder.download_and_prepare()
@@ -36,6 +36,29 @@ def get_datasets():
     # np.save("train_ds.npy", train_ds)
     return images, lables
 
+def get_cifar100():
+    """Load MNIST train and test datasets into memory."""
+    ds_builder = tfds.builder('cifar100')
+    ds_builder.download_and_prepare()
+    train_ds = tfds.as_numpy(
+        ds_builder.as_dataset(split='train', batch_size=-1))
+    test_ds = tfds.as_numpy(ds_builder.as_dataset(split='test', batch_size=-1))
+    train_ds['image'] = np.float32(train_ds['image'])
+    test_ds['image'] = np.float32(test_ds['image']) 
+    train_ds['image'] = np.asarray(train_ds['image'])
+    train_ds['image'] = np.stack([cv2.resize(
+        img, (64, 64)) for img in train_ds['image']], axis=0)
+    # train_ds['image'] = np.stack(
+    #     [cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) for img in train_ds['image']], axis=0)
+    # print the max pixel value
+    train_ds["image"] =  np.array(train_ds["image"], dtype=np.float32) / 127.5 - 1
+    
+    images, lables = sklearn.utils.shuffle(train_ds["image"], train_ds["fine_label"])
+    print(lables)
+    # np.save("train_ds.npy", train_ds)
+    return images, lables
+
+get_cifar100()
 class Trainer:
     def __init__(self):
         wandb.init(project="imagen", entity="apcsc")
