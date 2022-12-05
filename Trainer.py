@@ -180,8 +180,8 @@ class Trainer:
         self.images, self.labels = get_cifar100()
         self.tokenizer, self.model = get_tokenizer_and_model()
         # batch encode the text
-        if os.path.exists("batches2.npy"):
-            with open("batches2.npy", "rb") as f:
+        if os.path.exists("batches.npy"):
+            with open("batches.npy", "rb") as f:
                 self.batches = pickle.load(f)
                 f.close()
             print("Loaded batches from file")
