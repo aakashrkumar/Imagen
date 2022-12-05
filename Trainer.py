@@ -69,11 +69,11 @@ class Trainer:
         wandb.config.image_size = 64
         wandb.config.save_every = 1_000_000
         wandb.config.eval_every = 500
-        self.images, self.labels = get_datasets()
+        self.images, self.labels = get_cifar100()
         self.tokenizer, self.model = get_tokenizer_and_model()
         # batch encode the text
-        if os.path.exists("batches.npy"):
-            with open("batches.npy", "rb") as f:
+        if os.path.exists("batches2.npy"):
+            with open("batches2.npy", "rb") as f:
                 self.batches = pickle.load(f)
                 f.close()
             print("Loaded batches from file")
