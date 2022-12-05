@@ -52,7 +52,7 @@ def get_cifar100():
     #     [cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) for img in train_ds['image']], axis=0)
     # print the max pixel value
     train_ds["image"] =  np.array(train_ds["image"], dtype=np.float32) / 127.5 - 1
-    
+    print(train_ds)
     images, lables = sklearn.utils.shuffle(train_ds["image"], train_ds["fine_label"])
     print(lables)
     # np.save("train_ds.npy", train_ds)
