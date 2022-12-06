@@ -161,7 +161,8 @@ def compute_metrics(loss, logits):
 
 def test():
     imagen = Imagen()
-    imagen.train_step(jnp.ones((16, 64, 64, 3)), 0, jnp.ones((16, 256, 512)), jnp.ones((16, 256)))
+    while True:
+        imagen.train_step(jnp.ones((16, 64, 64, 3)), 0, jnp.ones((16, 256, 512)), jnp.ones((16, 256)))
 
 if __name__ == "__main__":
     test()
