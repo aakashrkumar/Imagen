@@ -22,6 +22,9 @@ import numpy as np
 
 from jax.experimental import pjit, PartitionSpec as P
 
+from partitioning import DEFAULT_TPU_RULES
+
+from flax.linen import partitioning as nn_partitioning
 
 mesh_shape = (2, 4)
 
@@ -153,7 +156,8 @@ class Imagen:
         # shard prng key
         # image_batch_shape = (batch_size, image_size, image_size, 3)
         key = self.get_key()
-        self.imagen_state, metrics = train_step(self.imagen_state, image_batch, timestep, texts_batches, attention_batches, key)
+        with maps.Mesh(self.mesh.devices, self.mesh.axis_names), nn_partitioning.axis_rules(DEFAULT_TPU_RULES):
+            self.imagen_state, metrics = train_step(self.imagen_state, image_batch, timestep, texts_batches, attention_batches, key)
         return metrics
 
 def compute_metrics(loss, logits):
