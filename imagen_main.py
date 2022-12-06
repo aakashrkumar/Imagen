@@ -140,7 +140,7 @@ class Imagen:
         )
         self.imagen_state = ImagenState(train_state=self.train_state, sampler=self.lowres_scheduler, conditional_drop_prob=conditional_drop_prob)
         self.image_size = img_size
-        self.p_train_step = jax.pjit(train_step, in_axis_resources=P(None, "X", "X", "X", "X", None), out_axis_resources=P(None, None))
+        self.p_train_step = pjit.pjit(train_step, in_axis_resources=P(None, "X", "X", "X", "X", None), out_axis_resources=P(None, None))
         
 
     def get_key(self):
