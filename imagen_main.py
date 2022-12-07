@@ -159,7 +159,7 @@ class Imagen:
             tx=opt,
             params=params['params']
         )
-        state_spec = get_vars_pspec(train_state, nnp.DEFAULT_TPU_RULES, params_axes)
+        state_spec = get_vars_pspec(train_state, nnp.DEFAULT_TPU_RULES, params_axes["params"])
         sampler_spec = jax.tree_map(lambda x: None, self.lowres_scheduler)
         self.imagen_state = ImagenState(
             train_state=train_state,
