@@ -33,10 +33,6 @@ class ImagenState(struct.PyTreeNode):
     train_state: TrainState
     sampler: GaussianDiffusionContinuousTimes
     conditional_drop_prob: float
-
-    def get_key(self):
-        rng, key = jax.random.split(self.rng)
-        return self.replace(rng=rng), key
     
 class GeneratorState(struct.PyTreeNode):
     imagen_state: ImagenState
