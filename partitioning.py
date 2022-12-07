@@ -16,6 +16,8 @@ DEFAULT_TPU_RULES = [
     ("channels", "Y"),
     ("width", None),
     ("height", None),
+    ("X","X"),
+    ("Y", "Y"),
 ]
 
 def get_params_axes(

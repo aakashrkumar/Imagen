@@ -25,6 +25,7 @@ from jax.experimental import pjit, PartitionSpec as P
 import partitioning as nnp
 
 from flax.linen import partitioning as nn_partitioning
+from flax.core.frozen_dict import FrozenDict
 
 mesh_shape = (2, 4)
 
@@ -43,6 +44,7 @@ class GeneratorState(struct.PyTreeNode):
     text: jnp.ndarray
     attention: jnp.ndarray
     rng: jax.random.PRNGKey
+    
 
 def conditioning_pred(generator_state, t, cond_scale):
     pred = generator_state.imagen_state.train_state.apply_fn({"params": generator_state.imagen_state.train_state.params}, generator_state.image, t, generator_state.text, generator_state.attention, 0.0, generator_state.rng)
@@ -113,6 +115,19 @@ def unet_init(unet, *args):
     params, params_axes = unet.init(*args).pop("params_axes")
     return params
 
+def get_vars_pspec(state, rules, params_axes):
+  # Apply the mapping rules to all leafs ot `param_axes`. This means we replace
+  # the name of the each Flax Module axis (e.g., `mlp_in'`) with the name of a
+  # Mesh axis (e.g., `model`), or None (if it should not be partitioned).
+  rd = {k:v for k,v in rules}
+  vars_pspec = jax.tree_map(lambda x: P(*(rd[k] for k in x)), params_axes)
+  # Replace all FrozenDicts in the train state with the new one.
+  vars_pspec = jax.tree_map(
+      lambda x: vars_pspec if isinstance(x, FrozenDict) else None, 
+      state, 
+      is_leaf=lambda x: isinstance(x, FrozenDict))
+  return vars_pspec
+
 class Imagen:
     def __init__(self, img_size: int = 64, batch_size: int = 16, sequence_length: int = 256, encoder_latent_dims: int = 512, num_timesteps: int = 1000, loss_type: str = "l2", conditional_drop_prob=0.1):
         self.random_state = jax.random.PRNGKey(0)        
@@ -147,9 +162,9 @@ class Imagen:
             tx=self.opt,
             params=self.params['params']
         )
-        imagen_state_spec = ImagenState(train_state=self.state_spec, sampler=None, conditional_drop_prob=None)
+        vars_pspec = get_vars_pspec(self.imagen_state, nnp.DEFAULT_TPU_RULES, params_axes)
         self.image_size = img_size
-        self.p_train_step = pjit.pjit(train_step, in_axis_resources=(imagen_state_spec, P("X", "Y", None, None), P("X", None), P("X", None, "Y"), P("X", "Y"), None), out_axis_resources=(imagen_state_spec, None))
+        self.p_train_step = pjit.pjit(train_step, in_axis_resources=(vars_pspec, P("X", "Y", None, None), P("X", None), P("X", None, "Y"), P("X", "Y"), None), out_axis_resources=(vars_pspec, None))
         
 
     def get_key(self):
