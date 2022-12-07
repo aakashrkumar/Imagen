@@ -173,7 +173,7 @@ class Imagen:
         )
         self.image_size = img_size
         self.p_train_step = pjit.pjit(train_step, in_axis_resources=(imagen_spec, P("X", "Y", None, None), P("X"), P("X", None, "Y"), P("X", "Y"), None), out_axis_resources=(imagen_spec, None))
-        
+        self.p_sample = pjit.pjit(sample, in_axis_resources=(imagen_spec, P("X", "Y", None, None), P("X"), P("X", None, "Y"), P("X", "Y")), out_axis_resources=(P("X", "Y", None, None), None))
 
     def get_key(self):
         self.random_state,key = jax.random.split(self.random_state)
@@ -182,7 +182,7 @@ class Imagen:
     def sample(self, texts, attention):
         batch_size = texts.shape[0] 
         noise = jax.random.normal(self.get_key(), (batch_size, self.image_size, self.image_size, 3))
-        return sample(self.imagen_state, noise, texts, attention, self.get_key())
+        return self.p_sample(self.imagen_state, noise, texts, attention, self.get_key())
     
     def train_step(self, image_batch, timestep, texts_batches=None, attention_batches=None):
         # shard prng key
