@@ -88,3 +88,6 @@ class ShardMixIn:
             )
 
         return param
+
+class Dense(ShardMixIn, nn.Dense):
+    pass

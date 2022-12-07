@@ -6,6 +6,8 @@ from einops import rearrange, repeat, reduce, pack, unpack
 from utils import exists, default
 from layers import ResnetBlock, SinusoidalPositionEmbeddings, CrossEmbedLayer, TextConditioning, TransformerBlock, Downsample, Upsample, Attention, EinopsToAndFrom
 
+import partitioning as nnp
+
 
 class EfficentUNet(nn.Module):
     # config: Dict[str, Any]
@@ -26,8 +28,8 @@ class EfficentUNet(nn.Module):
             (2 if self.lowres_conditioning else 1)
         cond_dim = default(self.cond_dim, self.dim)
 
-        time_hidden = SinusoidalPositionEmbeddings(dim=self.dim)(time)
-        time_hidden = nn.Dense(features=time_conditioning_dim, dtype=self.dtype)(time_hidden)
+        time_hidden = SinusoidalPositionEmbeddings(dim=self.dim)(time) # (b, 1, d)
+        time_hidden = nnp.Dense(features=time_conditioning_dim, dtype=self.dtype, shard_axes={"kernel": ("embed_kernel", None)})(time_hidden)
         time_hidden = nn.silu(time_hidden)
 
         t = nn.Dense(features=time_conditioning_dim,
