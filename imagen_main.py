@@ -43,6 +43,7 @@ class GeneratorState(struct.PyTreeNode):
     
 
 def conditioning_pred(generator_state, t, cond_scale):
+    print(generator_state.text.shape, generator_state.attention.shape)
     pred = generator_state.imagen_state.train_state.apply_fn({"params": generator_state.imagen_state.train_state.params}, generator_state.image, t, generator_state.text, generator_state.attention, 0.0, generator_state.rng)
     null_logits = generator_state.imagen_state.train_state.apply_fn({"params": generator_state.imagen_state.train_state.params}, generator_state.image, t, generator_state.text, generator_state.attention, 1.0, generator_state.rng) 
     return null_logits + (pred - null_logits) * cond_scale
@@ -197,9 +198,8 @@ def compute_metrics(loss, logits):
     return {"loss": loss}
 
 def test():
-    imagen = Imagen()
+    imagen = Imagen(batch_size=16)
     print("Done with imagen setup. Starting training loop")
-    batch_size = 8
     pb = tqdm(range(100000))
     while True:
         pb.update(1)
