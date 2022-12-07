@@ -5,7 +5,7 @@ import jax.numpy as jnp
 from einops import rearrange, repeat, reduce, pack, unpack
 from utils import exists, default
 from layers import ResnetBlock, SinusoidalPositionEmbeddings, CrossEmbedLayer, TextConditioning, TransformerBlock, Downsample, Upsample, Attention, EinopsToAndFrom
-from jax.experimental.pjit import with_sharding_constraint
+from jax.experimental.pjit import with_sharding_constraint, PartitionSpec as P
 import partitioning as nnp
 
 
@@ -37,7 +37,7 @@ class EfficentUNet(nn.Module):
 
         time_tokens = nnp.Dense(cond_dim * self.num_time_tokens, dtype=self.dtype, shard_axes={"kernel": ("embed_kernel", None)})(t)
         time_tokens = rearrange(time_tokens, 'b (r d) -> b r d', r=self.num_time_tokens)
-        time_tokens = with_sharding_constraint(time_tokens, ("batch", "tokens", "embed"))
+        time_tokens = with_sharding_constraint(time_tokens, (P("batch"), P("tokens"), P("embed")))
         print("time_tokens", time_tokens.shape)
         
         t, c = TextConditioning(cond_dim=cond_dim, time_cond_dim=time_conditioning_dim, max_token_length=self.max_token_len, cond_drop_prob=condition_drop_prob)(texts, attention_masks, t, time_tokens, rng)
