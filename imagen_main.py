@@ -169,7 +169,7 @@ class Imagen:
         )
         vars_pspec = get_vars_pspec(self.imagen_state, nnp.DEFAULT_TPU_RULES, params_axes)
         self.image_size = img_size
-        self.p_train_step = pjit.pjit(train_step, in_axis_resources=(vars_pspec, P("X", "Y", None, None), P("X", None), P("X", None, "Y"), P("X", "Y"), None), out_axis_resources=(vars_pspec, None))
+        self.p_train_step = pjit.pjit(train_step, in_axis_resources=(vars_pspec, P("X", "Y", None, None), P("X"), P("X", None, "Y"), P("X", "Y"), None), out_axis_resources=(vars_pspec, None))
         
 
     def get_key(self):
