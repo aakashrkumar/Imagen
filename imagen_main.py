@@ -172,7 +172,7 @@ class Imagen:
         )
         imagen_spec = ImagenState(
             train_state=state_spec,
-            sampler=None,
+            sampler=sampler_spec,
             conditional_drop_prob=None,
         )
         self.image_size = img_size
