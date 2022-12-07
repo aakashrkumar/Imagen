@@ -161,6 +161,11 @@ class Imagen:
             tx=self.opt,
             params=params['params']
         )
+        self.imagen_state = ImagenState(
+            train_state=self.train_state,
+            sampler=self.lowres_scheduler,
+            conditional_drop_prob=conditional_drop_prob,
+        )
         vars_pspec = get_vars_pspec(self.imagen_state, nnp.DEFAULT_TPU_RULES, params_axes)
         self.image_size = img_size
         self.p_train_step = pjit.pjit(train_step, in_axis_resources=(vars_pspec, P("X", "Y", None, None), P("X", None), P("X", None, "Y"), P("X", "Y"), None), out_axis_resources=(vars_pspec, None))
