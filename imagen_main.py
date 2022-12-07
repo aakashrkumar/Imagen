@@ -156,7 +156,6 @@ class Imagen:
             end_value=1e-5)
         # self.opt = optax.adafactor(learning_rate=1e-4)
         self.opt = optax.adam(learning_rate=lr)
-        self.state_spec = train_state.TrainState.create(apply_fn=self.unet.apply, tx=self.opt, params=params_axes['params'])
         self.train_state = train_state.TrainState.create(
             apply_fn=self.unet.apply,
             tx=self.opt,
