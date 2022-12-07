@@ -109,7 +109,9 @@ def train_step(imagen_state, imgs_start, timestep, texts, attention_masks, rng):
     imagen_state = imagen_state.replace(train_state=train_state)
     return imagen_state, compute_metrics(loss, logits)
 
-
+def unet_init(unet, *args):
+    params, params_axes = unet.init(*args).pop("params_axes")
+    return params
 
 class Imagen:
     def __init__(self, img_size: int = 64, batch_size: int = 16, sequence_length: int = 256, encoder_latent_dims: int = 512, num_timesteps: int = 1000, loss_type: str = "l2", conditional_drop_prob=0.1):
@@ -123,14 +125,13 @@ class Imagen:
         
         self.unet = EfficentUNet(max_token_len=sequence_length)
         self.random_state, key = jax.random.split(self.random_state)
-        
+        punet_init = partial(unet_init, self.unet)
         params = jax.eval_shape(self.unet.init, key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, self.random_state)
         params_axes = params["params_axes"]
         params_axes = nnp.get_params_axes(params, params_axes, rules=nnp.DEFAULT_TPU_RULES)
         print(params_axes)
-        quit()
         with self.mesh, nn_partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
-            params = pjit.pjit(self.unet.init, in_axis_resources=(None, P("X", "Y", None, None), P("X"), P("X", None, "Y"), P("X", "Y"), None, None), out_axis_resources={"params": params_axes})(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, self.random_state)
+            params = pjit.pjit(punet_init, in_axis_resources=(None, P("X", "Y", None, None), P("X"), P("X", None, "Y"), P("X", "Y"), None, None), out_axis_resources={"params": params_axes})(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, self.random_state)
         print(params)
         # self.params = self.unet.init(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, key)
         
