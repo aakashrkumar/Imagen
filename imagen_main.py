@@ -131,6 +131,7 @@ def get_vars_pspec(state, rules, params_axes):
 class Imagen:
     def __init__(self, img_size: int = 64, batch_size: int = 16, sequence_length: int = 256, encoder_latent_dims: int = 512, num_timesteps: int = 1000, loss_type: str = "l2", conditional_drop_prob=0.1):
         self.random_state = jax.random.PRNGKey(0)        
+        
         self.lowres_scheduler = GaussianDiffusionContinuousTimes.create(
             noise_schedule="cosine", num_timesteps=1000
         )
@@ -163,6 +164,7 @@ class Imagen:
             params=params['params']
         )
         state_spec = get_vars_pspec(train_state, nnp.DEFAULT_TPU_RULES, params_axes)
+        sampler_spec = jax.tree_map(lambda x: None, self.lowres_scheduler)
         self.imagen_state = ImagenState(
             train_state=train_state,
             sampler=self.lowres_scheduler,
