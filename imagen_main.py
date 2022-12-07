@@ -180,9 +180,10 @@ class Imagen:
         return key
     
     def sample(self, texts, attention):
-        batch_size = texts.shape[0] 
-        noise = jax.random.normal(self.get_key(), (batch_size, self.image_size, self.image_size, 3))
-        return self.p_sample(self.imagen_state, noise, texts, attention, self.get_key())
+        with maps.Mesh(self.mesh.devices, self.mesh.axis_names), nn_partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
+            batch_size = texts.shape[0] 
+            noise = jax.random.normal(self.get_key(), (batch_size, self.image_size, self.image_size, 3))
+            return self.p_sample(self.imagen_state, noise, texts, attention, self.get_key())
     
     def train_step(self, image_batch, timestep, texts_batches=None, attention_batches=None):
         # shard prng key
