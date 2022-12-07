@@ -127,7 +127,8 @@ class Imagen:
         params = jax.eval_shape(self.unet.init, key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, self.random_state)
         params_axes = params["params_axes"]
         params_axes = nnp.get_params_axes(params, params_axes, rules=nnp.DEFAULT_TPU_RULES)
-        params = jax.pjit(self.unet.init, in_axis_resources=(P("X", None, None, "Y"), P("X"), P("X", None, "Y"), P("X", "Y"), None, None), out_axis_resources=params_axes)(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, self.random_state)
+        with self.mesh, nnp.axis_rules(nnp.DEFAULT_TPU_RULES):
+            params = pjit.pjit(self.unet.init, in_axis_resources=(P("X", None, None, "Y"), P("X"), P("X", None, "Y"), P("X", "Y"), None, None), out_axis_resources=params_axes)(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, self.random_state)
         print(params)
         # self.params = self.unet.init(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, key)
         
