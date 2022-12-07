@@ -12,7 +12,7 @@ import optax
 
 from sampler import GaussianDiffusionContinuousTimes, extract
 from einops import rearrange, repeat, reduce, pack, unpack
-from flax.training import train_state
+from flax.training.train_state import TrainState
 
 from jax import tree_util
 from flax import struct, jax_utils
@@ -30,7 +30,7 @@ from flax.core.frozen_dict import FrozenDict
 mesh_shape = (2, 4)
 
 class ImagenState(struct.PyTreeNode):
-    train_state: train_state.TrainState
+    train_state: TrainState
     sampler: GaussianDiffusionContinuousTimes
     conditional_drop_prob: float
 
@@ -157,7 +157,7 @@ class Imagen:
             end_value=1e-5)
         # self.opt = optax.adafactor(learning_rate=1e-4)
         opt = optax.adam(learning_rate=lr)
-        train_state = train_state.TrainState.create(
+        train_state = TrainState.create(
             apply_fn=self.unet.apply,
             tx=opt,
             params=params['params']
