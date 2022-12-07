@@ -174,7 +174,7 @@ class Imagen:
             conditional_drop_prob=None,
         )
         self.image_size = img_size
-        self.p_train_step = pjit.pjit(train_step, in_axis_resources=(imagen_spec, P("X", "Y", None, None), P("X"), P("X", None, "Y"), P("X", "Y"), None), out_axis_resources=(vars_pspec, None))
+        self.p_train_step = pjit.pjit(train_step, in_axis_resources=(imagen_spec, P("X", "Y", None, None), P("X"), P("X", None, "Y"), P("X", "Y"), None), out_axis_resources=(imagen_spec, None))
         
 
     def get_key(self):
