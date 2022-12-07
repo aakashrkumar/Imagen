@@ -159,7 +159,7 @@ class Imagen:
         self.train_state = train_state.TrainState.create(
             apply_fn=self.unet.apply,
             tx=self.opt,
-            params=self.params['params']
+            params=params['params']
         )
         vars_pspec = get_vars_pspec(self.imagen_state, nnp.DEFAULT_TPU_RULES, params_axes)
         self.image_size = img_size
