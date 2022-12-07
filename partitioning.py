@@ -14,6 +14,7 @@ DEFAULT_TPU_RULES = [
     ("embed_kernel", "X"),
     ("embed", "Y"),
     ("channels", "Y"),
+    ("tokens", None)
     ("width", None),
     ("height", None),
     ("X","X"),
