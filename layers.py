@@ -45,7 +45,7 @@ class Attention(nn.Module):
         q = rearrange(q, 'b n (h d) -> b h n d', h=self.heads)
         q = q * scale
         
-        null_kv = jax.random.normal(jax.random.PRNGKey(3), (2, self.dim_head))
+        null_kv =  self.param('null_kv', nn.initializers.lecun_normal(), (2, self.dim_head))
         # null kv for classifier free guidance
         nk, nv = repeat_many(jax_unstack(null_kv, axis=-2), 'd -> b 1 d', b=b)
         
@@ -99,7 +99,7 @@ class CrossAttention(nn.Module):
         q, k, v = rearrange_many((q, k, v), 'b n (h d) -> b h n d', h=self.heads)
         
         
-        null_kv = jax.random.normal(jax.random.PRNGKey(34), (2, self.dim_head))
+        null_kv = self.param('null_kv', nn.initializers.lecun_normal(), (2, self.dim_head))
         
         nk, nv = repeat_many(jax_unstack(null_kv, axis=-2), 'd -> b h 1 d', h=self.heads, b=b)
         
@@ -167,7 +167,7 @@ class TextConditioning(nn.Module):
                 text_mask = rearrange(text_mask, 'b n -> b n 1')
                 text_keep_mask_embed = text_mask & text_keep_mask_embed
             
-            null_text_embed = jax.random.normal(jax.random.PRNGKey(0), (1, self.max_token_length, self.cond_dim))
+            null_text_embed = self.param('null_text_embed', nn.initializers.lecun_normal(), (1, self.max_token_length, self.cond_dim))
             text_tokens = jnp.where(text_keep_mask_embed, text_tokens, null_text_embed) # TODO: should this be inverted?
             
             mean_pooled_text_tokens = jnp.mean(text_tokens, axis=-2)
@@ -178,7 +178,7 @@ class TextConditioning(nn.Module):
             
             text_keep_mask_hidden = rearrange(text_keep_mask, 'b -> b 1')
             
-            null_text_hidden = jax.random.normal(jax.random.PRNGKey(1), (1, self.time_cond_dim))
+            null_text_hidden = self.param('null_text_hidden', nn.initializers.lecun_normal(), (1, self.time_cond_dim))
             text_hiddens = jnp.where(text_keep_mask_hidden, text_hiddens, null_text_hidden)# same question
             
             time_cond = time_cond + text_hiddens

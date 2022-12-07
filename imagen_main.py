@@ -129,14 +129,10 @@ class Imagen:
         params = jax.eval_shape(self.unet.init, key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, self.random_state)
         params_axes = params["params_axes"]
         params_axes = nnp.get_params_axes(params, params_axes, rules=nnp.DEFAULT_TPU_RULES)
-        print(params_axes)
         with self.mesh, nn_partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
             params = pjit.pjit(punet_init, in_axis_resources=(None, P("X", "Y", None, None), P("X"), P("X", None, "Y"), P("X", "Y"), None, None), out_axis_resources=params_axes)(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, self.random_state)
-        print(params)
         # self.params = self.unet.init(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, key)
-        
-        quit()
-        
+                
         lr = optax.warmup_cosine_decay_schedule(
             init_value=0.0,
             peak_value=1e-4,
@@ -145,14 +141,15 @@ class Imagen:
             end_value=1e-5)
         # self.opt = optax.adafactor(learning_rate=1e-4)
         self.opt = optax.adam(learning_rate=lr)
+        self.state_spec = train_state.TrainState.create(apply_fn=self.unet.apply, tx=self.opt, params=params_axes['params'])
         self.train_state = train_state.TrainState.create(
             apply_fn=self.unet.apply,
             tx=self.opt,
             params=self.params['params']
         )
-        self.imagen_state = ImagenState(train_state=self.train_state, sampler=self.lowres_scheduler, conditional_drop_prob=conditional_drop_prob)
+        imagen_state_spec = ImagenState(train_state=self.state_spec, sampler=None, conditional_drop_prob=None)
         self.image_size = img_size
-        self.p_train_step = pjit.pjit(train_step, in_axis_resources=P(), out_axis_resources=P(None, None))
+        self.p_train_step = pjit.pjit(train_step, in_axis_resources=(imagen_state_spec, P("X", "Y", None, None), P("X", None), P("X", None, "Y"), P("X", "Y"), None), out_axis_resources=(imagen_state_spec, None))
         
 
     def get_key(self):
@@ -169,7 +166,7 @@ class Imagen:
         # image_batch_shape = (batch_size, image_size, image_size, 3)
         key = self.get_key()
         with maps.Mesh(self.mesh.devices, self.mesh.axis_names), nn_partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
-            self.imagen_state, metrics = train_step(self.imagen_state, image_batch, timestep, texts_batches, attention_batches, key)
+            self.imagen_state, metrics = self.p_train_step(self.imagen_state, image_batch, timestep, texts_batches, attention_batches, key)
         return metrics
 
 def compute_metrics(loss, logits):
