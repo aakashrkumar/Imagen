@@ -135,7 +135,6 @@ class Imagen:
                 
         devices = np.asarray(jax.devices()).reshape(*mesh_shape)
         self.mesh = maps.Mesh(devices, ("X", "Y"))
-        self.axis_rules = nn_partitioning.axis_rules(nnp.DEFAULT_TPU_RULES)
         
         self.unet = EfficentUNet(max_token_len=sequence_length)
         self.random_state, key = jax.random.split(self.random_state)
@@ -189,7 +188,7 @@ class Imagen:
         # shard prng key
         # image_batch_shape = (batch_size, image_size, image_size, 3)
         key = self.get_key()
-        with self.mesh, self.axis_rules:
+        with maps.Mesh(self.mesh.devices, self.mesh.axis_names), nn_partitioning.axis_rules(self.axis_rules):
             self.imagen_state, metrics = self.p_train_step(self.imagen_state, image_batch, timestep, texts_batches, attention_batches, key)
         return metrics
 
