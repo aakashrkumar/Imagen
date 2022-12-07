@@ -49,7 +49,7 @@ def conditioning_pred(generator_state, t, cond_scale):
 
 def p_mean_variance(t_index, generator_state):
     t_index = 999-t_index
-    t = jnp.ones(1, dtype=jnp.int16) * t_index
+    t = jnp.ones(generator_state.image.shape[0], dtype=jnp.int16) * t_index
     pred = conditioning_pred(generator_state, t, 4.0)
     x_start = generator_state.imagen_state.sampler.predict_start_from_noise(generator_state.image, t=t, noise=pred)
     
