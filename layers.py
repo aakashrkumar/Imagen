@@ -13,6 +13,7 @@ from sampler import GaussianDiffusionContinuousTimes, extract
 from einops import rearrange, repeat, reduce, pack, unpack
 from utils import exists, default, jax_unstack
 from einops_exts import rearrange_many, repeat_many
+import partitioning as nnp
 
 class EinopsToAndFrom(nn.Module):
     fn: Any
@@ -39,8 +40,8 @@ class Attention(nn.Module):
         
         x = nn.LayerNorm()(x)
         
-        q = nn.Dense(features=inner_dim, use_bias=False)(x)
-        k, v = nn.Dense(features=self.dim_head * 2, use_bias=False)(x).split(2, axis=-1)
+        q = nnp.Dense(features=inner_dim, use_bias=False,shard_axes={"kernel": ("embed_kernel", None)})(x)
+        k, v = nnp.Dense(features=self.dim_head * 2, use_bias=False,shard_axes={"kernel": ("embed_kernel", None)})(x).split(2, axis=-1)
         
         q = rearrange(q, 'b n (h d) -> b h n d', h=self.heads)
         q = q * scale
@@ -54,7 +55,7 @@ class Attention(nn.Module):
         
         if exists(context):
             context_hidden = nn.LayerNorm()(context)
-            context_hidden = nn.Dense(features=self.dim_head*2)(context_hidden)
+            context_hidden = nnp.Dense(features=self.dim_head*2,shard_axes={"kernel": ("embed_kernel", None)})(context_hidden)
             ck, cv = context_hidden.split(2, axis=-1)
             
             k = jnp.concatenate((k, ck), axis=-2)
@@ -75,7 +76,7 @@ class Attention(nn.Module):
         
         out = rearrange(out, 'b h n d -> b n (h d)')
         
-        out = nn.Dense(features=self.dim, use_bias=False)(out)
+        out = nnp.Dense(features=self.dim, use_bias=False,shard_axes={"kernel": ("embed_kernel", None)})(out)
         out = nn.LayerNorm()(out)
         return out
 
@@ -93,8 +94,8 @@ class CrossAttention(nn.Module):
         x = nn.LayerNorm()(x)
         context = nn.LayerNorm()(context)
         
-        q = nn.Dense(features=inner_dim, use_bias=False)(x)
-        k, v = nn.Dense(features=inner_dim * 2, use_bias=False)(context).split(2, axis=-1)
+        q = nnp.Dense(features=inner_dim, use_bias=False, shard_axes={"kernel": ("embed_kernel", None)})(x)
+        k, v = nnp.Dense(features=inner_dim * 2, use_bias=False, shard_axes={"kernel": ("embed_kernel", None)})(context).split(2, axis=-1)
         
         q, k, v = rearrange_many((q, k, v), 'b n (h d) -> b h n d', h=self.heads)
         
@@ -120,7 +121,7 @@ class CrossAttention(nn.Module):
         
         out = jnp.einsum('b h i j, b h j d -> b h i d', attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
-        out = nn.Dense(features=self.dim, use_bias=False)(out)
+        out = nnp.Dense(features=self.dim, use_bias=False, shard_axes={"kernel": ("embed_kernel", None)})(out)
         out = nn.LayerNorm()(out)
         
         return out
@@ -150,10 +151,12 @@ class TextConditioning(nn.Module):
     cond_dim: int = 128
     time_cond_dim: int = 128
     max_token_length: int = 256
+    
+    dtype: jnp.dtype = jnp.bfloat16
     @nn.compact
     def __call__(self, text_embeds, text_mask, time_cond, time_tokens, rng):
         if exists(text_embeds):
-            text_tokens = nn.Dense(features=self.cond_dim)(text_embeds)
+            text_tokens = nnp.Dense(features=self.cond_dim, shard_axes={"kernel": ("embed_kernel", None)})(text_embeds)
             text_tokens = text_tokens[:, :self.max_token_length]
             text_tokens_len = text_tokens.shape[1]
             remainder = self.max_token_length - text_tokens_len
@@ -172,9 +175,9 @@ class TextConditioning(nn.Module):
             
             mean_pooled_text_tokens = jnp.mean(text_tokens, axis=-2)
             text_hiddens = nn.LayerNorm()(mean_pooled_text_tokens)
-            text_hiddens = nn.Dense(features=self.time_cond_dim)(text_hiddens)
+            text_hiddens = nnp.Dense(features=self.time_cond_dim, shard_axes={"kernel": ("embed_kernel", None)}, dtype=self.dtype)(text_hiddens)
             text_hiddens = nn.silu(text_hiddens)
-            text_hiddens = nn.Dense(features=self.time_cond_dim)(text_hiddens)
+            text_hiddens = nnp.Dense(features=self.time_cond_dim,shard_axes={"kernel": ("embed_kernel", None)}, dtype=self.dtype)(text_hiddens)
             
             text_keep_mask_hidden = rearrange(text_keep_mask, 'b -> b 1')
             
@@ -208,7 +211,7 @@ class ResnetBlock(nn.Module):
         scale_shift = None
         if exists(time_emb):
             time_emb = nn.silu(time_emb)
-            time_emb = nn.Dense(features=self.dim * 2)(time_emb)
+            time_emb = nnp.Dense(features=self.dim * 2, dtype=self.dtype, shard_axes={"kernel": ("embed_kernel", None)})(time_emb)
             time_emb = rearrange(time_emb, 'b c -> b 1 1 c')
             scale_shift = jnp.split(time_emb, 2, axis=-1)
         h = Block(self.dim)(x)
@@ -371,8 +374,8 @@ class CombineEmbs(nn.Module):
                 jnp.sum(attention_mask), a_min=1e-9, a_max=None)
             text_embeds_pooled = text_embeds / attention_mask_sum
             # project to correct number of channels
-            text_embed_proj = nn.Dense(
-                features=self.d, dtype=self.dtype)(text_embeds_pooled)
+            text_embed_proj = nnp.Dense(
+                features=self.d, dtype=self.dtype,shard_axes={"kernel": ("embed_kernel", None)})(text_embeds_pooled)
             # add axis for height and width
             text_embed_proj = text_embed_proj[:, jnp.newaxis, jnp.newaxis, :]
             # project across height and width
