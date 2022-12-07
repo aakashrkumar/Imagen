@@ -188,7 +188,7 @@ class Imagen:
         # shard prng key
         # image_batch_shape = (batch_size, image_size, image_size, 3)
         key = self.get_key()
-        with maps.Mesh(self.mesh.devices, self.mesh.axis_names), nn_partitioning.axis_rules(self.axis_rules):
+        with maps.Mesh(self.mesh.devices, self.mesh.axis_names), nn_partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
             self.imagen_state, metrics = self.p_train_step(self.imagen_state, image_batch, timestep, texts_batches, attention_batches, key)
         return metrics
 
