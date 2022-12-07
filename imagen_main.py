@@ -162,14 +162,19 @@ class Imagen:
             tx=opt,
             params=params['params']
         )
+        state_spec = get_vars_pspec(train_state, nnp.DEFAULT_TPU_RULES, params_axes)
         self.imagen_state = ImagenState(
             train_state=train_state,
             sampler=self.lowres_scheduler,
             conditional_drop_prob=conditional_drop_prob,
         )
-        vars_pspec = get_vars_pspec(self.imagen_state, nnp.DEFAULT_TPU_RULES, params_axes)
+        imagen_spec = ImagenState(
+            train_state=state_spec,
+            sampler=None,
+            conditional_drop_prob=None,
+        )
         self.image_size = img_size
-        self.p_train_step = pjit.pjit(train_step, in_axis_resources=(vars_pspec, P("X", "Y", None, None), P("X"), P("X", None, "Y"), P("X", "Y"), None), out_axis_resources=(vars_pspec, None))
+        self.p_train_step = pjit.pjit(train_step, in_axis_resources=(imagen_spec, P("X", "Y", None, None), P("X"), P("X", None, "Y"), P("X", "Y"), None), out_axis_resources=(vars_pspec, None))
         
 
     def get_key(self):
