@@ -18,6 +18,8 @@ DEFAULT_TPU_RULES = [
     ("height", None),
     ("X","X"),
     ("Y", "Y"),
+    (None, None)
+    
 ]
 
 def get_params_axes(
