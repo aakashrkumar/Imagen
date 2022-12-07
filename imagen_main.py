@@ -177,6 +177,7 @@ def test():
     batch_size = 16
     while True:
         imagen.train_step(jnp.ones((batch_size, 64, 64, 3)), jnp.ones((batch_size,)) * 1, jnp.ones((batch_size, 256, 512)), jnp.ones((batch_size, 256)))
+        print("done")
 
 if __name__ == "__main__":
     test()
