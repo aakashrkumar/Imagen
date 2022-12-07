@@ -96,6 +96,7 @@ def train_step(imagen_state, imgs_start, timestep, texts, attention_masks, rng):
     rng,key = jax.random.split(rng)
     rng, key2 = jax.random.split(rng)
     noise = jax.random.normal(key, imgs_start.shape)
+    timestep = jnp.array(timestep, dtype=jnp.int16)
     x_noise = imagen_state.sampler.q_sample(imgs_start, timestep, noise)
     def loss_fn(params):
         predicted_noise = imagen_state.train_state.apply_fn({"params": params}, x_noise, timestep, texts, attention_masks, imagen_state.conditional_drop_prob, key2)
@@ -171,7 +172,6 @@ class Imagen:
             sampler=sampler_spec,
             conditional_drop_prob=None,
         )
-        print(imagen_spec)
         self.image_size = img_size
         self.p_train_step = pjit.pjit(train_step, in_axis_resources=(imagen_spec, P("X", "Y", None, None), P("X"), P("X", None, "Y"), P("X", "Y"), None), out_axis_resources=(imagen_spec, None))
         
