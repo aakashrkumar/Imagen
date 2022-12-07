@@ -22,7 +22,7 @@ import numpy as np
 
 from jax.experimental import pjit, PartitionSpec as P
 
-from partitioning import DEFAULT_TPU_RULES
+import partitioning as nnp
 
 from flax.linen import partitioning as nn_partitioning
 
@@ -122,8 +122,14 @@ class Imagen:
         self.mesh = maps.Mesh(devices, ("X", "Y"))
         
         self.unet = EfficentUNet(max_token_len=sequence_length)
+        
+        params = jax.eval_shape(self.unet.init, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, self.random_state)
+        print(params)
+        
         self.random_state, key = jax.random.split(self.random_state)
         self.params = self.unet.init(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, key)
+        
+        quit()
         
         lr = optax.warmup_cosine_decay_schedule(
             init_value=0.0,
@@ -140,7 +146,7 @@ class Imagen:
         )
         self.imagen_state = ImagenState(train_state=self.train_state, sampler=self.lowres_scheduler, conditional_drop_prob=conditional_drop_prob)
         self.image_size = img_size
-        self.p_train_step = pjit.pjit(train_step, in_axis_resources=P(None, "X",None, None, None), out_axis_resources=P(None, None))
+        self.p_train_step = pjit.pjit(train_step, in_axis_resources=P(), out_axis_resources=P(None, None))
         
 
     def get_key(self):
@@ -156,7 +162,7 @@ class Imagen:
         # shard prng key
         # image_batch_shape = (batch_size, image_size, image_size, 3)
         key = self.get_key()
-        with maps.Mesh(self.mesh.devices, self.mesh.axis_names), nn_partitioning.axis_rules(DEFAULT_TPU_RULES):
+        with maps.Mesh(self.mesh.devices, self.mesh.axis_names), nn_partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
             self.imagen_state, metrics = train_step(self.imagen_state, image_batch, timestep, texts_batches, attention_batches, key)
         return metrics
 

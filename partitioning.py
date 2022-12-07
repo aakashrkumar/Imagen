@@ -13,8 +13,9 @@ DEFAULT_TPU_RULES = [
     ("heads", "Y"),
     ("embed_kernel", "X"),
     ("embed", "Y"),
-    ("width", "Y"),
-    ("height", "Y"),
+    ("channels", "Y"),
+    ("width", None),
+    ("height", None),
 ]
 
 def get_params_axes(
