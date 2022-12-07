@@ -27,6 +27,7 @@ import partitioning as nnp
 from flax.linen import partitioning as nn_partitioning
 from flax.core.frozen_dict import FrozenDict
 
+from utils import right_pad_dims_to
 
 
 mesh_shape = (2, 4)
@@ -62,6 +63,7 @@ def p_mean_variance(t_index, generator_state):
     ) # dynamic thresholding percentile
     
     s = jnp.maximum(s, 1.0)
+    s = right_pad_dims_to(x_start, s)
     x_start = jnp.clip(x_start, -s, s) / s
     
     return generator_state.imagen_state.sampler.q_posterior(x_start, x_t=generator_state.image, t=t)
