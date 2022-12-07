@@ -155,14 +155,14 @@ class Imagen:
             decay_steps=2500000,
             end_value=1e-5)
         # self.opt = optax.adafactor(learning_rate=1e-4)
-        self.opt = optax.adam(learning_rate=lr)
-        self.train_state = train_state.TrainState.create(
+        opt = optax.adam(learning_rate=lr)
+        train_state = train_state.TrainState.create(
             apply_fn=self.unet.apply,
-            tx=self.opt,
+            tx=opt,
             params=params['params']
         )
         self.imagen_state = ImagenState(
-            train_state=self.train_state,
+            train_state=train_state,
             sampler=self.lowres_scheduler,
             conditional_drop_prob=conditional_drop_prob,
         )
