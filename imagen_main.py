@@ -181,7 +181,7 @@ class Imagen:
             optax.clip(1.0),
             optax.adamw(learning_rate=1e-4, b1=0.9, b2=0.999,
                         eps=1e-8, weight_decay=1e-8)
-        ) # TODO: this is a hack, fix this later
+        )  # TODO: this is a hack, fix this later
         train_state = TrainState.create(
             apply_fn=self.unet.apply,
             tx=opt,
@@ -238,7 +238,9 @@ def test():
     pb = tqdm(range(100000))
     while True:
         imagen.train_step(jnp.ones((batch_size, 256, 256, 3)), jnp.ones(
-            (batch_size,), dtype=jnp.int16), jnp.ones((batch_size, 256, 512)), jnp.ones((batch_size, 256)))
+            (batch_size,), dtype=jnp.int16),
+            jnp.ones((batch_size, 256, 512)),
+            jnp.ones((batch_size, 256)))
         # imagen.sample(jnp.ones((16, 256, 512)), jnp.ones((16, 256)))
         pb.update(1)
 #        print("done")
