@@ -205,8 +205,9 @@ def test():
     print("Done with imagen setup. Starting training loop")
     pb = tqdm(range(100000))
     while True:
-        pb.update(1)
+        imagen.train_step(jnp.ones((16, 256, 256, 3)), jnp.ones((16,), dtype=jnp.int16), jnp.ones((16, 256, 512)), jnp.ones((16, 256))
         imagen.sample(jnp.ones((16, 256, 512)), jnp.ones((16, 256)))
+        pb.update(1)
 #        print("done")
 
 if __name__ == "__main__":
