@@ -1,8 +1,5 @@
 from enum import Enum
 from typing import List, Iterable, Optional, Union, Tuple, Dict, Any
-
-from modeling_imagen import EfficentUNet
-
 import jax.numpy as jnp
 
 
@@ -33,9 +30,6 @@ class UnetConfig():
     strides: Tuple[int, int] = (2, 2)
     
     dtype: jnp.bfloat16
-
-    def create(self):
-        return EfficentUNet(**self.dict())
 
 
 class ImagenConfig:
