@@ -157,7 +157,7 @@ class Imagen:
             decay_steps=2500000,
             end_value=1e-5)
         # self.opt = optax.adafactor(learning_rate=1e-4)
-        opt = optax.adam(learning_rate=lr)
+        opt = optax.adafactor(learning_rate=lr)
         train_state = TrainState.create(
             apply_fn=self.unet.apply,
             tx=opt,
