@@ -180,7 +180,7 @@ class Imagen:
         self.p_sample = pjit.pjit(sample, in_axis_resources=(imagen_spec, P("X", "Y", None, None), P("X", None, "Y"), P("X", "Y"), None), out_axis_resources=(P("X", "Y", None, None)))
 
     def get_key(self):
-        self.random_state,key = jax.random.split(self.random_state)
+        self.random_state, key = jax.random.split(self.random_state)
         return key
     
     def sample(self, texts, attention):
