@@ -17,13 +17,13 @@ from datasets import get_cifar100, get_mnist
 class Trainer:
     def __init__(self):
         wandb.init(project="imagen", entity="apcsc")
-        wandb.config.batch_size = 64
+        wandb.config.batch_size = 128
         wandb.config.seed = 0
         wandb.config.learning_rate = 1e-4
         wandb.config.image_size = 64
         wandb.config.save_every = 1_000_000
         wandb.config.eval_every = 500
-        self.images, self.labels = get_cifar100()
+        self.images, self.labels = get_mnist()
         self.tokenizer, self.model = get_tokenizer_and_model()
         # batch encode the text
         SAVE = False
@@ -106,6 +106,7 @@ class Trainer:
                     "orange",
                     "television",
                 ]
+                prompts = [f"An image of the number {i}" for i in range(1, 9)]
                 
                 prompts_encoded, attention_masks = encode_text(
                     prompts, self.tokenizer, self.model)
