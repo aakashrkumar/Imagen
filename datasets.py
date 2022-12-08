@@ -25,7 +25,7 @@ def get_mnist():
         train_ds["image"], train_ds["label"])
     lables = list(map(lambda x: "An image of the number " + str(x), lables))
     # np.save("train_ds.npy", train_ds)
-    return images[:1000], lables[:1000]
+    return images[:1024], lables[:1024]
 
 
 def get_cifar100():
