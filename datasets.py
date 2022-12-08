@@ -25,7 +25,7 @@ def get_mnist():
         train_ds["image"], train_ds["label"])
     lables = list(map(lambda x: "An image of the number " + str(x), lables))
     # np.save("train_ds.npy", train_ds)
-    DEBUG = False
+    DEBUG = True
     if DEBUG:
         partofds = 1024
         return images[:partofds], lables[:partofds]

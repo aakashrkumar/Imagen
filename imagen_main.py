@@ -202,11 +202,11 @@ def compute_metrics(loss, logits):
 
 def test():
     batch_size = 128
-    imagen = Imagen(batch_size=16)
+    imagen = Imagen(batch_size=batch_size)
     print("Done with imagen setup. Starting training loop")
     pb = tqdm(range(100000))
     while True:
-        imagen.train_step(jnp.ones((16, 256, 256, 3)), jnp.ones((16,), dtype=jnp.int16), jnp.ones((16, 256, 512)), jnp.ones((16, 256)))
+        imagen.train_step(jnp.ones((batch_size, 256, 256, 3)), jnp.ones((batch_size,), dtype=jnp.int16), jnp.ones((batch_size, 256, 512)), jnp.ones((batch_size, 256)))
         # imagen.sample(jnp.ones((16, 256, 512)), jnp.ones((16, 256)))
         pb.update(1)
 #        print("done")
