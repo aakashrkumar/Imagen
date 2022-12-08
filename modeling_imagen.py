@@ -7,14 +7,22 @@ from utils import exists, default
 from layers import ResnetBlock, SinusoidalPositionEmbeddings, CrossEmbedLayer, TextConditioning, TransformerBlock, Downsample, Upsample, Attention, EinopsToAndFrom
 from jax.experimental.pjit import with_sharding_constraint, PartitionSpec as P
 import partitioning as nnp
-
+from config import ListOrTuple, SingleOrList
 
 class EfficentUNet(nn.Module):
     # config: Dict[str, Any]
     dim: int = 128
     dim_mults: Tuple[int, ...] = (1, 2, 4, 8)
-    num_time_tokens: int = 2
+    text_embed_dim: int = 512
     cond_dim: int = None  # default to dim
+    channels: int = 3
+    
+    atten_dim_head: int = 64
+    attn_heads: int = 16
+    
+    num_resnet_blocks: int = 8
+    
+    num_time_tokens: int = 2
     lowres_conditioning: bool = False
     max_token_len: int = 256
 
@@ -29,13 +37,13 @@ class EfficentUNet(nn.Module):
         cond_dim = default(self.cond_dim, self.dim)
 
         time_hidden = SinusoidalPositionEmbeddings(dim=self.dim)(time) # (b, 1, d)
-        time_hidden = nnp.Dense(features=time_conditioning_dim, dtype=self.dtype, shard_axes={"kernel": ("embed_kernel", None)})(time_hidden)
+        time_hidden = nnp.Dense(features=time_conditioning_dim, dtype=self.dtype, shard_axes={"kernel": ("embed_kernel", "mlp")})(time_hidden)
         time_hidden = nn.silu(time_hidden)
 
         t = nnp.Dense(features=time_conditioning_dim,
-                     dtype=self.dtype, shard_axes={"kernel": ("embed_kernel", None)})(time_hidden)
+                     dtype=self.dtype, shard_axes={"kernel": ("embed_kernel", "mlp")})(time_hidden)
 
-        time_tokens = nnp.Dense(cond_dim * self.num_time_tokens, dtype=self.dtype, shard_axes={"kernel": ("embed_kernel", None)})(t)
+        time_tokens = nnp.Dense(cond_dim * self.num_time_tokens, dtype=self.dtype, shard_axes={"kernel": ("embed_kernel", "mlp")})(t)
         time_tokens = rearrange(time_tokens, 'b (r d) -> b r d', r=self.num_time_tokens)
         
         t, c = TextConditioning(cond_dim=cond_dim, time_cond_dim=time_conditioning_dim, max_token_length=self.max_token_len, cond_drop_prob=condition_drop_prob)(texts, attention_masks, t, time_tokens, rng)
@@ -49,7 +57,7 @@ class EfficentUNet(nn.Module):
         for dim_mult in self.dim_mults:
             x = Downsample(dim=self.dim * dim_mult)(x)
             x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x, t, c)
-            for _ in range(3):
+            for _ in range(self.num_resnet_blocks):
                 x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x)
                 hiddens.append(x)
             x = TransformerBlock(dim=self.dim * dim_mult, heads=8, dim_head=64, dtype=self.dtype)(x)
@@ -64,7 +72,7 @@ class EfficentUNet(nn.Module):
         for dim_mult in reversed(self.dim_mults):
             x = add_skip_connection(x)
             x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x, t, c)
-            for _ in range(3):
+            for _ in range(self.num_resnet_blocks):
                 x = add_skip_connection(x)
                 x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x)
             
