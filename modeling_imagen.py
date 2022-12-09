@@ -23,7 +23,7 @@ class EfficentUNet(nn.Module):
     atten_dim_head: int = 32
     attn_heads: int = 4
     
-    num_resnet_blocks: int = 4
+    num_resnet_blocks: int = 3
     
     num_time_tokens: int = 2
     lowres_conditioning: bool = False
@@ -80,7 +80,7 @@ class EfficentUNet(nn.Module):
             x = TransformerBlock(dim=self.dim * dim_mult, heads=8, dim_head=64, dtype=self.dtype)(x)
             x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
             hiddens.append(x)
-        
+        return init_conv_residual
         x = ResnetBlock(dim=self.dim * self.dim_mults[-1], dtype=self.dtype)(x, t, c)
         x = EinopsToAndFrom(Attention(self.dim * self.dim_mults[-1]), 'b h w c', 'b (h w) c')(x)
         x = ResnetBlock(dim=self.dim * self.dim_mults[-1], dtype=self.dtype)(x, t, c)
