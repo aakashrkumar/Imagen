@@ -232,7 +232,7 @@ def compute_metrics(loss, logits):
 
 
 def test():
-    batch_size = 128
+    batch_size = 8
     imagen = Imagen(batch_size=batch_size)
     print("Done with imagen setup. Starting training loop")
     pb = tqdm(range(100000))
