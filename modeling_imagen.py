@@ -5,9 +5,12 @@ import jax.numpy as jnp
 from einops import rearrange, repeat, reduce, pack, unpack
 from utils import exists, default
 from layers import ResnetBlock, SinusoidalPositionEmbeddings, CrossEmbedLayer, TextConditioning, TransformerBlock, Downsample, Upsample, Attention, EinopsToAndFrom
-from jax.experimental.pjit import with_sharding_constraint, PartitionSpec as P
+from jax.experimental.pjit import PartitionSpec as P
 import partitioning as nnp
 from config import ListOrTuple, SingleOrList
+from flax.linen import partitioning as nn_partitioning
+
+with_sharding_constraint = nn_partitioning.with_sharding_constraint
 
 class EfficentUNet(nn.Module):
     # config: Dict[str, Any]
@@ -49,7 +52,8 @@ class EfficentUNet(nn.Module):
         t, c = TextConditioning(cond_dim=cond_dim, time_cond_dim=time_conditioning_dim, max_token_length=self.max_token_len, cond_drop_prob=condition_drop_prob)(texts, attention_masks, t, time_tokens, rng)
         # TODO: add lowres conditioning
         
-        t = with_sharding_constraint(t, P("X", "Y"))
+        t = with_sharding_constraint(t, P("batch", "embed"))
+        c = with_sharding_constraint(c, P("batch", "embed"))
                 
         x = CrossEmbedLayer(dim=self.dim,
                             kernel_sizes=(3, 7, 15), stride=1, dtype=self.dtype)(x)

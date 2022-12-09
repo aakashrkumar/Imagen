@@ -15,6 +15,10 @@ from utils import exists, default, jax_unstack
 from einops_exts import rearrange_many, repeat_many
 import partitioning as nnp
 
+from flax.linen import partitioning as nn_partitioning
+
+with_sharding_constraint = nn_partitioning.with_sharding_constraint
+
 class EinopsToAndFrom(nn.Module):
     fn: Any
     from_einops: str
