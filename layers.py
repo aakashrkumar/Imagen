@@ -338,6 +338,7 @@ class ResnetBlock(nn.Module):
 
 
 class Downsample(nn.Module):
+    config: UnetConfig
     dim: int
 
     @nn.compact
@@ -346,6 +347,7 @@ class Downsample(nn.Module):
 
 
 class Upsample(nn.Module):
+    config: UnetConfig
     dim: int
 
     @nn.compact
