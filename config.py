@@ -13,7 +13,7 @@ def SingleOrList(inner_type):
 
 class UnetConfig:
     dim:                       int = 128
-    dim_mults:                 ListOrTuple(int)
+    dim_mults:                 ListOrTuple(int) = (1, 2, 4, 8) 
     cond_dim:                  int = 128
     
     time_conditiong_dim:       int = 512 # dim * 4 (* 2 if lowres_conditioning)
