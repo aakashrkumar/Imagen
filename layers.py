@@ -108,6 +108,7 @@ class Attention(nn.Module):
 
 class CrossAttention(nn.Module):
     config: UnetConfig
+    dim: int
 
     norm_context: bool = False
 
