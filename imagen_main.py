@@ -156,16 +156,16 @@ class Imagen:
 
         devices = np.asarray(jax.devices()).reshape(*mesh_shape)
         self.mesh = maps.Mesh(devices, ("X", "Y"))
+        with maps.Mesh(self.mesh.devices, self.mesh.axis_names), nn_partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
 
-        self.unet = EfficentUNet(max_token_len=sequence_length)
-        self.random_state, key = jax.random.split(self.random_state)
-        punet_init = partial(unet_init, self.unet)
-        params = jax.eval_shape(self.unet.init, key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones(
-            (batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, self.random_state)
-        params_axes = params["params_axes"]
-        params_axes = nnp.get_params_axes(
+            self.unet = EfficentUNet(max_token_len=sequence_length)
+            self.random_state, key = jax.random.split(self.random_state)
+            punet_init = partial(unet_init, self.unet)
+            params = jax.eval_shape(self.unet.init, key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones(
+                (batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, self.random_state)
+            params_axes = params["params_axes"]
+            params_axes = nnp.get_params_axes(
             params, params_axes, rules=nnp.DEFAULT_TPU_RULES)
-        with self.mesh, nn_partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
             params = pjit.pjit(punet_init, in_axis_resources=(None, P("X", "Y", None, None), P("X"), P("X", None, "Y"), P("X", "Y"), None, None), out_axis_resources=params_axes)(key, jnp.ones(
                 (batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, self.random_state)
         # self.params = self.unet.init(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, key)
