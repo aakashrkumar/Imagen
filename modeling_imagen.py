@@ -16,10 +16,6 @@ with_sharding_constraint = nn_partitioning.with_sharding_constraint
 
 class EfficentUNet(nn.Module):
     config: UnetConfig
-    dim_mults: Tuple[int, ...] = (1, 2, 4, 8)
-    text_embed_dim: int = 512
-    cond_dim: int = None  # default to dim
-    channels: int = 3
     
     atten_dim_head: int = 32
     attn_heads: int = 4
@@ -53,7 +49,7 @@ class EfficentUNet(nn.Module):
         
         t = with_sharding_constraint(t, P("batch", "embed"))
 
-        time_tokens = nnp.Dense(self.config.cond_dim * self.num_time_tokens, dtype=self.dtype, shard_axes={"kernel": ("embed_kernel", "mlp")})(t)
+        time_tokens = nnp.Dense(self.config.cond_dim * self.num_time_tokens, shard_axes={"kernel": ("embed_kernel", "mlp")})(t)
         time_tokens = rearrange(time_tokens, 'b (r d) -> b r d', r=self.num_time_tokens)
         
         time_tokens = with_sharding_constraint(time_tokens, P("batch", "seq", "embed"))
@@ -71,33 +67,33 @@ class EfficentUNet(nn.Module):
         init_conv_residual = x
         # downsample
         hiddens = []
-        for dim_mult in self.dim_mults:
-            x = Downsample(dim=self.dim * dim_mult)(x)
-            x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x, t, c)
+        for dim_mult in self.config.dim_mults:
+            x = Downsample(dim=self.config.dim * dim_mult)(x)
+            x = ResnetBlock(dim=self.config.dim * dim_mult)(x, t, c)
             for _ in range(self.num_resnet_blocks):
-                x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x)
+                x = ResnetBlock(dim=self.config.dim * dim_mult)(x)
                 x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
                 hiddens.append(x)
-            x = TransformerBlock(dim=self.dim * dim_mult, heads=self.attn_heads, dim_head=self.atten_dim_head, dtype=self.dtype)(x)
+            x = TransformerBlock(config=self.config, dim=self.dim * dim_mult)(x)
             x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
             hiddens.append(x)
-        x = ResnetBlock(dim=self.dim * self.dim_mults[-1], dtype=self.dtype)(x, t, c)
+        x = ResnetBlock(dim=self.config.dim * self.config.dim_mults[-1], dtype=self.dtype)(x, t, c)
         x = EinopsToAndFrom(Attention(self.dim * self.dim_mults[-1]), 'b h w c', 'b (h w) c')(x)
-        x = ResnetBlock(dim=self.dim * self.dim_mults[-1], dtype=self.dtype)(x, t, c)
+        x = ResnetBlock(dim=self.config.dim * self.config.dim_mults[-1], dtype=self.dtype)(x, t, c)
         
         # Upsample
         add_skip_connection = lambda x: jnp.concatenate([x, hiddens.pop()], axis=-1)
-        for dim_mult in reversed(self.dim_mults):
+        for dim_mult in reversed(self.config.dim_mults):
             x = add_skip_connection(x)
-            x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x, t, c)
-            for _ in range(self.num_resnet_blocks):
+            x = ResnetBlock(config=self.config, dim=self.config.dim * dim_mult)(x, t, c)
+            for _ in range(self.config.num_resnet_blocks):
                 x = add_skip_connection(x)
                 x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
-                x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x)
+                x = ResnetBlock(dim=self.config.dim * dim_mult)(x)
                 x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
             
-            x = TransformerBlock(dim=self.dim * dim_mult, heads=self.attn_heads, dim_head=self.atten_dim_head, dtype=self.dtype)(x)
-            x = Upsample(dim=self.dim * dim_mult)(x)
+            x = TransformerBlock(dim=self.config.dim * dim_mult)(x)
+            x = Upsample(dim=self.config.dim * dim_mult)(x)
         
         x = jnp.concatenate([x, init_conv_residual], axis=-1)
         
