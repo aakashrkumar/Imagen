@@ -77,10 +77,9 @@ class EfficentUNet(nn.Module):
                 x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x)
                 x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
                 hiddens.append(x)
-            x = TransformerBlock(dim=self.dim * dim_mult, heads=8, dim_head=64, dtype=self.dtype)(x)
+            x = TransformerBlock(dim=self.dim * dim_mult, heads=self.attn_heads, dim_head=self.atten_dim_head, dtype=self.dtype)(x)
             x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
             hiddens.append(x)
-        return init_conv_residual
         x = ResnetBlock(dim=self.dim * self.dim_mults[-1], dtype=self.dtype)(x, t, c)
         x = EinopsToAndFrom(Attention(self.dim * self.dim_mults[-1]), 'b h w c', 'b (h w) c')(x)
         x = ResnetBlock(dim=self.dim * self.dim_mults[-1], dtype=self.dtype)(x, t, c)
@@ -96,7 +95,7 @@ class EfficentUNet(nn.Module):
                 x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x)
                 x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
             
-            x = TransformerBlock(dim=self.dim * dim_mult, heads=8, dim_head=64, dtype=self.dtype)(x)
+            x = TransformerBlock(dim=self.dim * dim_mult, heads=self.attn_heads, dim_head=self.atten_dim_head, dtype=self.dtype)(x)
             x = Upsample(dim=self.dim * dim_mult)(x)
         
         x = jnp.concatenate([x, init_conv_residual], axis=-1)
