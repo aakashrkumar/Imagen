@@ -170,41 +170,41 @@ class Imagen:
                 (batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, self.random_state)
         # self.params = self.unet.init(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, key)
 
-        lr = optax.warmup_cosine_decay_schedule(
-            init_value=0.0,
-            peak_value=1e-4,
-            warmup_steps=10000,
-            decay_steps=2500000,
-            end_value=1e-5)
-        # self.opt = optax.adafactor(learning_rate=1e-4)
-        opt = optax.chain(
-            optax.clip(1.0),
-            optax.adamw(learning_rate=1e-4, b1=0.9, b2=0.999,
-                        eps=1e-8, weight_decay=1e-8)
-        )  # TODO: this is a hack, fix this later
-        train_state = TrainState.create(
-            apply_fn=self.unet.apply,
-            tx=opt,
-            params=params['params']
-        )
-        state_spec = get_vars_pspec(
-            train_state, nnp.DEFAULT_TPU_RULES, params_axes["params"])
-        sampler_spec = jax.tree_map(lambda x: None, self.lowres_scheduler)
-        self.imagen_state = ImagenState(
-            train_state=train_state,
-            sampler=self.lowres_scheduler,
-            conditional_drop_prob=conditional_drop_prob,
-        )
-        imagen_spec = ImagenState(
-            train_state=state_spec,
-            sampler=sampler_spec,
-            conditional_drop_prob=None,
-        )
-        self.image_size = img_size
-        self.p_train_step = pjit.pjit(train_step, in_axis_resources=(imagen_spec, P("X", "Y", None, None), P(
-            "X"), P("X", None, "Y"), P("X", "Y"), None), out_axis_resources=(imagen_spec, None))
-        self.p_sample = pjit.pjit(sample, in_axis_resources=(imagen_spec, P("X", "Y", None, None), P(
-            "X", None, "Y"), P("X", "Y"), None), out_axis_resources=(P("X", "Y", None, None)))
+            lr = optax.warmup_cosine_decay_schedule(
+                init_value=0.0,
+                peak_value=1e-4,
+                warmup_steps=10000,
+                decay_steps=2500000,
+                end_value=1e-5)
+            # self.opt = optax.adafactor(learning_rate=1e-4)
+            opt = optax.chain(
+                optax.clip(1.0),
+                optax.adamw(learning_rate=1e-4, b1=0.9, b2=0.999,
+                            eps=1e-8, weight_decay=1e-8)
+            )  # TODO: this is a hack, fix this later
+            train_state = TrainState.create(
+                apply_fn=self.unet.apply,
+                tx=opt,
+                params=params['params']
+            )
+            state_spec = get_vars_pspec(
+                train_state, nnp.DEFAULT_TPU_RULES, params_axes["params"])
+            sampler_spec = jax.tree_map(lambda x: None, self.lowres_scheduler)
+            self.imagen_state = ImagenState(
+                train_state=train_state,
+                sampler=self.lowres_scheduler,
+                conditional_drop_prob=conditional_drop_prob,
+            )
+            imagen_spec = ImagenState(
+                train_state=state_spec,
+                sampler=sampler_spec,
+                conditional_drop_prob=None,
+            )
+            self.image_size = img_size
+            self.p_train_step = pjit.pjit(train_step, in_axis_resources=(imagen_spec, P("X", "Y", None, None), P(
+                "X"), P("X", None, "Y"), P("X", "Y"), None), out_axis_resources=(imagen_spec, None))
+            self.p_sample = pjit.pjit(sample, in_axis_resources=(imagen_spec, P("X", "Y", None, None), P(
+                "X", None, "Y"), P("X", "Y"), None), out_axis_resources=(P("X", "Y", None, None)))
 
     def get_key(self):
         self.random_state, key = jax.random.split(self.random_state)
