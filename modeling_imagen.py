@@ -49,7 +49,8 @@ class EfficentUNet(nn.Module):
         t, c = TextConditioning(cond_dim=cond_dim, time_cond_dim=time_conditioning_dim, max_token_length=self.max_token_len, cond_drop_prob=condition_drop_prob)(texts, attention_masks, t, time_tokens, rng)
         # TODO: add lowres conditioning
         
-        t = with_sharding_constraint(t, P("batch", "seq", "embed"))
+        print("t", t.shape)
+        t = with_sharding_constraint(t, P("batch", "embed"))
                 
         x = CrossEmbedLayer(dim=self.dim,
                             kernel_sizes=(3, 7, 15), stride=1, dtype=self.dtype)(x)
