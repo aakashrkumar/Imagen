@@ -220,8 +220,9 @@ class Block(nn.Module):
         if exists(shift_scale):
             shift, scale = shift_scale
             x = x * (scale + 1) + shift
+            x=  with_sharding_constraint(x, ("batch", "width", "height", "dim"))
         x = nn.silu(x)
-        return nn.Conv(features=self.dim, kernel_size=(3, 3), padding=1)(x)
+        return nnp.Conv(features=self.dim, kernel_size=(3, 3), padding=1)(x)
 
 
 class ResnetBlock(nn.Module):
