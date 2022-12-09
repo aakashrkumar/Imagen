@@ -1,4 +1,5 @@
 from functools import partial
+from config import UnetConfig
 from modeling_imagen import EfficentUNet
 from typing import Any, Dict, Tuple
 import jax
@@ -157,7 +158,7 @@ class Imagen:
         devices = np.asarray(jax.devices()).reshape(*mesh_shape)
         self.mesh = maps.Mesh(devices, ("X", "Y"))
         with maps.Mesh(self.mesh.devices, self.mesh.axis_names), nn_partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
-            self.unet = EfficentUNet(max_token_len=sequence_length)
+            self.unet = EfficentUNet(config=UnetConfig())
             self.random_state, key = jax.random.split(self.random_state)
             punet_init = partial(unet_init, self.unet)
             params = jax.eval_shape(self.unet.init, key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones(
