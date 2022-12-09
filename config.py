@@ -24,7 +24,7 @@ class UnetConfig:
     
     channels:                  int = 3
     
-    dim_heads:                  int = 64
+    dim_heads:                 int = 64
     num_heads:                 int = 16
     ff_mult:                   int = 2
     
@@ -35,7 +35,7 @@ class UnetConfig:
 
     strides: Tuple[int, int] = (2, 2)
     
-    dtype: jnp.bfloat16
+    dtype:                     Any =  jnp.bfloat16
 
 
 class ImagenConfig:
