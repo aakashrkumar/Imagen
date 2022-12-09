@@ -9,13 +9,11 @@ from flax.linen import partitioning as nn_partitioning
 
 DEFAULT_TPU_RULES = [
     ("batch", "X"),
-    ("hidden", "Y"),
     ("heads", "Y"),
     ("embed_kernel", "X"),
     ("embed", "Y"),
-    ("channels", "Y"),
     ("mlp", "Y"),
-    ("tokens", None),
+    ("seq", None),
     ("width", None),
     ("height", None),
     ("X","X"),
