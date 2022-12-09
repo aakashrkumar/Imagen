@@ -80,7 +80,7 @@ class EfficentUNet(nn.Module):
             for _ in range(self.config.num_resnet_blocks):
                 x = add_skip_connection(x)
                 x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
-                x = ResnetBlock(dim=self.config.dim * dim_mult)(x)
+                x = ResnetBlock(config=self.config, dim=self.config.dim * dim_mult)(x)
                 x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
             
             x = TransformerBlock(dim=self.config.dim * dim_mult)(x)
