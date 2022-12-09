@@ -83,7 +83,7 @@ class EfficentUNet(nn.Module):
                 x = ResnetBlock(config=self.config, dim=self.config.dim * dim_mult)(x)
                 x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
             
-            x = TransformerBlock(dim=self.config.dim * dim_mult)(x)
+            x = TransformerBlock(config=self.config, dim=self.config.dim * dim_mult)(x)
             x = Upsample(config=self.config, dim=self.config.dim * dim_mult)(x)
         
         x = jnp.concatenate([x, init_conv_residual], axis=-1)
