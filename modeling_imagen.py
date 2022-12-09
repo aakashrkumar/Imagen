@@ -21,7 +21,7 @@ class EfficentUNet(nn.Module):
     channels: int = 3
     
     atten_dim_head: int = 64
-    attn_heads: int = 16
+    attn_heads: int = 4
     
     num_resnet_blocks: int = 6
     
