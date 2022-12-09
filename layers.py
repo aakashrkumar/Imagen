@@ -51,20 +51,20 @@ class Attention(nn.Module):
         q = q * scale
         
         q = with_sharding_constraint(q, ("batch", "seq", "heads", "embed"))
-        k = with_sharding_constraint(k, ("batch", "seq", "heads", "embed"))
-        v = with_sharding_constraint(v, ("batch", "seq", "heads", "embed"))
+        k = with_sharding_constraint(k, ("batch", "heads", "embed"))
+        v = with_sharding_constraint(v, ("batch", "heads", "embed"))
         
         null_kv =  self.param('null_kv', nn.initializers.lecun_normal(), (2, self.dim_head))
         # null kv for classifier free guidance
         nk, nv = repeat_many(jax_unstack(null_kv, axis=-2), 'd -> b 1 d', b=b)
-        nk = with_sharding_constraint(nk, ("batch", "seq", "heads", "embed"))
-        nv = with_sharding_constraint(nv, ("batch", "seq", "heads", "embed"))
+        nk = with_sharding_constraint(nk, ("batch", "heads", "embed"))
+        nv = with_sharding_constraint(nv, ("batch", "heads", "embed"))
         
         k = jnp.concatenate((k, nk), axis=-2)
         v = jnp.concatenate((v, nv), axis=-2)
         
-        k = with_sharding_constraint(k, ("batch", "seq", "heads", "embed"))
-        v = with_sharding_constraint(v, ("batch", "seq", "heads", "embed"))
+        k = with_sharding_constraint(k, ("batch", "heads", "embed"))
+        v = with_sharding_constraint(v, ("batch", "heads", "embed"))
         
         if exists(context):
             context_hidden = nn.LayerNorm()(context)
