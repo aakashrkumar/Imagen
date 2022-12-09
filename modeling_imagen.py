@@ -10,11 +10,12 @@ import partitioning as nnp
 from config import ListOrTuple, SingleOrList
 from flax.linen import partitioning as nn_partitioning
 
+from config import UnetConfig, ImagenConfig
+
 with_sharding_constraint = nn_partitioning.with_sharding_constraint
 
 class EfficentUNet(nn.Module):
-    # config: Dict[str, Any]
-    dim: int = 128
+    config: UnetConfig
     dim_mults: Tuple[int, ...] = (1, 2, 4, 8)
     text_embed_dim: int = 512
     cond_dim: int = None  # default to dim
@@ -39,9 +40,9 @@ class EfficentUNet(nn.Module):
         x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
         texts = with_sharding_constraint(texts, P("batch", "seq", "embed"))
         
-        time_conditioning_dim = self.dim * 4 * \
-            (2 if self.lowres_conditioning else 1)
-        cond_dim = default(self.cond_dim, self.dim)
+        time_conditioning_dim = self.config.dim * 4 * \
+            (2 if self.config.lowres_conditioning else 1)
+        cond_dim = default(self.config.cond_dim, self.config.dim)
 
         time_hidden = SinusoidalPositionEmbeddings(dim=self.dim)(time) # (b, 1, d)
         time_hidden = nnp.Dense(features=time_conditioning_dim, dtype=self.dtype, shard_axes={"kernel": ("embed_kernel", "mlp")})(time_hidden)
@@ -52,7 +53,7 @@ class EfficentUNet(nn.Module):
         
         t = with_sharding_constraint(t, P("batch", "embed"))
 
-        time_tokens = nnp.Dense(cond_dim * self.num_time_tokens, dtype=self.dtype, shard_axes={"kernel": ("embed_kernel", "mlp")})(t)
+        time_tokens = nnp.Dense(self.config.cond_dim * self.num_time_tokens, dtype=self.dtype, shard_axes={"kernel": ("embed_kernel", "mlp")})(t)
         time_tokens = rearrange(time_tokens, 'b (r d) -> b r d', r=self.num_time_tokens)
         
         time_tokens = with_sharding_constraint(time_tokens, P("batch", "seq", "embed"))

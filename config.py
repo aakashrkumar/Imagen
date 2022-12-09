@@ -11,11 +11,11 @@ def SingleOrList(inner_type):
     return Union[inner_type, ListOrTuple(inner_type)]
 
 
-class UnetConfig():
-    dim:                       int
+class UnetConfig:
+    dim:                       int = 128
     dim_mults:                 ListOrTuple(int)
     text_embed_dim:            int = 512
-    cond_dim:                  int = None
+    cond_dim:                  int = 128
     channels:                  int = 3
     attn_dim_head:             int = 64
     attn_heads:                int = 16
@@ -24,7 +24,7 @@ class UnetConfig():
 
     num_time_tokens:           int = 2
     lowres_conditioning:       bool = False
-    max_token_len: int =       256
+    max_token_len:             int = 256
     
 
     strides: Tuple[int, int] = (2, 2)
@@ -37,7 +37,7 @@ class ImagenConfig:
     image_sizes:            ListOrTuple(int) = (64, 256)
     timesteps:              int = 1024
     
-    text_encoder_name = "t5-small"
+    text_encoder_name:      str = "t5-small"
     
     channels:               int = 3
     loss_type:              str = 'l2'
