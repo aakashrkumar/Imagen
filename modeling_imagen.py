@@ -20,10 +20,10 @@ class EfficentUNet(nn.Module):
     cond_dim: int = None  # default to dim
     channels: int = 3
     
-    atten_dim_head: int = 64
+    atten_dim_head: int = 32
     attn_heads: int = 4
     
-    num_resnet_blocks: int = 6
+    num_resnet_blocks: int = 4
     
     num_time_tokens: int = 2
     lowres_conditioning: bool = False
