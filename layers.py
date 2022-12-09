@@ -50,12 +50,21 @@ class Attention(nn.Module):
         q = rearrange(q, 'b n (h d) -> b h n d', h=self.heads)
         q = q * scale
         
+        q = with_sharding_constraint(q, ("batch", "seq", "heads", "embed"))
+        k = with_sharding_constraint(k, ("batch", "seq", "heads", "embed"))
+        v = with_sharding_constraint(v, ("batch", "seq", "heads", "embed"))
+        
         null_kv =  self.param('null_kv', nn.initializers.lecun_normal(), (2, self.dim_head))
         # null kv for classifier free guidance
         nk, nv = repeat_many(jax_unstack(null_kv, axis=-2), 'd -> b 1 d', b=b)
+        nk = with_sharding_constraint(nk, ("batch", "seq", "heads", "embed"))
+        nv = with_sharding_constraint(nv, ("batch", "seq", "heads", "embed"))
         
         k = jnp.concatenate((k, nk), axis=-2)
         v = jnp.concatenate((v, nv), axis=-2)
+        
+        k = with_sharding_constraint(k, ("batch", "seq", "heads", "embed"))
+        v = with_sharding_constraint(v, ("batch", "seq", "heads", "embed"))
         
         if exists(context):
             context_hidden = nn.LayerNorm()(context)
@@ -103,13 +112,23 @@ class CrossAttention(nn.Module):
         
         q, k, v = rearrange_many((q, k, v), 'b n (h d) -> b h n d', h=self.heads)
         
+        q = with_sharding_constraint(q, ("batch", "seq", "heads", "embed"))
+        k = with_sharding_constraint(k, ("batch", "seq", "heads", "embed"))
+        v = with_sharding_constraint(v, ("batch", "seq", "heads", "embed"))
+        
         
         null_kv = self.param('null_kv', nn.initializers.lecun_normal(), (2, self.dim_head))
         
         nk, nv = repeat_many(jax_unstack(null_kv, axis=-2), 'd -> b h 1 d', h=self.heads, b=b)
         
+        nk = with_sharding_constraint(nk, ("batch", "seq", "heads", "embed"))
+        nv = with_sharding_constraint(nv, ("batch", "seq", "heads", "embed"))
+        
         k = jnp.concatenate((nk, k), axis=-2)
         v = jnp.concatenate((nv, v), axis=-2)
+        
+        k = with_sharding_constraint(k, ("batch", "seq", "heads", "embed"))
+        v = with_sharding_constraint(v, ("batch", "seq", "heads", "embed"))
         
         q = q * scale
 
@@ -146,7 +165,7 @@ class CrossEmbedLayer(nn.Module):
         dim_scales = dim_scales + [self.dim - sum(dim_scales)]
         convs = []
         for kernel, dim_scale in zip(kernel_sizes, dim_scales):
-            convs.append(nn.Conv(features=dim_scale, kernel_size=(kernel, kernel), strides=self.stride, padding=(kernel - self.stride) // 2, dtype=self.dtype)(x))
+            convs.append(nnp.Conv(features=dim_scale, kernel_size=(kernel, kernel), strides=self.stride, padding=(kernel - self.stride) // 2, shard_axes={"kernel": ("kernel_embed", "embed")}, dtype=self.dtype)(x))
 
         return jnp.concatenate(convs, axis=-1)
 

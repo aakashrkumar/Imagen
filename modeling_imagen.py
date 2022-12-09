@@ -35,6 +35,10 @@ class EfficentUNet(nn.Module):
 
     @nn.compact
     def __call__(self, x, time, texts=None, attention_masks=None, condition_drop_prob=0.0, rng=None):
+        
+        x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
+        texts = with_sharding_constraint(texts, P("batch", "seq", "embed"))
+        
         time_conditioning_dim = self.dim * 4 * \
             (2 if self.lowres_conditioning else 1)
         cond_dim = default(self.cond_dim, self.dim)
@@ -45,9 +49,13 @@ class EfficentUNet(nn.Module):
 
         t = nnp.Dense(features=time_conditioning_dim,
                      dtype=self.dtype, shard_axes={"kernel": ("embed_kernel", "mlp")})(time_hidden)
+        
+        t = with_sharding_constraint(t, P("batch", "embed"))
 
         time_tokens = nnp.Dense(cond_dim * self.num_time_tokens, dtype=self.dtype, shard_axes={"kernel": ("embed_kernel", "mlp")})(t)
         time_tokens = rearrange(time_tokens, 'b (r d) -> b r d', r=self.num_time_tokens)
+        
+        time_tokens = with_sharding_constraint(time_tokens, P("batch", "seq", "embed"))
         
         t, c = TextConditioning(cond_dim=cond_dim, time_cond_dim=time_conditioning_dim, max_token_length=self.max_token_len, cond_drop_prob=condition_drop_prob)(texts, attention_masks, t, time_tokens, rng)
         # TODO: add lowres conditioning
@@ -57,6 +65,8 @@ class EfficentUNet(nn.Module):
                 
         x = CrossEmbedLayer(dim=self.dim,
                             kernel_sizes=(3, 7, 15), stride=1, dtype=self.dtype)(x)
+        x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
+        
         init_conv_residual = x
         # downsample
         hiddens = []
@@ -65,8 +75,10 @@ class EfficentUNet(nn.Module):
             x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x, t, c)
             for _ in range(self.num_resnet_blocks):
                 x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x)
+                x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
                 hiddens.append(x)
             x = TransformerBlock(dim=self.dim * dim_mult, heads=8, dim_head=64, dtype=self.dtype)(x)
+            x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
             hiddens.append(x)
         
         x = ResnetBlock(dim=self.dim * self.dim_mults[-1], dtype=self.dtype)(x, t, c)
@@ -80,7 +92,9 @@ class EfficentUNet(nn.Module):
             x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x, t, c)
             for _ in range(self.num_resnet_blocks):
                 x = add_skip_connection(x)
+                x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
                 x = ResnetBlock(dim=self.dim * dim_mult, dtype=self.dtype)(x)
+                x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
             
             x = TransformerBlock(dim=self.dim * dim_mult, heads=8, dim_head=64, dtype=self.dtype)(x)
             x = Upsample(dim=self.dim * dim_mult)(x)

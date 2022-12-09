@@ -9,7 +9,7 @@ from flax.linen import partitioning as nn_partitioning
 
 DEFAULT_TPU_RULES = [
     ("batch", "X"),
-    ("heads", "Y"),
+    ("heads", None),
     ("embed_kernel", "X"),
     ("embed", "Y"),
     ("mlp", "Y"),
@@ -94,4 +94,7 @@ class ShardMixIn:
         return param
 
 class Dense(ShardMixIn, nn.Dense):
+    pass
+
+class Conv(ShardMixIn, nn.Conv):
     pass
