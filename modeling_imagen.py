@@ -69,7 +69,7 @@ class EfficentUNet(nn.Module):
             x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
             hiddens.append(x)
         x = ResnetBlock(config=self.config, dim=self.config.dim * self.config.dim_mults[-1])(x, t, c)
-        x = EinopsToAndFrom(Attention(self.dim * self.dim_mults[-1]), 'b h w c', 'b (h w) c')(x)
+        x = EinopsToAndFrom(Attention(self.config.dim * self.config.dim_mults[-1]), 'b h w c', 'b (h w) c')(x)
         x = ResnetBlock(config=self.config, dim=self.config.dim * self.config.dim_mults[-1])(x, t, c)
         
         # Upsample
