@@ -14,17 +14,23 @@ def SingleOrList(inner_type):
 class UnetConfig:
     dim:                       int = 128
     dim_mults:                 ListOrTuple(int)
-    text_embed_dim:            int = 512
     cond_dim:                  int = 128
+    
+    time_conditiong_dim:       int = 512 # dim * 4 (* 2 if lowres_conditioning)
+    
+    num_time_tokens:           int = 2
+    max_token_len:             int = 256
+
+    
     channels:                  int = 3
-    attn_dim_head:             int = 64
-    attn_heads:                int = 16
+    
+    dim_heads:                  int = 64
+    num_heads:                 int = 16
+    ff_mult:                   int = 2
     
     num_resnet_blocks:         int = 8
 
-    num_time_tokens:           int = 2
     lowres_conditioning:       bool = False
-    max_token_len:             int = 256
     
 
     strides: Tuple[int, int] = (2, 2)
