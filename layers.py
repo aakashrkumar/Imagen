@@ -330,7 +330,7 @@ class ResnetBlock(nn.Module):
             scale_shift = jnp.split(time_emb, 2, axis=-1)
         h = Block(self.dim)(x)
         if exists(cond):
-            h = EinopsToAndFrom(CrossAttention(dim=self.dim),
+            h = EinopsToAndFrom(CrossAttention(config=self.config, dim=self.dim),
                                 'b h w c', ' b (h w) c')(h, context=cond) + h
 
         h = Block(self.dim)(h, shift_scale=scale_shift)
