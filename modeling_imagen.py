@@ -65,7 +65,7 @@ class EfficentUNet(nn.Module):
                 x = ResnetBlock(config=self.config, dim=self.config.dim * dim_mult)(x)
                 x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
                 hiddens.append(x)
-            x = TransformerBlock(config=self.config, dim=self.dim * dim_mult)(x)
+            x = TransformerBlock(config=self.config, dim=self.config.dim * dim_mult)(x)
             x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
             hiddens.append(x)
         x = ResnetBlock(config=self.config, dim=self.config.dim * self.config.dim_mults[-1])(x, t, c)
