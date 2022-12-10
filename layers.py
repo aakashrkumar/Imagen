@@ -52,9 +52,9 @@ class Attention(nn.Module):
         x = nn.LayerNorm()(x)
 
         q = nnp.Dense(features=inner_dim, use_bias=False, shard_axes={
-                      "kernel": ("embed_kernel", "mlp")})(x)
+                      "kernel": ("embed_kernel", "mlp")}, dtype=self.config.dtype)(x)
         k, v = nnp.Dense(features=self.config.dim_heads * 2, use_bias=False,
-                         shard_axes={"kernel": ("embed_kernel", "mlp")})(x).split(2, axis=-1)
+                         shard_axes={"kernel": ("embed_kernel", "mlp")}, dtype=self.config.dtype)(x).split(2, axis=-1)
 
         q = rearrange(q, 'b n (h d) -> b h n d', h=self.config.num_heads)
         q = q * scale
@@ -64,7 +64,7 @@ class Attention(nn.Module):
         v = with_sharding_constraint(v, ("batch", "heads", "embed"))
 
         null_kv = self.param(
-            'null_kv', nn.initializers.lecun_normal(), (2, self.config.dim_heads))
+            'null_kv', nn.initializers.lecun_normal(), (2, self.config.dim_heads)e)
         # null kv for classifier free guidance
         nk, nv = repeat_many(jax_unstack(null_kv, axis=-2), 'd -> b 1 d', b=b)
         nk = with_sharding_constraint(nk, ("batch", "heads", "embed"))
@@ -85,8 +85,8 @@ class Attention(nn.Module):
             k = jnp.concatenate((k, ck), axis=-2)
             v = jnp.concatenate((v, cv), axis=-2)
 
+        
         sim = jnp.einsum('b h i d, b j d -> b h i j', q, k)
-
         if exists(attn_bias):
             sim = sim + attn_bias
 
@@ -96,6 +96,7 @@ class Attention(nn.Module):
             mask = rearrange(mask, 'b j -> b 1 1 j')
             sim = jnp.where(mask, sim, max_neg_value)
         attn = nn.softmax(sim, axis=-1)
+        attn.astype(self.config.dtype)
         out = jnp.einsum('b h i j, b j d -> b h i d', attn, v)
 
         out = rearrange(out, 'b h n d -> b n (h d)')
