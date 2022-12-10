@@ -236,19 +236,16 @@ class TextConditioning(nn.Module):
                 text_mask = rearrange(text_mask, 'b n -> b n 1')
                 text_keep_mask_embed = text_mask & text_keep_mask_embed
 
-            null_text_embed = self.param('null_text_embed', nn.initializers.lecun_normal(
-            ), (1, self.max_token_length, self.cond_dim))
+            null_text_embed = self.param('null_text_embed', nn.initializers.lecun_normal(), (1, self.max_token_length, self.cond_dim))
             # TODO: should this be inverted?
             text_tokens = jnp.where(
                 text_keep_mask_embed, text_tokens, null_text_embed)
 
             mean_pooled_text_tokens = jnp.mean(text_tokens, axis=-2)
             text_hiddens = nn.LayerNorm()(mean_pooled_text_tokens)
-            text_hiddens = nnp.Dense(features=self.time_cond_dim, shard_axes={
-                                     "kernel": ("embed", "mlp")}, dtype=self.dtype)(text_hiddens)
+            text_hiddens = nnp.Dense(features=self.time_cond_dim, shard_axes={"kernel": ("embed", "mlp")}, dtype=self.dtype)(text_hiddens)
             text_hiddens = nn.silu(text_hiddens)
-            text_hiddens = nnp.Dense(features=self.time_cond_dim, shard_axes={
-                                     "kernel": ("embed", "mlp")}, dtype=self.dtype)(text_hiddens)
+            text_hiddens = nnp.Dense(features=self.time_cond_dim, shard_axes={"kernel": ("embed", "mlp")}, dtype=self.dtype)(text_hiddens)
 
             text_keep_mask_hidden = rearrange(text_keep_mask, 'b -> b 1')
 
