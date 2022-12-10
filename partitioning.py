@@ -21,6 +21,9 @@ DEFAULT_TPU_RULES = [
     ('layers', None),
     ('stack', None),
     ('mlp_activations', None),
+
+    ("width", None),
+    ("Height", None),
 ]
 
 def get_params_axes(
