@@ -194,8 +194,8 @@ class Imagen:
                     jnp.ones((batch_size, unet_config.max_token_len)),  # attention mask
 
                     config.cond_drop_prob,  # conditional dropout prob
-                    jnp.ones((batch_size, img_size, img_size, 3)) if unet_config.use_conditional else None,  # lowres_cond_image
-                    jnp.ones(batch_size, dtype=jnp.int16) if unet_config.use_conditional else None,  # lowres_aug_times
+                    jnp.ones((batch_size, img_size, img_size, 3)) if unet_config.lowres_conditioning else None,  # lowres_cond_image
+                    jnp.ones(batch_size, dtype=jnp.int16) if unet_config.lowres_conditioning else None,  # lowres_aug_times
 
                     self.random_state  # rng
                 )
@@ -211,8 +211,8 @@ class Imagen:
                     jnp.ones((batch_size, unet_config.max_token_len)),  # attention mask
 
                     config.cond_drop_prob,  # conditional dropout prob
-                    jnp.ones((batch_size, img_size, img_size, 3)) if unet_config.use_conditional else None,  # lowres_cond_image
-                    jnp.ones(batch_size, dtype=jnp.int16) if unet_config.use_conditional else None,  # lowres_aug_times
+                    jnp.ones((batch_size, img_size, img_size, 3)) if unet_config.lowres_conditioning else None,  # lowres_cond_image
+                    jnp.ones(batch_size, dtype=jnp.int16) if unet_config.lowres_conditioning else None,  # lowres_aug_times
 
                     self.random_state
                 )
