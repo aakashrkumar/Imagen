@@ -45,6 +45,7 @@ class Attention(nn.Module):
 
     @nn.compact
     def __call__(self, x, context=None, mask=None, attn_bias=None):
+        print(x.shape)
         b, n = x.shape[:2]
         scale = self.config.dim_heads ** -0.5
         inner_dim = self.config.dim_heads * self.config.num_heads
