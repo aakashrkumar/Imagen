@@ -8,18 +8,19 @@ from flax.linen import partitioning as nn_partitioning
 
 
 DEFAULT_TPU_RULES = [
-    ("batch", "X"),
-    ("heads", None),
-    ("embed_kernel", "X"),
-    ("embed", "Y"),
-    ("mlp", "Y"),
-    ("seq", None),
-    ("width", None),
-    ("height", None),
-    ("X","X"),
-    ("Y", "Y"),
-    (None, None)
-    
+    ('batch', 'X'),
+    ('mlp', 'Y'),
+    ('heads', 'Y'),
+    ('vocab', 'Y'),
+    ('embed', None),
+    ('kv', None),
+    ('joined_kv', None),
+    ('relpos_buckets', None),
+    ('abspos_buckets', None),
+    ('length', None),
+    ('layers', None),
+    ('stack', None),
+    ('mlp_activations', None),
 ]
 
 def get_params_axes(

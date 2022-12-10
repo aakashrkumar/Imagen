@@ -27,7 +27,7 @@ class EfficentUNet(nn.Module):
             attention_masks = attention_masks.astype(self.config.dtype)
         
         x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
-        texts = with_sharding_constraint(texts, P("batch", "seq", "embed"))
+        texts = with_sharding_constraint(texts, P("batch", "length", "embed"))
         
         cond_dim = default(self.config.cond_dim, self.config.dim)
 
