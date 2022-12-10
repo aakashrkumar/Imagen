@@ -177,7 +177,7 @@ class Imagen:
         with maps.Mesh(self.mesh.devices, self.mesh.axis_names), nn_partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
             for i in range(len(config.unets)):
                 unet_config = config.unets[i]
-                img_size = unet_config.img_size
+                img_size = self.config.image_sizes[i]
                 unet = EfficentUNet(config=unet_config)
                 self.random_state, key = jax.random.split(self.random_state)
 
@@ -306,11 +306,11 @@ class Imagen:
                 lowres_aug_times = None
                 timestep = self.schedulers[i].sample_random_timestep(image_batch.shape[0], key)
                 if self.config.unets[i].lowres_conditioning:
-                    lowres_cond_image = jax.image.resize(image_batch, (image_batch.shape[0], self.config.unets[i].lowres_image_size, self.config.unets[i].lowres_image_size, 3), method='nearest')
+                    lowres_cond_image = jax.image.resize(image_batch, (image_batch.shape[0], self.config.image_sizes[i], self.config.image_sizes[i], 3), method='nearest')
                     lowres_aug_times = self.schedulers[i].sample_random_timestep(1, key)
                     lowres_aug_times = repeat(lowres_aug_times, '1 -> b', b=image_batch.shape[0])
 
-                image_batch = jax.image.resize(image_batch, (image_batch.shape[0], self.config.unets[i].image_size, self.config.unets[i].image_size, 3), method='nearest')
+                image_batch = jax.image.resize(image_batch, (image_batch.shape[0], self.config.image_sizes[i], self.config.image_sizes[i], 3), method='nearest')
                 self.unets[i], unet_metrics = self.train_steps[i](
                     self.unets[i], image_batch, timestep, texts_batches, attention_batches, lowres_cond_image, lowres_aug_times, key)
                 metrics = {**metrics, **unet_metrics}
