@@ -53,35 +53,35 @@ class Attention(nn.Module):
         x = LayerNorm()(x)
 
         q = nnp.Dense(features=inner_dim, use_bias=False, shard_axes={
-                      "kernel": ("embed_kernel", "mlp")}, dtype=self.config.dtype)(x)
+                      "kernel": ("embed", "heads", "kv")}, dtype=self.config.dtype)(x)
         k, v = nnp.Dense(features=self.config.dim_heads * 2, use_bias=False,
-                         shard_axes={"kernel": ("embed_kernel", "mlp")}, dtype=self.config.dtype)(x).split(2, axis=-1)
+                         shard_axes={"kernel": ("embed", "heads", "kv")}, dtype=self.config.dtype)(x).split(2, axis=-1) # TODO: Check if it should be 1 or 2
 
         q = rearrange(q, 'b n (h d) -> b h n d', h=self.config.num_heads)
         q = q * scale
 
-        q = with_sharding_constraint(q, ("batch", "seq", "heads", "embed"))
-        k = with_sharding_constraint(k, ("batch", "heads", "embed"))
-        v = with_sharding_constraint(v, ("batch", "heads", "embed"))
+        q = with_sharding_constraint(q, ("batch", "length", "heads", "kv"))
+        k = with_sharding_constraint(k, ("batch", "heads", "kv"))
+        v = with_sharding_constraint(v, ("batch", "heads", "kv"))
 
         null_kv = self.param(
             'null_kv', nn.initializers.lecun_normal(), (2, self.config.dim_heads))
         null_kv = null_kv.astype(self.config.dtype)
         # null kv for classifier free guidance
         nk, nv = repeat_many(jax_unstack(null_kv, axis=-2), 'd -> b 1 d', b=b)
-        nk = with_sharding_constraint(nk, ("batch", "heads", "embed"))
-        nv = with_sharding_constraint(nv, ("batch", "heads", "embed"))
+        nk = with_sharding_constraint(nk, ("batch", "heads", "kv"))
+        nv = with_sharding_constraint(nv, ("batch", "heads", "kv"))
 
         k = jnp.concatenate((k, nk), axis=-2)
         v = jnp.concatenate((v, nv), axis=-2)
 
-        k = with_sharding_constraint(k, ("batch", "heads", "embed"))
-        v = with_sharding_constraint(v, ("batch", "heads", "embed"))
+        k = with_sharding_constraint(k, ("batch", "heads", "kv"))
+        v = with_sharding_constraint(v, ("batch", "heads", "kv"))
 
         if exists(context):
             context_hidden = nn.LayerNorm()(context)
             context_hidden = nnp.Dense(
-                features=self.config.dim_heads*2, shard_axes={"kernel": ("embed_kernel", "mlp")}, dtype=self.config.dtype)(context_hidden)
+                features=self.config.dim_heads*2, shard_axes={"kernel": ("embed", "heads", "kv")}, dtype=self.config.dtype)(context_hidden)
             ck, cv = context_hidden.split(2, axis=-1)
 
             k = jnp.concatenate((k, ck), axis=-2)
@@ -106,8 +106,7 @@ class Attention(nn.Module):
 
         out = rearrange(out, 'b h n d -> b n (h d)')
 
-        out = nnp.Dense(features=self.dim, use_bias=False, shard_axes={
-                        "kernel": ("embed_kernel", "mlp")})(out)
+        out = nnp.Dense(features=self.dim, use_bias=False, shard_axes={"kernel": ("embed", "heads",  "kv")})(out)
         out = LayerNorm()(out)
         return out
 
@@ -128,16 +127,16 @@ class CrossAttention(nn.Module):
         context = nn.LayerNorm()(context)
 
         q = nnp.Dense(features=inner_dim, use_bias=False, shard_axes={
-                      "kernel": ("embed_kernel", "mlp")})(x)
+                      "kernel": ("embed", "heads", "kv")})(x)
         k, v = nnp.Dense(features=inner_dim * 2, use_bias=False, shard_axes={
-                         "kernel": ("embed_kernel", "mlp")})(context).split(2, axis=-1)
+                         "kernel": ("embed", "heads", "kv")})(context).split(2, axis=-1)
 
         q, k, v = rearrange_many(
             (q, k, v), 'b n (h d) -> b h n d', h=self.config.num_heads)
 
-        q = with_sharding_constraint(q, ("batch", "seq", "heads", "embed"))
-        k = with_sharding_constraint(k, ("batch", "seq", "heads", "embed"))
-        v = with_sharding_constraint(v, ("batch", "seq", "heads", "embed"))
+        q = with_sharding_constraint(q, ("batch", "length", "heads", "kv"))
+        k = with_sharding_constraint(k, ("batch", "length", "heads", "kv"))
+        v = with_sharding_constraint(v, ("batch", "length", "heads", "kv"))
 
         null_kv = self.param('null_kv', nn.initializers.lecun_normal(),
                              (2, self.config.dim_heads))
@@ -145,14 +144,14 @@ class CrossAttention(nn.Module):
         nk, nv = repeat_many(jax_unstack(null_kv, axis=-2),
                              'd -> b h 1 d', h=self.config.num_heads, b=b)
 
-        nk = with_sharding_constraint(nk, ("batch", "seq", "heads", "embed"))
-        nv = with_sharding_constraint(nv, ("batch", "seq", "heads", "embed"))
+        nk = with_sharding_constraint(nk, ("batch", "length", "heads", "kv"))
+        nv = with_sharding_constraint(nv, ("batch", "length", "heads", "kv"))
 
         k = jnp.concatenate((nk, k), axis=-2)
         v = jnp.concatenate((nv, v), axis=-2)
 
-        k = with_sharding_constraint(k, ("batch", "seq", "heads", "embed"))
-        v = with_sharding_constraint(v, ("batch", "seq", "heads", "embed"))
+        k = with_sharding_constraint(k, ("batch", "length", "heads", "kv"))
+        v = with_sharding_constraint(v, ("batch", "length", "heads", "kv"))
 
         q = q * scale
 
@@ -170,7 +169,7 @@ class CrossAttention(nn.Module):
         out = jnp.einsum('b h i j, b h j d -> b h i d', attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
         out = nnp.Dense(features=self.dim, use_bias=False,
-                        shard_axes={"kernel": ("embed_kernel", "mlp")})(out)
+                        shard_axes={"kernel": ("embed", "heads", "kv")})(out)
         out = nn.LayerNorm()(out)
 
         return out
@@ -222,7 +221,7 @@ class TextConditioning(nn.Module):
     def __call__(self, text_embeds, text_mask, time_cond, time_tokens, rng):
         if exists(text_embeds):
             text_tokens = nnp.Dense(features=self.cond_dim, shard_axes={
-                                    "kernel": ("embed_kernel", "mlp")})(text_embeds)
+                                    "kernel": ("embed", "mlp")})(text_embeds)
             text_tokens = text_tokens[:, :self.max_token_length]
             text_tokens_len = text_tokens.shape[1]
             remainder = self.max_token_length - text_tokens_len
@@ -246,10 +245,10 @@ class TextConditioning(nn.Module):
             mean_pooled_text_tokens = jnp.mean(text_tokens, axis=-2)
             text_hiddens = nn.LayerNorm()(mean_pooled_text_tokens)
             text_hiddens = nnp.Dense(features=self.time_cond_dim, shard_axes={
-                                     "kernel": ("embed_kernel", "mlp")}, dtype=self.dtype)(text_hiddens)
+                                     "kernel": ("embed", "mlp")}, dtype=self.dtype)(text_hiddens)
             text_hiddens = nn.silu(text_hiddens)
             text_hiddens = nnp.Dense(features=self.time_cond_dim, shard_axes={
-                                     "kernel": ("embed_kernel", "mlp")}, dtype=self.dtype)(text_hiddens)
+                                     "kernel": ("embed", "mlp")}, dtype=self.dtype)(text_hiddens)
 
             text_keep_mask_hidden = rearrange(text_keep_mask, 'b -> b 1')
 
@@ -342,7 +341,7 @@ class ResnetBlock(nn.Module):
         if exists(time_emb):
             time_emb = nn.silu(time_emb)
             time_emb = nnp.Dense(features=self.dim * 2, dtype=self.config.dtype,
-                                 shard_axes={"kernel": ("embed_kernel", "mlp")})(time_emb)
+                                 shard_axes={"kernel": ("embed", "mlp")})(time_emb)
             time_emb = rearrange(time_emb, 'b c -> b 1 1 c')
             scale_shift = jnp.split(time_emb, 2, axis=-1)
         h = Block(self.dim)(x)
@@ -424,7 +423,7 @@ class CombineEmbs(nn.Module):
             text_embeds_pooled = text_embeds / attention_mask_sum
             # project to correct number of channels
             text_embed_proj = nnp.Dense(
-                features=self.d, dtype=self.dtype, shard_axes={"kernel": ("embed_kernel", "mlp")})(text_embeds_pooled)
+                features=self.d, dtype=self.dtype, shard_axes={"kernel": ("embed", "mlp")})(text_embeds_pooled)
             # add axis for height and width
             text_embed_proj = text_embed_proj[:, jnp.newaxis, jnp.newaxis, :]
             # project across height and width

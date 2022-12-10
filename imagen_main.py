@@ -201,10 +201,10 @@ class Imagen:
                 conditional_drop_prob=None,
             )
             self.image_size = img_size
-            self.p_train_step = pjit.pjit(train_step, in_axis_resources=(imagen_spec, P("X", "Y", None, None), P(
+            self.p_train_step = pjit.pjit(train_step, in_axis_resources=(imagen_spec, P("X", None, None, None), P(
                 "X"), P("X", None, "Y"), P("X", "Y"), None), out_axis_resources=(imagen_spec, None))
-            self.p_sample = pjit.pjit(sample, in_axis_resources=(imagen_spec, P("X", "Y", None, None), P(
-                "X", None, "Y"), P("X", "Y"), None), out_axis_resources=(P("X", "Y", None, None)))
+            self.p_sample = pjit.pjit(sample, in_axis_resources=(imagen_spec, P("X", None, None, None), P(
+                "X", None, "Y"), P("X", "Y"), None), out_axis_resources=(P("X", None, None, None)))
 
     def get_key(self):
         self.random_state, key = jax.random.split(self.random_state)
