@@ -81,7 +81,7 @@ class Attention(nn.Module):
         if exists(context):
             context_hidden = nn.LayerNorm()(context)
             context_hidden = nnp.Dense(
-                features=self.config.dim_heads*2, shard_axes={"kernel": ("embed", "heads", "kv")}, dtype=self.config.dtype)(context_hidden)
+                features=self.config.dim_heads*2, shard_axes={"kernel": ("heads", "kv")}, dtype=self.config.dtype)(context_hidden)
             ck, cv = context_hidden.split(2, axis=-1)
 
             k = jnp.concatenate((k, ck), axis=-2)
@@ -106,7 +106,7 @@ class Attention(nn.Module):
 
         out = rearrange(out, 'b h n d -> b n (h d)')
 
-        out = nnp.Dense(features=self.dim, use_bias=False, shard_axes={"kernel": ("embed", "heads",  "kv")})(out)
+        out = nnp.Dense(features=self.dim, use_bias=False, shard_axes={"kernel": ("heads",  "kv")})(out)
         out = LayerNorm()(out)
         return out
 
