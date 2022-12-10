@@ -207,7 +207,18 @@ class Imagen:
                 params_axes = params["params_axes"]
                 params_axes = nnp.get_params_axes(
                     params, params_axes, rules=nnp.DEFAULT_TPU_RULES)
-                p_init = pjit.pjit(punet_init, in_axis_resources=(None, P("X", "Y", None, None), P("X"), P("X", None, "Y"), P("X", "Y"), None, None), out_axis_resources=params_axes)
+                p_init = pjit.pjit(punet_init,
+                                   in_axis_resources=(
+                                       None,  # key
+                                       P("X", "Y", None, None),  # image
+                                       P("X"),  # timestep
+                                       P("X", None, "Y"),  # text
+                                       P("X", "Y"),  # attention mask
+                                       None,  # conditional dropout prob
+                                       P("X", None, None, None) if unet_config.lowres_conditioning else None,  # lowres_image
+                                       P("X",) if unet_config.lowres_conditioning else None,  # lowres_image
+                                       None  # key
+                                   ), out_axis_resources=params_axes)
                 params = p_init(*unetInitParams)
                 # self.params = self.unet.init(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, key)
 
