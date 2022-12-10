@@ -289,8 +289,7 @@ class Imagen:
 
                 self.train_steps.append(p_train_step)
                 self.sample_steps.append(p_sample)
-            end_time = time.time()
-            print(f"Imagen setup complete, it took {end_time - start_time: 0.4f} seconds")
+            print(f"Imagen setup complete, it took {time.time() - start_time: 0.4f} seconds")
 
     def get_key(self):
         self.random_state, key = jax.random.split(self.random_state)
