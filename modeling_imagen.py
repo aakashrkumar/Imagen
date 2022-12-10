@@ -68,7 +68,6 @@ class EfficentUNet(nn.Module):
                 hiddens.append(x)
             # print("Image Shape", x.shape)
             x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
-            print("Image Shape", x.shape)
             x = TransformerBlock(config=self.config, dim=self.config.dim * dim_mult)(x, c)
             x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
             hiddens.append(x)
