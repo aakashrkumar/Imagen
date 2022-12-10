@@ -37,7 +37,7 @@ class UnetConfig(struct.PyTreeNode):
     
     scheduler:                 str = struct.field(pytree_node=False, default="cosine")
 
-    dtype:                     Any = jnp.bfloat16
+    dtype:                     Any = struct.field(pytree_node=False, default=jnp.bfloat16)
 
 
 class ImagenConfig(struct.PyTreeNode):
