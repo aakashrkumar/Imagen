@@ -79,8 +79,8 @@ class EfficentUNet(nn.Module):
 
         init_conv_residual = x
         # downsample
-        if type(self.num_resnet_blocks) == int:
-            num_resnet_blocks = [self.num_resnet_blocks] * len(self.config.dim_mults)
+        if type(self.config.num_resnet_blocks) == int:
+            num_resnet_blocks = [self.config.num_resnet_blocks] * len(self.config.dim_mults)
         else:
             num_resnet_blocks = self.num_resnet_blocks
         hiddens = []
