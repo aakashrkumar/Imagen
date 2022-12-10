@@ -2,6 +2,7 @@ from enum import Enum
 from typing import List, Iterable, Optional, Union, Tuple, Dict, Any
 import jax.numpy as jnp
 from pydantic import BaseModel
+from flax import struct
 
 def ListOrTuple(inner_type):
     return Union[List[inner_type], Tuple[inner_type]]
@@ -11,7 +12,7 @@ def SingleOrList(inner_type):
     return Union[inner_type, ListOrTuple(inner_type)]
 
 
-class UnetConfig(BaseModel):
+class UnetConfig(struct.PyTreeNode):
     dim:                       int = 128
     dim_mults:                 ListOrTuple(int) = (1, 2, 4, 8)
     cond_dim:                  int = 128
@@ -39,7 +40,7 @@ class UnetConfig(BaseModel):
     dtype:                     Any = jnp.bfloat16
 
 
-class ImagenConfig(BaseModel):
+class ImagenConfig(struct.PyTreeNode):
     unets:                  ListOrTuple(UnetConfig) = [UnetConfig(dim=128, dim_mults=(1, 2, 4, 8), scheduler="cosine")]
     image_sizes:            ListOrTuple(int) = (64,)
     timesteps:              int = 1000
