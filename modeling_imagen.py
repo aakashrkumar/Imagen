@@ -21,7 +21,6 @@ class EfficentUNet(nn.Module):
 
     @nn.compact
     def __call__(self, x: jnp.array, time, texts=None, attention_masks=None, condition_drop_prob=0.0, lowres_cond_img = None, lowres_noise_times=None, rng=None):
-        print(x.shape, time.shape, texts.shape, attention_masks.shape, condition_drop_prob, rng.shape)
         if self.config.lowres_conditioning:
             assert exists(lowres_cond_img) and exists(lowres_noise_times), "lowres_cond_img and lowres_noise_times must be not None if lowres_conditioning is True"
         else:
