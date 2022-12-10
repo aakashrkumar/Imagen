@@ -51,6 +51,7 @@ class Attention(nn.Module):
         inner_dim = self.config.dim_heads * self.config.num_heads
 
         x = LayerNorm()(x)
+        x = with_sharding_constraint(x, ("batch", "width", "height", "embed"))
 
         q = nnp.Dense(features=inner_dim, use_bias=False, shard_axes={
                       "kernel": ("heads", "kv")}, dtype=self.config.dtype)(x)
@@ -100,6 +101,7 @@ class Attention(nn.Module):
             
         
         attn = nn.softmax(sim, axis=-1)
+        attn = with_sharding_constraint(attn, ("batch", "length", "heads", "kv"))
         
         attn.astype(self.config.dtype)
         out = jnp.einsum('b h i j, b j d -> b h i d', attn, v)
