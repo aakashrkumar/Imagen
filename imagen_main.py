@@ -45,6 +45,7 @@ class UnetState(struct.PyTreeNode):
 class GeneratorState(struct.PyTreeNode):
     unet_state: UnetState
     image: jnp.ndarray
+    lowres_cond_image: jnp.ndarray
     text: jnp.ndarray
     attention: jnp.ndarray
     rng: jax.random.PRNGKey
@@ -52,9 +53,27 @@ class GeneratorState(struct.PyTreeNode):
 
 def conditioning_pred(generator_state, t, cond_scale):
     pred = generator_state.unet_state.train_state.apply_fn(
-        {"params": generator_state.unet_state.train_state.params}, generator_state.image, t, generator_state.text, generator_state.attention, 0.0, generator_state.rng)
+        {"params": generator_state.unet_state.train_state.params},
+        generator_state.image,
+        t,
+        generator_state.text,
+        generator_state.attention,
+        0.0,
+        generator_state.lowres_cond_image,
+        jnp.ones(generator_state.image.shape[0], dtype=jnp.int16) * 999,
+        generator_state.rng
+    )
     null_logits = generator_state.unet_state.train_state.apply_fn(
-        {"params": generator_state.unet_state.train_state.params}, generator_state.image, t, generator_state.text, generator_state.attention, 1.0, generator_state.rng)
+        {"params": generator_state.unet_state.train_state.params},
+        generator_state.image,
+        t,
+        generator_state.text,
+        generator_state.attention,
+        1.0,
+        generator_state.lowres_cond_image,
+        jnp.ones(generator_state.image.shape[0], dtype=jnp.int16) * 999,
+        generator_state.rng
+    )
     return null_logits + (pred - null_logits) * cond_scale
 
 
@@ -89,13 +108,13 @@ def p_sample(t_index, generator_state):
     return generator_state.replace(image=x)
 
 
-def p_sample_loop(unet_state, img, texts, attention, rng):
+def p_sample_loop(unet_state, img, texts, attention, lowres_cond_image, rng):
     # img is x0
     batch_size = img.shape[0]
     rng, key = jax.random.split(rng)
     # imgs = []
     generator_state = GeneratorState(
-        unet_state=unet_state, image=img, text=texts, attention=attention, rng=rng)
+        unet_state=unet_state, image=img, text=texts, attention=attention, lowres_cond_image=lowres_cond_image, rng=rng)
     generator_state = jax.lax.fori_loop(0, 1000, p_sample, generator_state)
     img = generator_state.image
     # for i in reversed(range(sampler.num_timesteps)):
@@ -107,8 +126,8 @@ def p_sample_loop(unet_state, img, texts, attention, rng):
     return img
 
 
-def sample(unet_state, noise, texts, attention, rng):
-    return p_sample_loop(unet_state, noise, texts, attention, rng)
+def sample(unet_state, noise, texts, attention, lowres_cond_image, rng):
+    return p_sample_loop(unet_state, noise, texts, attention, lowres_cond_image, rng)
 
 
 def train_step(unet_state, imgs_start, timestep, texts, attention_masks, lowres_cond_image, lowres_aug_times, rng):
@@ -255,7 +274,7 @@ class Imagen:
                     config=config_spec,
                     unet_config=unet_config_spec
                 )
-                
+
                 unet_state = UnetState(
                     train_state=train_state,
                     sampler=scheduler,
@@ -263,7 +282,6 @@ class Imagen:
                     unet_config=unet_config
                 )
 
-                
                 self.unets.append(unet_state)
                 self.schedulers.append(scheduler)
 
@@ -283,6 +301,7 @@ class Imagen:
                     P("X", None, None, None),  # image
                     P("X", None, "Y"),  # text
                     P("X", "Y"),  # masks
+                    P("X", None, None, None) if unet_config.lowres_conditioning else None,  # lowres_image
                     None  # key
                 ), out_axis_resources=(P("X", None, None, None))
                 )
@@ -297,12 +316,14 @@ class Imagen:
 
     def sample(self, texts, attention):
         with maps.Mesh(self.mesh.devices, self.mesh.axis_names), nn_partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
-            lowres_image = None
+            lowres_images = None
             for i in range(len(self.unets)):
                 batch_size = texts.shape[0]
-                noise = jax.random.normal(
-                    self.get_key(), (batch_size, self.image_size, self.image_size, 3))
-                image = self.sample_steps[i](self.unets[i], noise, texts, attention, self.get_key())
+                if self.unets[i].unet_config.lowres_conditioning:
+                    lowres_images = jax.image.resize(lowres_images, (lowres_images.shape[0],self.config.image_sizes[i], self.config.image_sizes[i], lowres_images.shape[-1]), method='nearest')
+                noise = jax.random.normal(self.get_key(), (batch_size, self.image_size, self.image_size, 3))
+                image = self.sample_steps[i](self.unets[i], noise, texts, attention, lowres_images, self.get_key())
+                lowres_images = image
             return image
             # return self.p_sample(self.unet_state, noise, texts, attention, self.get_key())
 
