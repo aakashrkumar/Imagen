@@ -53,7 +53,7 @@ class Attention(nn.Module):
         x = LayerNorm()(x)
 
         q = nnp.Dense(features=inner_dim, use_bias=False, shard_axes={
-                      "kernel": ("embed", "heads", "kv")}, dtype=self.config.dtype)(x)
+                      "kernel": ("heads", "kv")}, dtype=self.config.dtype)(x)
         k, v = nnp.Dense(features=self.config.dim_heads * 2, use_bias=False,
                          shard_axes={"kernel": ("heads", "kv")}, dtype=self.config.dtype)(x).split(2, axis=-1) # TODO: Check if it should be 2 or 3 kernel shards
 
@@ -169,7 +169,7 @@ class CrossAttention(nn.Module):
         out = jnp.einsum('b h i j, b h j d -> b h i d', attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
         out = nnp.Dense(features=self.dim, use_bias=False,
-                        shard_axes={"kernel": ("embed", "heads", "kv")})(out)
+                        shard_axes={"kernel": ("heads", "kv")})(out)
         out = nn.LayerNorm()(out)
 
         return out
