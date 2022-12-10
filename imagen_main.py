@@ -186,24 +186,8 @@ class Imagen:
                 )
 
                 punet_init = partial(unet_init, unet)
-                params = jax.eval_shape(
-                    unet.init, key,
-                    jnp.ones((batch_size, img_size, img_size, 3)),  # image
-                    jnp.ones(batch_size, dtype=jnp.int16),  # timestep
-                    jnp.ones((batch_size, unet_config.max_token_len, unet_config.token_embedding_dim)),  # text
-                    jnp.ones((batch_size, unet_config.max_token_len)),  # attention mask
 
-                    config.cond_drop_prob,  # conditional dropout prob
-                    jnp.ones((batch_size, img_size, img_size, 3)) if unet_config.lowres_conditioning else None,  # lowres_cond_image
-                    jnp.ones(batch_size, dtype=jnp.int16) if unet_config.lowres_conditioning else None,  # lowres_aug_times
-
-                    self.random_state  # rng
-                )
-                params_axes = params["params_axes"]
-                params_axes = nnp.get_params_axes(
-                    params, params_axes, rules=nnp.DEFAULT_TPU_RULES)
-                p_init = pjit.pjit(punet_init, in_axis_resources=(None, P("X", "Y", None, None), P("X"), P("X", None, "Y"), P("X", "Y"), None, None), out_axis_resources=params_axes)
-                params = p_init(
+                unetInitParams = (
                     key,
                     jnp.ones((batch_size, img_size, img_size, 3)),  # image
                     jnp.ones(batch_size, dtype=jnp.int16),  # timestep
@@ -216,6 +200,15 @@ class Imagen:
 
                     self.random_state
                 )
+
+                params = jax.eval_shape(
+                    unet.init, *unetInitParams
+                )
+                params_axes = params["params_axes"]
+                params_axes = nnp.get_params_axes(
+                    params, params_axes, rules=nnp.DEFAULT_TPU_RULES)
+                p_init = pjit.pjit(punet_init, in_axis_resources=(None, P("X", "Y", None, None), P("X"), P("X", None, "Y"), P("X", "Y"), None, None), out_axis_resources=params_axes)
+                params = p_init(*unetInitParams)
                 # self.params = self.unet.init(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, key)
 
                 lr = optax.warmup_cosine_decay_schedule(
