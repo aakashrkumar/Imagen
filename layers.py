@@ -51,8 +51,8 @@ class Attention(nn.Module):
         inner_dim = self.config.dim_heads * self.config.num_heads
 
         x = LayerNorm()(x)
-        x = with_sharding_constraint(x, ("batch", "width", "height", "embed"))
-
+        x = with_sharding_constraint(x, ("batch", "length", "embed"))
+        
         q = nnp.Dense(features=inner_dim, use_bias=False, shard_axes={
                       "kernel": ("heads", "kv")}, dtype=self.config.dtype)(x)
         k, v = nnp.Dense(features=self.config.dim_heads * 2, use_bias=False,
