@@ -49,10 +49,10 @@ class ImagenConfig:
     loss_type:              str = 'l2'
     cond_drop_prob:         float = 0.5
     
-    batch_size = 16
+    batch_size:             int = 128
 
     @classmethod
-    def create(cls, image_sizes, dims):
+    def create(cls, image_sizes: ListOrTuple(int), dims: ListOrTuple(int), batch_size:int):
         return cls(
             unets=[UnetConfig(dim=dim) for dim in dims],
             image_sizes=image_sizes

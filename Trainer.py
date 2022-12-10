@@ -12,12 +12,15 @@ from T5Utils import get_tokenizer_and_model, encode_text
 
 import pickle
 from datasets import get_cifar100, get_mnist
-
+from config import ImagenConfig
 
 class Trainer:
     def __init__(self):
         wandb.init(project="imagen", entity="apcsc")
-        wandb.config.batch_size = 16
+        
+        config = ImagenConfig.create(image_sizes=(64,), dims=(128, ), batch_size=128)
+        
+        wandb.config.batch_size = config.batch_size
         wandb.config.seed = 0
         wandb.config.learning_rate = 1e-4
         wandb.config.image_size = 64
@@ -51,7 +54,7 @@ class Trainer:
                     f.close()
                     print("Saved batches to disk")
         print("Loaded batches, now preparing imagen")
-        self.imagen = Imagen()
+        self.imagen = Imagen(config=config)
         print("Prepared imagen, now begining training")
 
     def train(self):
