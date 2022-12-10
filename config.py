@@ -14,7 +14,7 @@ def SingleOrList(inner_type):
 
 class UnetConfig(struct.PyTreeNode):
     dim:                       int = 128
-    dim_mults:                 ListOrTuple(int) = (1, 2, 4, 8)
+    dim_mults:                 Tuple[int] = (1, 2, 4, 8)
     cond_dim:                  int = 128
 
     time_conditiong_dim:       int = 512  # dim * 4 (* 2 if lowres_conditioning)
@@ -41,8 +41,8 @@ class UnetConfig(struct.PyTreeNode):
 
 
 class ImagenConfig(struct.PyTreeNode):
-    unets:                  ListOrTuple(UnetConfig) = [UnetConfig(dim=128, dim_mults=(1, 2, 4, 8), scheduler="cosine")]
-    image_sizes:            ListOrTuple(int) = (64,)
+    unets:                  Tuple[UnetConfig] = [UnetConfig(dim=128, dim_mults=(1, 2, 4, 8), scheduler="cosine")]
+    image_sizes:            Tuple[int] = (64,)
     timesteps:              int = 1000
 
     text_encoder_name:      str = "t5-small"
