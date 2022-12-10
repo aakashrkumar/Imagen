@@ -37,7 +37,8 @@ mesh_shape = (2, 4)
 class UnetState(struct.PyTreeNode):
     train_state: TrainState
     sampler: GaussianDiffusionContinuousTimes
-
+    unet_config = struct.field(pytree_node=False)
+    config = struct.field(pytree_node=False)
 
 class GeneratorState(struct.PyTreeNode):
     unet_state: UnetState
@@ -126,7 +127,7 @@ def train_step(unet_state, imgs_start, timestep, texts, attention_masks, lowres_
             timestep,
             texts,
             attention_masks,
-            unet_state.conditional_drop_prob,
+            unet_state.config.cond_drop_prob,
             lowres_cond_image_noise,
             lowres_aug_times,
             key2
@@ -245,13 +246,14 @@ class Imagen:
                 unet_state = UnetState(
                     train_state=train_state,
                     sampler=scheduler,
-                    conditional_drop_prob=config.cond_drop_prob,
-                    config=unet_config
+                    config=self.config,
+                    unet_config=unet_config
                 )
                 imagen_spec = UnetState(
                     train_state=state_spec,
                     sampler=sampler_spec,
-                    conditional_drop_prob=None,
+                    config=None,
+                    unet_config=None
                 )
                 self.unets.append(unet_state)
                 self.schedulers.append(scheduler)
