@@ -78,11 +78,9 @@ class Trainer:
             for ts in timesteps:
                 passes += 1
                 start_time = time.time()
-                timestep = jnp.ones(wandb.config.batch_size) * ts
-                timestep = jnp.array(timestep, dtype=jnp.int16)
                 # TODO: add guidance free conditioning
                 metrics = self.imagen.train_step(
-                    images, timestep, captions_encoded, attention_masks)
+                    images, captions_encoded, attention_masks)
                 pbar.update(1)
                 metrics["images_per_second"] = wandb.config.batch_size / \
                     (time.time() - start_time)
