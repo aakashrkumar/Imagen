@@ -58,9 +58,15 @@ class ImagenConfig:
     
     batch_size:             int = 128
 
+    def __init__(self, unets: ListOrTuple(UnetConfig), image_sizes: ListOrTuple(int), batch_size: int):
+        self.unets = unets
+        self.image_sizes = image_sizes
+        self.batch_size = batch_size
+
     @classmethod
     def create(cls, image_sizes: ListOrTuple(int), dims: ListOrTuple(int), batch_size:int):
         return cls(
             unets=[UnetConfig(dim=dim) for dim in dims],
-            image_sizes=image_sizes
+            image_sizes=image_sizes,
+            batch_size=batch_size
         )
