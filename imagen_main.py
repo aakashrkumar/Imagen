@@ -324,7 +324,6 @@ class Imagen:
                     lowres_aug_times = repeat(lowres_aug_times, '1 -> b', b=image_batch.shape[0])
 
                 image_batch = jax.image.resize(image_batch, (image_batch.shape[0], self.config.image_sizes[i], self.config.image_sizes[i], 3), method='nearest')
-                print(self.unets[i])
                 self.unets[i], unet_metrics = self.train_steps[i](
                     self.unets[i],
                     image_batch,
