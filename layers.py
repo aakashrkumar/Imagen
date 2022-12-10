@@ -55,7 +55,7 @@ class Attention(nn.Module):
         q = nnp.Dense(features=inner_dim, use_bias=False, shard_axes={
                       "kernel": ("embed", "heads", "kv")}, dtype=self.config.dtype)(x)
         k, v = nnp.Dense(features=self.config.dim_heads * 2, use_bias=False,
-                         shard_axes={"kernel": ("embed", "heads", "kv")}, dtype=self.config.dtype)(x).split(2, axis=-1) # TODO: Check if it should be 1 or 2
+                         shard_axes={"kernel": ("heads", "kv")}, dtype=self.config.dtype)(x).split(2, axis=-1) # TODO: Check if it should be 2 or 3 kernel shards
 
         q = rearrange(q, 'b n (h d) -> b h n d', h=self.config.num_heads)
         q = q * scale
