@@ -31,7 +31,7 @@ from flax.core.frozen_dict import FrozenDict
 from utils import right_pad_dims_to
 
 
-mesh_shape = (2, 4)
+mesh_shape = (1, 1)
 
 
 class ImagenState(struct.PyTreeNode):
