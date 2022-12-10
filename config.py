@@ -41,7 +41,7 @@ class UnetConfig:
 class ImagenConfig:
     unets:                  ListOrTuple(UnetConfig)
     image_sizes:            ListOrTuple(int) = (64, 256)
-    timesteps:              int = 1024
+    timesteps:              int = 1000
     
     text_encoder_name:      str = "t5-small"
     

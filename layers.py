@@ -45,12 +45,11 @@ class Attention(nn.Module):
 
     @nn.compact
     def __call__(self, x, context=None, mask=None, attn_bias=None):
-        print(x.shape)
         b, n = x.shape[:2]
         scale = self.config.dim_heads ** -0.5
         inner_dim = self.config.dim_heads * self.config.num_heads
 
-        x = nn.LayerNorm()(x)
+        x = LayerNorm()(x)
 
         q = nnp.Dense(features=inner_dim, use_bias=False, shard_axes={
                       "kernel": ("embed_kernel", "mlp")}, dtype=self.config.dtype)(x)
@@ -104,7 +103,7 @@ class Attention(nn.Module):
 
         out = nnp.Dense(features=self.dim, use_bias=False, shard_axes={
                         "kernel": ("embed_kernel", "mlp")})(out)
-        out = nn.LayerNorm()(out)
+        out = LayerNorm()(out)
         return out
 
 
@@ -285,6 +284,16 @@ class ChannelFeedForward(nn.Module):
         x = ChannelLayerNorm(dim=self.dim * self.mult)(x)
         x = nn.Conv(features=self.dim, kernel_size=(1, 1))(x)
         return x
+
+class LayerNorm(nn.Module):
+    axis: int = -1
+    eps: float = 1e-3
+    @nn.module
+    def __call__(self, x):
+        var = jnp.var(x, axis=self.axis, keepdims=True)
+        mean = jnp.mean(x, axis=self.axis, keepdims=True)
+        g = self.param('g', nn.initializers.ones, (x.shape[-1], *((1,) * (-self.axis - 1))))
+        return (x - mean) / jnp.sqrt(var + self.eps) * g
 
 
 class ChannelLayerNorm(nn.Module):
