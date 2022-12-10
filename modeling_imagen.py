@@ -106,7 +106,7 @@ class EfficentUNet(nn.Module):
         SCAN_LAYERS = False
         
         for dim_mult in self.config.dim_mults:
-            x, in_hiddens = DBlock(config=self.config, dim=self.config.dim * dim_mult, hiddens=hiddens)(x, t, c)
+            x, in_hiddens = DBlock(config=self.config, dim=self.config.dim * dim_mult)(x, t, c)
             hiddens.extend(in_hiddens)
         x = ResnetBlock(config=self.config, dim=self.config.dim * self.config.dim_mults[-1])(x, t, c)
         x = EinopsToAndFrom(Attention(config=self.config, dim=self.config.dim * self.config.dim_mults[-1]), 'b h w c', 'b (h w) c')(x)
