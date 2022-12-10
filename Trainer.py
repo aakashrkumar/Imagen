@@ -18,7 +18,7 @@ class Trainer:
     def __init__(self):
         wandb.init(project="imagen", entity="apcsc")
         
-        config = ImagenConfig.create(image_sizes=(64,), dims=(128, ), batch_size=128)
+        config = ImagenConfig()
         
         wandb.config.batch_size = config.batch_size
         wandb.config.seed = 0

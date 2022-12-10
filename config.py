@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import List, Iterable, Optional, Union, Tuple, Dict, Any
 import jax.numpy as jnp
-
+from pydantic import BaseModel
 
 def ListOrTuple(inner_type):
     return Union[List[inner_type], Tuple[inner_type]]
@@ -11,7 +11,7 @@ def SingleOrList(inner_type):
     return Union[inner_type, ListOrTuple(inner_type)]
 
 
-class UnetConfig:
+class UnetConfig(BaseModel):
     dim:                       int = 128
     dim_mults:                 ListOrTuple(int) = (1, 2, 4, 8)
     cond_dim:                  int = 128
@@ -33,21 +33,15 @@ class UnetConfig:
     lowres_conditioning:       bool = False
 
     strides: Tuple[int, int] = (2, 2)
+    
+    scheduler:                 str = 'cosine'
 
     dtype:                     Any = jnp.bfloat16
 
-    def __init__(self, dim: int=None, dim_mults: ListOrTuple(int)=None, cond_dim: int=None):
-        if dim is not None:
-            self.dim = dim
-        if dim_mults is not None:
-            self.dim_mults = dim_mults
-        if cond_dim is not None:
-            self.cond_dim = cond_dim
 
-
-class ImagenConfig:
-    unets:                  ListOrTuple(UnetConfig)
-    image_sizes:            ListOrTuple(int) = (64, 256)
+class ImagenConfig(BaseModel):
+    unets:                  ListOrTuple(UnetConfig) = [UnetConfig(dim=128, dim_mults=(1, 2, 4, 8), scheduler="cosine")]
+    image_sizes:            ListOrTuple(int) = (64,)
     timesteps:              int = 1000
 
     text_encoder_name:      str = "t5-small"
@@ -57,16 +51,3 @@ class ImagenConfig:
     cond_drop_prob:         float = 0.5
     
     batch_size:             int = 128
-
-    def __init__(self, unets: ListOrTuple(UnetConfig), image_sizes: ListOrTuple(int), batch_size: int):
-        self.unets = unets
-        self.image_sizes = image_sizes
-        self.batch_size = batch_size
-
-    @classmethod
-    def create(cls, image_sizes: ListOrTuple(int), dims: ListOrTuple(int), batch_size:int):
-        return cls(
-            unets=[UnetConfig(dim=dim) for dim in dims],
-            image_sizes=image_sizes,
-            batch_size=batch_size
-        )

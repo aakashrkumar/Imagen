@@ -19,7 +19,7 @@ class EfficentUNet(nn.Module):
     config: UnetConfig
 
     @nn.compact
-    def __call__(self, x: jnp.array, time, texts=None, attention_masks=None, condition_drop_prob=0.0, rng=None):
+    def __call__(self, x: jnp.array, time, texts=None, attention_masks=None, condition_drop_prob=0.0, lowres_cond_img = None, lowres_noise_times=None, rng=None):
         x = x.astype(self.config.dtype)
         time = time.astype(self.config.dtype)
         if exists(texts):
@@ -29,6 +29,11 @@ class EfficentUNet(nn.Module):
 
         x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
         texts = with_sharding_constraint(texts, P("batch", "length", "embed"))
+        
+        if exists(lowres_cond_img):
+            x = jnp.concatenate([x, lowres_cond_img], axis=-1)
+            x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
+            x = x.astype(self.config.dtype)
 
         cond_dim = default(self.config.cond_dim, self.config.dim)
 
@@ -45,7 +50,17 @@ class EfficentUNet(nn.Module):
         time_tokens = rearrange(time_tokens, 'b (r d) -> b r d', r=self.config.num_time_tokens)
 
         time_tokens = with_sharding_constraint(time_tokens, P("batch", "seq", "embed"))
-
+        if self.config.lowres_conditioning:
+            lowres_time_hiddens = SinusoidalPositionEmbeddings(config=self.config)(lowres_noise_times)  # (b, 1, d)
+            lowres_time_hiddens = nnp.Dense(features=self.config.time_conditiong_dim, shard_axes={"kernel": ("embed", "mlp")})(lowres_time_hiddens)
+            lowres_time_hiddens = nn.silu(lowres_time_hiddens)
+            lowres_time_tokens = nnp.Dense(self.config.cond_dim * self.config.num_time_tokens, shard_axes={"kernel": ("embed", "mlp")})(lowres_time_hiddens)
+            lowres_time_tokens = rearrange(lowres_time_tokens, 'b (r d) -> b r d', r=self.config.num_time_tokens)
+            lowres_t = nnp.Dense(features=self.config.time_conditiong_dim, dtype=self.config.dtype, shard_axes={"kernel": ("embed", "mlp")})(lowres_time_hiddens)
+            
+            t = t + lowres_t
+            time_tokens = jnp.concatenate([time_tokens, lowres_time_tokens], dim=-2)
+            
         t, c = TextConditioning(cond_dim=cond_dim, time_cond_dim=self.config.time_conditiong_dim, max_token_length=self.config.max_token_len, cond_drop_prob=condition_drop_prob)(texts, attention_masks, t, time_tokens, rng)
         # TODO: add lowres conditioning
 
