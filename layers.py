@@ -113,6 +113,57 @@ class Attention(nn.Module):
         return out
 
 
+class TransformerBlock(nn.Module):
+    config: UnetConfig
+    dim: int
+
+    @nn.compact
+    def __call__(self, x, context=None):
+        x = EinopsToAndFrom(Attention(config=self.config, dim=self.dim), 'b h w c', 'b (h w) c')(x, context=context) + x
+        x = with_sharding_constraint(nn.LayerNorm())(x)
+        x = ChannelFeedForward(dim=self.dim, mult=self.config.ff_mult)(x) + x
+        return x
+
+
+class ChannelFeedForward(nn.Module):
+    dim: int
+    mult: int = 2
+
+    @nn.compact
+    def __call__(self, x):
+        x = ChannelLayerNorm(dim=self.dim)(x)
+        x = nn.Conv(features=self.dim * self.mult, kernel_size=(1, 1))(x)
+        x = nn.gelu(x)
+        x = ChannelLayerNorm(dim=self.dim * self.mult)(x)
+        x = nn.Conv(features=self.dim, kernel_size=(1, 1))(x)
+        return x
+
+class LayerNorm(nn.Module):
+    axis: int  = -1
+    eps: float = 1e-3
+    
+    @nn.compact
+    def __call__(self, x):
+        var = jnp.var(x, axis=self.axis, keepdims=True)
+        mean = jnp.mean(x, axis=self.axis, keepdims=True)
+        g = self.param('g', nn.initializers.ones, (x.shape[-1], *((1,) * (-self.axis - 1))))
+        return (x - mean) / jnp.sqrt(var + self.eps) * g
+
+
+class ChannelLayerNorm(nn.Module):
+    """
+    LayerNorm for :class:`.ChanFeedForward`.
+    """
+    dim: int
+    eps: float = 1e-5
+
+    @nn.compact
+    def __call__(self, x):
+        var = jnp.var(x, axis=-1, keepdims=True)
+        mean = jnp.mean(x, axis=-1, keepdims=True)
+        return (x - mean) / jnp.sqrt(var + self.eps) * jnp.ones((1, 1, 1, self.dim))
+
+
 class CrossAttention(nn.Module):
     config: UnetConfig
     dim: int
@@ -261,57 +312,6 @@ class TextConditioning(nn.Module):
             time_tokens, text_tokens], axis=-2)
         c = nn.LayerNorm()(c)
         return time_cond, c
-
-
-class TransformerBlock(nn.Module):
-    config: UnetConfig
-    dim: int
-
-    @nn.compact
-    def __call__(self, x, context=None):
-        x = EinopsToAndFrom(Attention(config=self.config, dim=self.dim),
-                            'b h w c', 'b (h w) c')(x, context=context) + x
-        x = ChannelFeedForward(dim=self.dim, mult=self.config.ff_mult)(x) + x
-        return x
-
-
-class ChannelFeedForward(nn.Module):
-    dim: int
-    mult: int = 2
-
-    @nn.compact
-    def __call__(self, x):
-        x = ChannelLayerNorm(dim=self.dim)(x)
-        x = nn.Conv(features=self.dim * self.mult, kernel_size=(1, 1))(x)
-        x = nn.gelu(x)
-        x = ChannelLayerNorm(dim=self.dim * self.mult)(x)
-        x = nn.Conv(features=self.dim, kernel_size=(1, 1))(x)
-        return x
-
-class LayerNorm(nn.Module):
-    axis: int  = -1
-    eps: float = 1e-3
-    
-    @nn.compact
-    def __call__(self, x):
-        var = jnp.var(x, axis=self.axis, keepdims=True)
-        mean = jnp.mean(x, axis=self.axis, keepdims=True)
-        g = self.param('g', nn.initializers.ones, (x.shape[-1], *((1,) * (-self.axis - 1))))
-        return (x - mean) / jnp.sqrt(var + self.eps) * g
-
-
-class ChannelLayerNorm(nn.Module):
-    """
-    LayerNorm for :class:`.ChanFeedForward`.
-    """
-    dim: int
-    eps: float = 1e-5
-
-    @nn.compact
-    def __call__(self, x):
-        var = jnp.var(x, axis=-1, keepdims=True)
-        mean = jnp.mean(x, axis=-1, keepdims=True)
-        return (x - mean) / jnp.sqrt(var + self.eps) * jnp.ones((1, 1, 1, self.dim))
 
 
 class Block(nn.Module):
