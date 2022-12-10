@@ -29,7 +29,7 @@ class UnetConfig(struct.PyTreeNode):
     num_heads:                 int = 4
     ff_mult:                   int = 2
 
-    num_resnet_blocks:         int = 6
+    num_resnet_blocks:         int = 8
 
     lowres_conditioning:       bool = False
 
@@ -41,7 +41,7 @@ class UnetConfig(struct.PyTreeNode):
 
 
 class ImagenConfig(struct.PyTreeNode):
-    unets:                  Tuple[UnetConfig] = (UnetConfig(dim=128, dim_mults=(1, 2, 4, 8), num_resnet_blocks=8, scheduler="cosine"),)
+    unets:                  Tuple[UnetConfig] = (UnetConfig(dim=128, dim_mults=(1, 2, 4, 8), num_resnet_blocks=1, scheduler="cosine"),)
     image_sizes:            Tuple[int] = (64,)
     timesteps:              int = 1000
 

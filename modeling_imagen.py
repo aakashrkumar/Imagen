@@ -79,11 +79,11 @@ class EfficentUNet(nn.Module):
 
         init_conv_residual = x
         # downsample
-        hiddens = []
         if type(self.num_resnet_blocks) == int:
             num_resnet_blocks = [self.num_resnet_blocks] * len(self.config.dim_mults)
         else:
             num_resnet_blocks = self.num_resnet_blocks
+        hiddens = []
         for dim_mult, n_resnet_blocks in zip(self.config.dim_mults, num_resnet_blocks):
             x = Downsample(config=self.config, dim=self.config.dim * dim_mult)(x)
             x = ResnetBlock(config=self.config, dim=self.config.dim * dim_mult)(x, t, c)
