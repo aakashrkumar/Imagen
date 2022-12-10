@@ -80,10 +80,14 @@ class EfficentUNet(nn.Module):
         init_conv_residual = x
         # downsample
         hiddens = []
-        for dim_mult in self.config.dim_mults:
+        if type(self.num_resnet_blocks) == int:
+            num_resnet_blocks = [self.num_resnet_blocks] * len(self.config.dim_mults)
+        else:
+            num_resnet_blocks = self.num_resnet_blocks
+        for dim_mult, n_resnet_blocks in zip(self.config.dim_mults, num_resnet_blocks):
             x = Downsample(config=self.config, dim=self.config.dim * dim_mult)(x)
             x = ResnetBlock(config=self.config, dim=self.config.dim * dim_mult)(x, t, c)
-            for _ in range(self.config.num_resnet_blocks):
+            for _ in range(n_resnet_blocks):
                 x = ResnetBlock(config=self.config, dim=self.config.dim * dim_mult)(x)
                 x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
                 hiddens.append(x)
@@ -98,10 +102,10 @@ class EfficentUNet(nn.Module):
 
         # Upsample
         def add_skip_connection(x): return jnp.concatenate([x, hiddens.pop()], axis=-1)
-        for dim_mult in reversed(self.config.dim_mults):
+        for dim_mult, n_resnet_blocks in zip(reversed(self.config.dim_mults), reversed(self.config.num_resnet_blocks)):
             x = add_skip_connection(x)
             x = ResnetBlock(config=self.config, dim=self.config.dim * dim_mult)(x, t, c)
-            for _ in range(self.config.num_resnet_blocks):
+            for _ in range(n_resnet_blocks):
                 x = add_skip_connection(x)
                 x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
                 x = ResnetBlock(config=self.config, dim=self.config.dim * dim_mult)(x)
