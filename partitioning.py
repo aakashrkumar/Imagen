@@ -23,7 +23,7 @@ DEFAULT_TPU_RULES = [
     ('mlp_activations', None),
 
     ("width", None),
-    ("Height", None),
+    ("height", None),
     
     ("X", "X"),
     ("Y", "Y"),
