@@ -36,6 +36,13 @@ class UnetConfig:
 
     dtype:                     Any = jnp.bfloat16
 
+    def __init__(self, dim: int=None, dim_mults: ListOrTuple(int)=None, cond_dim: int=None):
+        if dim is not None:
+            self.dim = dim
+        if dim_mults is not None:
+            self.dim_mults = dim_mults
+        if cond_dim is not None:
+            self.cond_dim = cond_dim
 
 
 class ImagenConfig:
