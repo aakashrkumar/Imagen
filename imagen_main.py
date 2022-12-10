@@ -37,8 +37,8 @@ mesh_shape = (2, 4)
 class UnetState(struct.PyTreeNode):
     train_state: TrainState
     sampler: GaussianDiffusionContinuousTimes
-    unet_config: Any = struct.field(pytree_node=False)
-    config: Any = struct.field(pytree_node=False)
+    unet_config: Any
+    config: Any
 
 
 class GeneratorState(struct.PyTreeNode):
@@ -222,7 +222,7 @@ class Imagen:
                                        None  # key
                                    ), out_axis_resources=params_axes)
                 params = p_init(*unetInitParams)
-                # self.params = self.unet.init(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, key)
+                # self.paramsB = self.unet.init(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, key)
 
                 lr = optax.warmup_cosine_decay_schedule(
                     init_value=0.0,
@@ -244,17 +244,21 @@ class Imagen:
                 state_spec = get_vars_pspec(
                     train_state, nnp.DEFAULT_TPU_RULES, params_axes["params"])
                 sampler_spec = jax.tree_map(lambda x: None, scheduler)
+                config_spec = jax.tree_map(lambda x: None, self.config)
+                unet_config_spec = jax.tree_map(lambda x: None, unet_config)
+                
                 unet_state = UnetState(
                     train_state=train_state,
                     sampler=scheduler,
                     config=self.config,
                     unet_config=unet_config
                 )
+
                 imagen_spec = UnetState(
                     train_state=state_spec,
                     sampler=sampler_spec,
-                    config=None,
-                    unet_config=None
+                    config=config_spec,
+                    unet_config=unet_config_spec
                 )
                 self.unets.append(unet_state)
                 self.schedulers.append(scheduler)
