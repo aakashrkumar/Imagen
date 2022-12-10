@@ -218,7 +218,9 @@ class Imagen:
             return self.p_sample(self.imagen_state, noise, texts, attention, self.get_key())
 
     def train_step(self, image_batch, timestep, texts_batches=None, attention_batches=None):
-        image_batch.astype(jnp.bfloat16)
+        image_batch = image_batch.astype(jnp.bfloat16)
+        texts_batches = texts_batches.astype(jnp.bfloat16)
+        attention_batches = attention_batches.astype(jnp.bfloat16)
         # shard prng key
         # image_batch_shape = (batch_size, image_size, image_size, 3)
         key = self.get_key()
