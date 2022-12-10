@@ -41,7 +41,7 @@ class UnetConfig(struct.PyTreeNode):
 
 
 class ImagenConfig(struct.PyTreeNode):
-    unets:                  Tuple[UnetConfig] = (UnetConfig(dim=128, dim_mults=(1,), num_resnet_blocks=8, scheduler="cosine"),)
+    unets:                  Tuple[UnetConfig] = (UnetConfig(dim=128, dim_mults=(1, 2, 4, 8), num_resnet_blocks=8, scheduler="cosine"),)
     image_sizes:            Tuple[int] = (64,)
     timesteps:              int = 1000
 
