@@ -13,7 +13,8 @@ from flax.linen import partitioning as nn_partitioning
 from config import UnetConfig, ImagenConfig
 
 with_sharding_constraint = nn_partitioning.with_sharding_constraint
-
+scan_with_axes = nn_partitioning.scan_with_axes
+ScanIn = nn_partitioning.ScanIn
 
 class EfficentUNet(nn.Module):
     config: UnetConfig

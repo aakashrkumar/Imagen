@@ -14,7 +14,7 @@ def SingleOrList(inner_type):
 
 class UnetConfig(struct.PyTreeNode):
     dim:                       int = 128
-    dim_mults:                 Tuple[int] = (1, 2, 4, 8)
+    dim_mults:                 Tuple[int] = (1,)
     cond_dim:                  int = 128
 
     time_conditiong_dim:       int = 512  # dim * 4 (* 2 if lowres_conditioning)
@@ -29,7 +29,7 @@ class UnetConfig(struct.PyTreeNode):
     num_heads:                 int = 4
     ff_mult:                   int = 2
 
-    num_resnet_blocks:         int = 8
+    num_resnet_blocks:         int = 1
 
     lowres_conditioning:       bool = False
 
