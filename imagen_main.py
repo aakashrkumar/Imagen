@@ -37,8 +37,9 @@ mesh_shape = (2, 4)
 class UnetState(struct.PyTreeNode):
     train_state: TrainState
     sampler: GaussianDiffusionContinuousTimes
-    unet_config = struct.field(pytree_node=False)
-    config = struct.field(pytree_node=False)
+    unet_config: Any = struct.field(pytree_node=False)
+    config: Any = struct.field(pytree_node=False)
+
 
 class GeneratorState(struct.PyTreeNode):
     unet_state: UnetState
