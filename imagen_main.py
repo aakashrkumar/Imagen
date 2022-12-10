@@ -244,7 +244,7 @@ class Imagen:
                 sampler_spec = jax.tree_map(lambda x: None, scheduler)
                 unet_state = UnetState(
                     train_state=train_state,
-                    sampler=self.lowres_scheduler,
+                    sampler=scheduler,
                     conditional_drop_prob=config.cond_drop_prob,
                     config=unet_config
                 )
