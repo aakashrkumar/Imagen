@@ -35,7 +35,7 @@ class UnetConfig(struct.PyTreeNode):
 
     strides: Tuple[int, int] = (2, 2)
     
-    scheduler:                 str = 'cosine'
+    scheduler:                 str = struct.field(pytree_node=False, default="cosine")
 
     dtype:                     Any = jnp.bfloat16
 
@@ -45,10 +45,10 @@ class ImagenConfig(struct.PyTreeNode):
     image_sizes:            Tuple[int] = (64,)
     timesteps:              int = 1000
 
-    text_encoder_name:      str = "t5-small"
+    text_encoder_name:      str = struct.field(pytree_node=False, default="t5-small")
 
     channels:               int = 3
-    loss_type:              str = 'l2'
+    loss_type:              str = struct.field(pytree_node=False, default="l2")
     cond_drop_prob:         float = 0.5
     
     batch_size:             int = 128
