@@ -24,11 +24,11 @@ class UnetConfig:
     
     channels:                  int = 3
     
-    dim_heads:                 int = 64
-    num_heads:                 int = 16
+    dim_heads:                 int = 32
+    num_heads:                 int = 4
     ff_mult:                   int = 2
     
-    num_resnet_blocks:         int = 8
+    num_resnet_blocks:         int = 3
 
     lowres_conditioning:       bool = False
     
