@@ -291,8 +291,9 @@ class ChannelFeedForward(nn.Module):
         return x
 
 class LayerNorm(nn.Module):
-    axis: int = -1
+    axis: int  = -1
     eps: float = 1e-3
+    
     @nn.module
     def __call__(self, x):
         var = jnp.var(x, axis=self.axis, keepdims=True)
