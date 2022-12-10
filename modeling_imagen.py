@@ -14,29 +14,6 @@ from config import UnetConfig, ImagenConfig
 
 with_sharding_constraint = nn_partitioning.with_sharding_constraint
 
-ScanIn = nn_partitioning.ScanIn
-scan_with_axes = nn_partitioning.scan_with_axes
-
-class DBlock(nn.Module):
-    config: UnetConfig
-    dim: int
-    @nn.compact
-    def __call__(self, x, t, c):
-        hiddens = []
-        x = Downsample(config=self.config, dim=self.dim)(x)
-        x = ResnetBlock(config=self.config, dim=self.config.dim * self.dim)(x, t, c)
-        for _ in range(self.config.num_resnet_blocks):
-            x = ResnetBlock(config=self.config, dim=self.config.dim * self.dim)(x)
-            x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
-            hiddens.append(x)
-        # print("Image Shape", x.shape)
-        x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
-        x = TransformerBlock(config=self.config, dim=self.config.dim * self.dim)(x, c)
-        x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
-        hiddens.append(x)
-        
-        return x, hiddens
-
 
 class EfficentUNet(nn.Module):
     config: UnetConfig
@@ -102,12 +79,18 @@ class EfficentUNet(nn.Module):
         init_conv_residual = x
         # downsample
         hiddens = []
-        
-        SCAN_LAYERS = False
-        
         for dim_mult in self.config.dim_mults:
-            x, in_hiddens = DBlock(config=self.config, dim=self.config.dim * dim_mult)(x, t, c)
-            hiddens.extend(in_hiddens)
+            x = Downsample(config=self.config, dim=self.config.dim * dim_mult)(x)
+            x = ResnetBlock(config=self.config, dim=self.config.dim * dim_mult)(x, t, c)
+            for _ in range(self.config.num_resnet_blocks):
+                x = ResnetBlock(config=self.config, dim=self.config.dim * dim_mult)(x)
+                x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
+                hiddens.append(x)
+            # print("Image Shape", x.shape)
+            x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
+            x = TransformerBlock(config=self.config, dim=self.config.dim * dim_mult)(x, c)
+            x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
+            hiddens.append(x)
         x = ResnetBlock(config=self.config, dim=self.config.dim * self.config.dim_mults[-1])(x, t, c)
         x = EinopsToAndFrom(Attention(config=self.config, dim=self.config.dim * self.config.dim_mults[-1]), 'b h w c', 'b (h w) c')(x)
         x = ResnetBlock(config=self.config, dim=self.config.dim * self.config.dim_mults[-1])(x, t, c)
