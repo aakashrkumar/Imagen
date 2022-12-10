@@ -127,9 +127,9 @@ class CrossAttention(nn.Module):
         context = nn.LayerNorm()(context)
 
         q = nnp.Dense(features=inner_dim, use_bias=False, shard_axes={
-                      "kernel": ("embed", "heads", "kv")})(x)
+                      "kernel": ("heads", "kv")})(x)
         k, v = nnp.Dense(features=inner_dim * 2, use_bias=False, shard_axes={
-                         "kernel": ("embed", "heads", "kv")})(context).split(2, axis=-1)
+                         "kernel": ("heads", "kv")})(context).split(2, axis=-1)
 
         q, k, v = rearrange_many(
             (q, k, v), 'b n (h d) -> b h n d', h=self.config.num_heads)
