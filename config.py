@@ -28,7 +28,7 @@ class UnetConfig(BaseModel):
     num_heads:                 int = 4
     ff_mult:                   int = 2
 
-    num_resnet_blocks:         int = 3
+    num_resnet_blocks:         int = 8
 
     lowres_conditioning:       bool = False
 
