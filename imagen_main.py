@@ -235,7 +235,7 @@ class Imagen:
                                 eps=1e-8, weight_decay=1e-8)
                 )  # TODO: this is a hack, fix this later
                 train_state = TrainState.create(
-                    apply_fn=self.unet.apply,
+                    apply_fn=unet.apply,
                     tx=opt,
                     params=params['params']
                 )
