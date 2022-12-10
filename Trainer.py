@@ -84,8 +84,8 @@ class Trainer:
                 pbar.update(1)
                 metrics["images_per_second"] = wandb.config.batch_size / \
                     (time.time() - start_time)
-                metrics["loss"] = np.asarray(metrics["loss"])
-                metrics["loss"] = np.mean(metrics["loss"])
+                #  metrics["loss"] = np.asarray(metrics["loss"])
+                # metrics["loss"] = np.mean(metrics["loss"])
                 # print(metrics)
                 wandb.log(metrics, step=passes)
 
