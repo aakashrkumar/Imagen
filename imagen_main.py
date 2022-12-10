@@ -29,7 +29,7 @@ from flax.linen import partitioning as nn_partitioning
 from flax.core.frozen_dict import FrozenDict
 
 from utils import right_pad_dims_to
-
+from config import ImagenConfig
 
 mesh_shape = (2, 4)
 
@@ -148,26 +148,31 @@ def get_vars_pspec(state, rules, params_axes):
 
 
 class Imagen:
-    def __init__(self, img_size: int = 64, batch_size: int = 16, sequence_length: int = 256, encoder_latent_dims: int = 512, num_timesteps: int = 1000, loss_type: str = "l2", conditional_drop_prob=0.1):
+    def __init__(self, config: ImagenConfig):
         self.random_state = jax.random.PRNGKey(0)
 
         self.lowres_scheduler = GaussianDiffusionContinuousTimes.create(
             noise_schedule="cosine", num_timesteps=1000
         )
 
+        self.config = config
+        
         devices = np.asarray(jax.devices()).reshape(*mesh_shape)
         self.mesh = maps.Mesh(devices, ("X", "Y"))
+        batch_size = config.batch_size
         with maps.Mesh(self.mesh.devices, self.mesh.axis_names), nn_partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
-            self.unet = EfficentUNet(config=UnetConfig())
+            img_size = config.image_sizes[0]
+            unet_config = config.unets[0]
+            self.unet = EfficentUNet(config=unet_config)
             self.random_state, key = jax.random.split(self.random_state)
             punet_init = partial(unet_init, self.unet)
             params = jax.eval_shape(self.unet.init, key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones(
-                (batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, self.random_state)
+                (batch_size, unet_config.max_token_len, unet_config.token_embedding_dim)), jnp.ones((batch_size, unet_config.max_token_len)), config.cond_drop_prob, self.random_state)
             params_axes = params["params_axes"]
             params_axes = nnp.get_params_axes(
             params, params_axes, rules=nnp.DEFAULT_TPU_RULES)
             params = pjit.pjit(punet_init, in_axis_resources=(None, P("X", "Y", None, None), P("X"), P("X", None, "Y"), P("X", "Y"), None, None), out_axis_resources=params_axes)(key, jnp.ones(
-                (batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, self.random_state)
+                (batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, unet_config.max_token_len, unet_config.token_embedding_dim)), jnp.ones((batch_size, unet_config.max_token_len)), config.cond_drop_prob, self.random_state)
         # self.params = self.unet.init(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, key)
 
             lr = optax.warmup_cosine_decay_schedule(
@@ -193,7 +198,7 @@ class Imagen:
             self.imagen_state = ImagenState(
                 train_state=train_state,
                 sampler=self.lowres_scheduler,
-                conditional_drop_prob=conditional_drop_prob,
+                conditional_drop_prob=config.cond_drop_prob,
             )
             imagen_spec = ImagenState(
                 train_state=state_spec,
