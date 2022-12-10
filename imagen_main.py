@@ -225,7 +225,7 @@ class Imagen:
             self.imagen_state, metrics = self.p_train_step(
                 self.imagen_state, image_batch, timestep, texts_batches, attention_batches, key)
         return metrics
-
+    
 
 def compute_metrics(loss, logits):
     return {"loss": loss}

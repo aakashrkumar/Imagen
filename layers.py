@@ -65,19 +65,19 @@ class Attention(nn.Module):
         k = with_sharding_constraint(k, ("batch", "heads", "kv"))
         v = with_sharding_constraint(v, ("batch", "heads", "kv"))
 
-        #null_kv = self.param(
-        #   'null_kv', nn.initializers.lecun_normal(), (2, self.config.dim_heads))
-        # null_kv = null_kv.astype(self.config.dtype)
+        null_kv = self.param(
+            'null_kv', nn.initializers.lecun_normal(), (2, self.config.dim_heads))
+        null_kv = null_kv.astype(self.config.dtype)
         # null kv for classifier free guidance
-        # nk, nv = repeat_many(jax_unstack(null_kv, axis=-2), 'd -> b 1 d', b=b)
-        #nk = with_sharding_constraint(nk, ("batch", "heads", "kv"))
-        #nv = with_sharding_constraint(nv, ("batch", "heads", "kv"))
+        nk, nv = repeat_many(jax_unstack(null_kv, axis=-2), 'd -> b 1 d', b=b)
+        nk = with_sharding_constraint(nk, ("batch", "heads", "kv"))
+        nv = with_sharding_constraint(nv, ("batch", "heads", "kv"))
 
-        #k = jnp.concatenate((k, nk), axis=-2)
-        #v = jnp.concatenate((v, nv), axis=-2)
+        k = jnp.concatenate((k, nk), axis=-2)
+        v = jnp.concatenate((v, nv), axis=-2)
 
-        #k = with_sharding_constraint(k, ("batch", "heads", "kv"))
-        # v = with_sharding_constraint(v, ("batch", "heads", "kv"))
+        k = with_sharding_constraint(k, ("batch", "heads", "kv"))
+        v = with_sharding_constraint(v, ("batch", "heads", "kv"))
 
         if exists(context):
             context_hidden = nn.LayerNorm()(context)

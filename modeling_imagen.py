@@ -68,7 +68,8 @@ class EfficentUNet(nn.Module):
                 hiddens.append(x)
             # print("Image Shape", x.shape)
             x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
-            x = TransformerBlock(config=self.config, dim=self.config.dim * dim_mult)(x)
+            print("Image Shape", x.shape)
+            x = TransformerBlock(config=self.config, dim=self.config.dim * dim_mult)(x, c)
             x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
             hiddens.append(x)
         x = ResnetBlock(config=self.config, dim=self.config.dim * self.config.dim_mults[-1])(x, t, c)
@@ -85,7 +86,7 @@ class EfficentUNet(nn.Module):
                 x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
                 x = ResnetBlock(config=self.config, dim=self.config.dim * dim_mult)(x)
                 x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
-           #  x = TransformerBlock(config=self.config, dim=self.config.dim * dim_mult)(x)
+           #  x = TransformerBlock(config=self.config, dim=self.config.dim * dim_mult)(x, c)
             x = Upsample(config=self.config, dim=self.config.dim * dim_mult)(x)
 
         x = jnp.concatenate([x, init_conv_residual], axis=-1)
