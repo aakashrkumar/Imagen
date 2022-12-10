@@ -29,7 +29,7 @@ class UnetConfig(struct.PyTreeNode):
     num_heads:                 int = 4
     ff_mult:                   int = 2
 
-    num_resnet_blocks:         int = 8
+    num_resnet_blocks:         int = 6
 
     lowres_conditioning:       bool = False
 
