@@ -16,16 +16,17 @@ with_sharding_constraint = nn_partitioning.with_sharding_constraint
 scan_with_axes = nn_partitioning.scan_with_axes
 ScanIn = nn_partitioning.ScanIn
 
+
 class EfficentUNet(nn.Module):
     config: UnetConfig
 
     @nn.compact
-    def __call__(self, x: jnp.array, time, texts=None, attention_masks=None, condition_drop_prob=0.0, lowres_cond_img = None, lowres_noise_times=None, rng=None):
+    def __call__(self, x: jnp.array, time, texts=None, attention_masks=None, condition_drop_prob=0.0, lowres_cond_img=None, lowres_noise_times=None, rng=None):
         if self.config.lowres_conditioning:
             assert exists(lowres_cond_img) and exists(lowres_noise_times), "lowres_cond_img and lowres_noise_times must be not None if lowres_conditioning is True"
         else:
             assert not exists(lowres_cond_img) and not exists(lowres_noise_times), "lowres_cond_img and lowres_noise_times must be None if lowres_conditioning is False"
-                
+
         x = x.astype(self.config.dtype)
         time = time.astype(self.config.dtype)
         if exists(texts):
@@ -35,7 +36,7 @@ class EfficentUNet(nn.Module):
 
         x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
         texts = with_sharding_constraint(texts, P("batch", "length", "embed"))
-        
+
         if exists(lowres_cond_img):
             x = jnp.concatenate([x, lowres_cond_img], axis=-1)
             x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
@@ -63,10 +64,10 @@ class EfficentUNet(nn.Module):
             lowres_time_tokens = nnp.Dense(self.config.cond_dim * self.config.num_time_tokens, shard_axes={"kernel": ("embed", "mlp")})(lowres_time_hiddens)
             lowres_time_tokens = rearrange(lowres_time_tokens, 'b (r d) -> b r d', r=self.config.num_time_tokens)
             lowres_t = nnp.Dense(features=self.config.time_conditiong_dim, dtype=self.config.dtype, shard_axes={"kernel": ("embed", "mlp")})(lowres_time_hiddens)
-            
+
             t = t + lowres_t
             time_tokens = jnp.concatenate([time_tokens, lowres_time_tokens], dim=-2)
-            
+
         t, c = TextConditioning(cond_dim=cond_dim, time_cond_dim=self.config.time_conditiong_dim, max_token_length=self.config.max_token_len, cond_drop_prob=condition_drop_prob)(texts, attention_masks, t, time_tokens, rng)
         # TODO: add lowres conditioning
 
@@ -119,4 +120,5 @@ class EfficentUNet(nn.Module):
 
         # x = nn.Dense(features=3, dtype=self.dtype)(x)
         x = nn.Conv(features=3, kernel_size=(3, 3), strides=1, dtype=self.config.dtype, padding=1)(x)
+        x = jnp.clip(x, -1, 1)
         return x
