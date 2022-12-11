@@ -60,7 +60,7 @@ def conditioning_pred(generator_state, t, cond_scale):
         generator_state.attention,
         0.0,
         generator_state.lowres_cond_image,
-        jnp.ones(generator_state.image.shape[0], dtype=jnp.int16) * 999,
+        jnp.ones(generator_state.image.shape[0], dtype=jnp.int16) * 999 if generator_state.lowres_cond_image is not None else None,
         generator_state.rng
     )
     null_logits = generator_state.unet_state.train_state.apply_fn(
@@ -71,7 +71,7 @@ def conditioning_pred(generator_state, t, cond_scale):
         generator_state.attention,
         1.0,
         generator_state.lowres_cond_image,
-        jnp.ones(generator_state.image.shape[0], dtype=jnp.int16) * 999,
+        jnp.ones(generator_state.image.shape[0], dtype=jnp.int16) * 999 if generator_state.lowres_cond_image is not None else None,
         generator_state.rng
     )
     return null_logits + (pred - null_logits) * cond_scale
