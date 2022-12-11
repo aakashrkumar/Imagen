@@ -120,5 +120,5 @@ class EfficentUNet(nn.Module):
 
         # x = nn.Dense(features=3, dtype=self.dtype)(x)
         x = nn.Conv(features=3, kernel_size=(3, 3), strides=1, dtype=self.config.dtype, padding=1)(x)
-        x = jnp.clip(x, -1, 1)
+        x = jnp.clip(x, -1, 1)# kind of a hack to make sure the image is in the right range
         return x
