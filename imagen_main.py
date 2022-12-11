@@ -252,15 +252,15 @@ class Imagen:
                     decay_steps=2500000,
                     end_value=1e-5)
                 # self.opt = optax.adafactor(learning_rate=1e-4)
-                #  opt = optax.chain(
-                #     optax.clip(1.0),
-                #    optax.adamw(learning_rate=1e-4, b1=0.9, b2=0.999,
-                #                eps=1e-8, weight_decay=1e-8)
-                # )  # TODO: this is a hack, fix this later
-                opt = optax.adamw(
-                    learning_rate=lr, b1=0.9, b2=0.999,
-                    eps=1e-8, weight_decay=1e-8
-                )
+                opt = optax.chain(
+                    optax.clip(1.0),
+                    optax.adamw(learning_rate=1e-4, b1=0.9, b2=0.999,
+                                eps=1e-8, weight_decay=1e-8)
+                )  # TODO: this is a hack, fix this later
+                # opt = optax.adamw(
+                #   learning_rate=lr, b1=0.9, b2=0.999,
+                #   eps=1e-8, weight_decay=1e-8
+                # )
                 train_state = TrainState.create(
                     apply_fn=unet.apply,
                     tx=opt,
