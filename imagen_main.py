@@ -252,11 +252,15 @@ class Imagen:
                     decay_steps=2500000,
                     end_value=1e-5)
                 # self.opt = optax.adafactor(learning_rate=1e-4)
-                opt = optax.chain(
-                    optax.clip(1.0),
-                    optax.adamw(learning_rate=1e-4, b1=0.9, b2=0.999,
-                                eps=1e-8, weight_decay=1e-8)
-                )  # TODO: this is a hack, fix this later
+                #  opt = optax.chain(
+                #     optax.clip(1.0),
+                #    optax.adamw(learning_rate=1e-4, b1=0.9, b2=0.999,
+                #                eps=1e-8, weight_decay=1e-8)
+                # )  # TODO: this is a hack, fix this later
+                opt = optax.adamw(
+                    learning_rate=lr, b1=0.9, b2=0.999,
+                    eps=1e-8, weight_decay=1e-8
+                )
                 train_state = TrainState.create(
                     apply_fn=unet.apply,
                     tx=opt,
@@ -320,7 +324,7 @@ class Imagen:
             for i in range(len(self.unets)):
                 batch_size = texts.shape[0]
                 if self.unets[i].unet_config.lowres_conditioning:
-                    lowres_images = jax.image.resize(lowres_images, (lowres_images.shape[0],self.config.image_sizes[i], self.config.image_sizes[i], lowres_images.shape[-1]), method='nearest')
+                    lowres_images = jax.image.resize(lowres_images, (lowres_images.shape[0], self.config.image_sizes[i], self.config.image_sizes[i], lowres_images.shape[-1]), method='nearest')
                 noise = jax.random.normal(self.get_key(), (batch_size, self.config.image_sizes[i], self.config.image_sizes[i], 3))
                 image = self.sample_steps[i](self.unets[i], noise, texts, attention, lowres_images, self.get_key())
                 lowres_images = image
