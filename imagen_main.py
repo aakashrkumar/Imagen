@@ -1,6 +1,5 @@
 from functools import partial
 import time
-from config import UnetConfig
 from modeling_imagen import EfficentUNet
 from typing import Any, Dict, Tuple
 import jax
