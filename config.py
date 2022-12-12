@@ -9,7 +9,7 @@ def ListOrTuple(inner_type):
 
 
 def SingleOrTuple(inner_type):
-    return Union[inner_type, Tuple(inner_type)]
+    return Union[inner_type, Tuple[inner_type]]
 
 class BlockConfig(struct.PyTreeNode):
     dim:                       int = 128
