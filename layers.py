@@ -4,6 +4,7 @@ import jax
 import flax
 from flax import linen as nn
 import jax.numpy as jnp
+from numpy import block
 
 from tqdm import tqdm
 
@@ -45,6 +46,8 @@ class Attention(nn.Module):
 
     @nn.compact
     def __call__(self, x, context=None, mask=None, attn_bias=None):
+        if self.block_config.num_heads == 0:
+            return x
         b, n = x.shape[:2]
         
         scale = self.config.dim_heads ** -0.5
@@ -172,6 +175,8 @@ class CrossAttention(nn.Module):
 
     @nn.compact
     def __call__(self, x, context, mask=None):
+        if self.block_config.num_heads == 0:
+            return x
         scale = self.config.dim_heads ** -0.5
         inner_dim = self.config.dim_heads * self.block_config.num_heads
 
@@ -345,7 +350,7 @@ class ResnetBlock(nn.Module):
             scale_shift = jnp.split(time_emb, 2, axis=-1)
         h = Block(self.block_config.dim)(x)
         if exists(cond):
-            h = EinopsToAndFrom(CrossAttention(config=self.config, dim=self.block_config.dim),
+            h = EinopsToAndFrom(CrossAttention(config=self.config, block_config=self.block_config),
                                 'b h w c', ' b (h w) c')(h, context=cond) + h
 
         h = Block(self.block_config.dim)(h, shift_scale=scale_shift)
