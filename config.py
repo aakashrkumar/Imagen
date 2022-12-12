@@ -85,7 +85,7 @@ class UnetConfig(struct.PyTreeNode):
             time_conditiong_dim=time_cond_dim,
             
             lowres_conditioning=lowres_conditioning,
-            resnet_configs=tuple(block_configs),
+            block_configs=tuple(block_configs),
             scheduler=scheduler,
             dtype=dtype,
         )
