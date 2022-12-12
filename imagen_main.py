@@ -329,7 +329,7 @@ class Imagen:
             for i in range(len(self.unets)):
                 batch_size = texts.shape[0]
                 if self.unets[i].unet_config.lowres_conditioning:
-                    lowres_images = jax.image.resize(lowres_images, (lowres_images.shape[0], self.config.image_sizes[i], self.config.image_sizes[i], lowres_images.shape[-1]), method='nearest')
+                    lowres_images = jax.image.resize(lowres_images, (self.config.image_sizes[i], self.config.image_sizes[i], self.config.image_sizes[i], lowres_images.shape[-1]), method='nearest')
                 noise = jax.random.normal(self.get_key(), (batch_size, self.config.image_sizes[i], self.config.image_sizes[i], 3))
                 image = self.sample_steps[i](self.unets[i], noise, texts, attention, lowres_images, self.get_key())
                 lowres_images = image
@@ -352,7 +352,7 @@ class Imagen:
                 lowres_aug_times = None
                 timestep = self.schedulers[i].sample_random_timestep(image_batch.shape[0], key)
                 if self.config.unets[i].lowres_conditioning:
-                    lowres_cond_image = jax.image.resize(image_batch, (image_batch.shape[0], self.config.image_sizes[i], self.config.image_sizes[i], 3), method='nearest')
+                    lowres_cond_image = jax.image.resize(image_batch, (self.config.image_sizes[i], self.config.image_sizes[i], self.config.image_sizes[i], 3), method='nearest')
                     lowres_aug_times = self.schedulers[i].sample_random_timestep(1, key)
                     lowres_aug_times = repeat(lowres_aug_times, '1 -> b', b=image_batch.shape[0])
 
