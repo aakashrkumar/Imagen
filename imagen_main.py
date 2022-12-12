@@ -31,6 +31,7 @@ from flax.core.frozen_dict import FrozenDict
 from utils import right_pad_dims_to
 from config import ImagenConfig
 
+
 mesh_shape = (2, 4)
 
 
@@ -195,7 +196,7 @@ class Imagen:
         self.train_steps = []
         self.sample_steps = []
         self.schedulers = []
-
+        num_total_params = 0
         with maps.Mesh(self.mesh.devices, self.mesh.axis_names), nn_partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
             for i in range(len(config.unets)):
                 unet_config = config.unets[i]
@@ -311,7 +312,12 @@ class Imagen:
 
                 self.train_steps.append(p_train_step)
                 self.sample_steps.append(p_sample)
-            print(f"Imagen setup complete, it took {time.time() - start_time: 0.4f} seconds")
+                n_params_flax = sum(
+                    jax.tree_leaves(jax.tree_map(lambda x: np.prod(x.shape), params))
+                )           
+                num_total_params += n_params_flax
+            
+            print(f"Imagen setup complete, it took {time.time() - start_time: 0.4f} seconds for a total of {num_total_params} parameters")
 
     def get_key(self):
         self.random_state, key = jax.random.split(self.random_state)
