@@ -17,7 +17,7 @@ import partitioning as nnp
 
 from flax.linen import partitioning as nn_partitioning
 
-from config import UnetConfig, ImagenConfig
+from config import BlockConfig, UnetConfig, ImagenConfig
 
 with_sharding_constraint = nn_partitioning.with_sharding_constraint
 
@@ -41,14 +41,14 @@ class EinopsToAndFrom(nn.Module):
 
 class Attention(nn.Module):
     config: UnetConfig
-    dim: int
+    block_config: BlockConfig
 
     @nn.compact
     def __call__(self, x, context=None, mask=None, attn_bias=None):
         b, n = x.shape[:2]
         
         scale = self.config.dim_heads ** -0.5
-        inner_dim = self.config.dim_heads * self.config.num_heads
+        inner_dim = self.config.dim_heads * self.block_config.num_heads
 
         x = LayerNorm()(x)
         x = with_sharding_constraint(x, ("batch", "length", "embed"))
@@ -58,7 +58,7 @@ class Attention(nn.Module):
         k, v = nnp.Dense(features=self.config.dim_heads * 2, use_bias=False,
                          shard_axes={"kernel": ("heads", "kv")}, dtype=self.config.dtype)(x).split(2, axis=-1) # TODO: Check if it should be 2 or 3 kernel shards
 
-        q = rearrange(q, 'b n (h d) -> b h n d', h=self.config.num_heads)
+        q = rearrange(q, 'b n (h d) -> b h n d', h=self.block_config.num_heads)
         q = q * scale
 
         q = with_sharding_constraint(q, ("batch", "length", "heads", "kv"))
@@ -108,20 +108,20 @@ class Attention(nn.Module):
 
         out = rearrange(out, 'b h n d -> b n (h d)')
 
-        out = nnp.Dense(features=self.dim, use_bias=False, shard_axes={"kernel": ("heads",  "kv")})(out)
+        out = nnp.Dense(features=self.block_config.dim, use_bias=False, shard_axes={"kernel": ("heads",  "kv")})(out)
         out = LayerNorm()(out)
         return out
 
 
 class TransformerBlock(nn.Module):
     config: UnetConfig
-    dim: int
+    block_config: BlockConfig
 
     @nn.compact
     def __call__(self, x, context=None):
-        x = EinopsToAndFrom(Attention(config=self.config, dim=self.dim), 'b h w c', 'b (h w) c')(x, context=context) + x
+        x = EinopsToAndFrom(Attention(config=self.config, dim=self.block_config.dim), 'b h w c', 'b (h w) c')(x, context=context) + x
         x = with_sharding_constraint(x, ("batch", "length", "embed"))
-        x = ChannelFeedForward(dim=self.dim, mult=self.config.ff_mult)(x) + x
+        x = ChannelFeedForward(dim=self.block_config.dim, mult=self.config.ff_mult)(x) + x
         return x
 
 
@@ -166,14 +166,14 @@ class ChannelLayerNorm(nn.Module):
 
 class CrossAttention(nn.Module):
     config: UnetConfig
-    dim: int
+    block_config: BlockConfig
 
     norm_context: bool = False
 
     @nn.compact
     def __call__(self, x, context, mask=None):
-        scale = self.config.num_heads ** -0.5
-        inner_dim = self.config.dim_heads * self.config.num_heads
+        scale = self.config.dim_heads ** -0.5
+        inner_dim = self.config.dim_heads * self.block_config.num_heads
 
         b, n = x.shape[:2]
         x = nn.LayerNorm()(x)
@@ -185,7 +185,7 @@ class CrossAttention(nn.Module):
                          "kernel": ("heads", "kv")})(context).split(2, axis=-1)
 
         q, k, v = rearrange_many(
-            (q, k, v), 'b n (h d) -> b h n d', h=self.config.num_heads)
+            (q, k, v), 'b n (h d) -> b h n d', h=self.block_config.num_heads)
 
         q = with_sharding_constraint(q, ("batch", "length", "heads", "kv"))
         k = with_sharding_constraint(k, ("batch", "length", "heads", "kv"))
@@ -195,7 +195,7 @@ class CrossAttention(nn.Module):
                              (2, self.config.dim_heads))
 
         nk, nv = repeat_many(jax_unstack(null_kv, axis=-2),
-                             'd -> b h 1 d', h=self.config.num_heads, b=b)
+                             'd -> b h 1 d', h=self.block_config.num_heads, b=b)
 
         nk = with_sharding_constraint(nk, ("batch", "length", "heads", "kv"))
         nv = with_sharding_constraint(nv, ("batch", "length", "heads", "kv"))
@@ -221,7 +221,7 @@ class CrossAttention(nn.Module):
 
         out = jnp.einsum('b h i j, b h j d -> b h i d', attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
-        out = nnp.Dense(features=self.dim, use_bias=False,
+        out = nnp.Dense(features=self.block_config.dim, use_bias=False,
                         shard_axes={"kernel": ("heads", "kv")})(out)
         out = nn.LayerNorm()(out)
 
@@ -332,39 +332,39 @@ class Block(nn.Module):
 class ResnetBlock(nn.Module):
     """ResNet block with a projection shortcut and batch normalization."""
     config: UnetConfig
-    dim: int
+    block_config: BlockConfig
 
     @nn.compact
     def __call__(self, x, time_emb=None, cond=None):
         scale_shift = None
         if exists(time_emb):
             time_emb = nn.silu(time_emb)
-            time_emb = nnp.Dense(features=self.dim * 2, dtype=self.config.dtype,
+            time_emb = nnp.Dense(features=self.block_config.dim * 2, dtype=self.config.dtype,
                                  shard_axes={"kernel": ("embed", "mlp")})(time_emb)
             time_emb = rearrange(time_emb, 'b c -> b 1 1 c')
             scale_shift = jnp.split(time_emb, 2, axis=-1)
-        h = Block(self.dim)(x)
+        h = Block(self.block_config.dim)(x)
         if exists(cond):
-            h = EinopsToAndFrom(CrossAttention(config=self.config, dim=self.dim),
+            h = EinopsToAndFrom(CrossAttention(config=self.config, dim=self.block_config.dim),
                                 'b h w c', ' b (h w) c')(h, context=cond) + h
 
-        h = Block(self.dim)(h, shift_scale=scale_shift)
+        h = Block(self.block_config.dim)(h, shift_scale=scale_shift)
         # padding was not same
-        return h + nn.Conv(features=self.dim, kernel_size=(1, 1), padding="same")(x)
+        return h + nn.Conv(features=self.block_config.dim, kernel_size=(1, 1), padding="same")(x)
 
 
 class Downsample(nn.Module):
     config: UnetConfig
-    dim: int
+    block_config: BlockConfig
 
     @nn.compact
     def __call__(self, x):
-        return nn.Conv(features=self.dim, kernel_size=(5, 5), strides=(2, 2), padding=2)(x)
+        return nn.Conv(features=self.block_config.dim, kernel_size=(5, 5), strides=(2, 2), padding=2)(x)
 
 
 class Upsample(nn.Module):
     config: UnetConfig
-    dim: int
+    block_config: BlockConfig
 
     @nn.compact
     def __call__(self, x):
@@ -373,7 +373,7 @@ class Upsample(nn.Module):
             shape=(x.shape[0], x.shape[1] * 2, x. shape[2] * 2, x.shape[3]),
             method="nearest",
         )
-        x = nn.Conv(features=self.dim, kernel_size=(5, 5), padding=2)(x)
+        x = nn.Conv(features=self.block_config.dim, kernel_size=(5, 5), padding=2)(x)
         return x
 
 
