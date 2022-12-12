@@ -110,7 +110,7 @@ class EfficentUNet(nn.Module):
         
         x = jnp.concatenate([x, init_conv_residual], axis=-1)
         
-        x = ResnetBlock(config=self.config, dim=self.config.dim)(x, t, c)
+        x = ResnetBlock(config=self.config, block_config=block_config)(x, t, c)
             
         # x = nn.Dense(features=3, dtype=self.dtype)(x)
         x = nn.Conv(features=3, kernel_size=(3, 3), strides=1, dtype=self.dtype, padding=1)(x)
