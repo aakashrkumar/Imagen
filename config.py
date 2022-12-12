@@ -95,7 +95,7 @@ class UnetConfig(struct.PyTreeNode):
 
 class ImagenConfig(struct.PyTreeNode):
     unets:                  Tuple[UnetConfig] = (
-                                UnetConfig.create(dim=128, dim_mults=(1, 2, 4, 8), num_heads=(2, 4, 8, 16), num_resnet_blocks=3, 
+                                UnetConfig.create(dim=128, dim_mults=(1, 2, 4, 8), num_heads=(2, 4, 4, 4), num_resnet_blocks=3, 
                                                   scheduler="cosine", lowres_conditioning=False, dtype=jnp.bfloat16),
                             )
     image_sizes:            Tuple[int] = (64,)
