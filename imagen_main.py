@@ -352,7 +352,7 @@ class Imagen:
                 lowres_aug_times = None
                 timestep = self.schedulers[i].sample_random_timestep(image_batch.shape[0], key)
                 if self.config.unets[i].lowres_conditioning:
-                    lowres_cond_image = jax.image.resize(image_batch, (self.config.image_sizes[i], self.config.image_sizes[i], self.config.image_sizes[i], 3), method='nearest')
+                    lowres_cond_image = jax.image.resize(image_batch, (image_batch.shape[0] , self.config.image_sizes[i], self.config.image_sizes[i], 3), method='nearest')
                     lowres_aug_times = self.schedulers[i].sample_random_timestep(1, key)
                     lowres_aug_times = repeat(lowres_aug_times, '1 -> b', b=image_batch.shape[0])
 
