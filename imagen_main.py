@@ -329,7 +329,7 @@ class Imagen:
             for i in range(len(self.unets)):
                 batch_size = texts.shape[0]
                 if self.unets[i].unet_config.lowres_conditioning:
-                    lowres_images = jax.image.resize(lowres_images, (self.config.image_sizes[i], self.config.image_sizes[i], self.config.image_sizes[i], lowres_images.shape[-1]), method='nearest')
+                    lowres_images = jax.image.resize(lowres_images, (texts.shape[0], self.config.image_sizes[i], self.config.image_sizes[i], lowres_images.shape[-1]), method='nearest')
                 noise = jax.random.normal(self.get_key(), (batch_size, self.config.image_sizes[i], self.config.image_sizes[i], 3))
                 image = self.sample_steps[i](self.unets[i], noise, texts, attention, lowres_images, self.get_key())
                 lowres_images = image
