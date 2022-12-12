@@ -7,7 +7,6 @@ from utils import exists, default
 from layers import ResnetBlock, SinusoidalPositionEmbeddings, CrossEmbedLayer, TextConditioning, TransformerBlock, Downsample, Upsample, Attention, EinopsToAndFrom
 from jax.experimental.pjit import PartitionSpec as P
 import partitioning as nnp
-from config import ListOrTuple, SingleOrList
 from flax.linen import partitioning as nn_partitioning
 
 from config import UnetConfig, ImagenConfig
