@@ -119,7 +119,7 @@ class TransformerBlock(nn.Module):
 
     @nn.compact
     def __call__(self, x, context=None):
-        x = EinopsToAndFrom(Attention(config=self.config, dim=self.block_config.dim), 'b h w c', 'b (h w) c')(x, context=context) + x
+        x = EinopsToAndFrom(Attention(config=self.config, config=self.block_config), 'b h w c', 'b (h w) c')(x, context=context) + x
         x = with_sharding_constraint(x, ("batch", "length", "embed"))
         x = ChannelFeedForward(dim=self.block_config.dim, mult=self.config.ff_mult)(x) + x
         return x
