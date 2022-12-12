@@ -159,6 +159,7 @@ def train_step(unet_state, imgs_start, timestep, texts, attention_masks, lowres_
     (loss, logits), grads = gradient_fn(unet_state.train_state.params)
     train_state = unet_state.train_state.apply_gradients(grads=grads)
     unet_state = unet_state.replace(train_state=train_state)
+    
     return unet_state, compute_metrics(loss, logits, imgs_start.shape[1])
 
 
