@@ -113,5 +113,5 @@ class EfficentUNet(nn.Module):
         x = ResnetBlock(config=self.config, block_config=block_config)(x, t, c)
             
         # x = nn.Dense(features=3, dtype=self.dtype)(x)
-        x = nn.Conv(features=3, kernel_size=(3, 3), strides=1, dtype=self.dtype, padding=1)(x)
+        x = nn.Conv(features=3, kernel_size=(3, 3), strides=1, dtype=self.config.dtype, padding=1)(x)
         return x    
