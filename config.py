@@ -34,13 +34,13 @@ class UnetConfig(struct.PyTreeNode):
     num_heads:                 SingleOrTuple(int) = 4
     ff_mult:                   int = 2
 
-    num_resnet_blocks:         int = 8
+    # num_resnet_blocks:         int = 8
 
     lowres_conditioning:       bool = False
 
     strides: Tuple[int, int] = (2, 2)
     
-    block_configs:            Tuple[BlockConfig] = None
+    block_configs:             Tuple[BlockConfig] = None
     
     scheduler:                 str = struct.field(pytree_node=False, default="cosine")
 
