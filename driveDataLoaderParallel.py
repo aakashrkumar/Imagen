@@ -1,3 +1,4 @@
+import logging
 import time
 import ray
 import pyarrow.parquet as pq
@@ -121,6 +122,8 @@ class DatasetFetcher:
         url = self.dataset["URL"][self.index]
         text = self.dataset["TEXT"][self.index]
         self.index += 1
+        if self.index % 1000 == 0:
+            print(f"Index: {self.index}")
         return url, text
 
 @ray.remote
@@ -174,6 +177,8 @@ class DataCollector:
                 if has_unsafe_concept[0]:
                     continue
             self.shared_storage.add_data.remote([image], [text])
+            while self.shared_storage.get_num_images.remote() > 50_000:
+                time.sleep(5)
             
 @ray.remote
 class DataManager:
@@ -182,6 +187,7 @@ class DataManager:
         self.batch_size = batch_size
         self.datasetFetcher = DatasetFetcher.remote("laion/part-00000-5b54c5d5-bbcf-484d-a2ce-0d6f73df1a36-c000.snappy.parquet")
         self.workers = [DataCollector.remote(self.datasetFetcher, self.shared_storage) for _ in range(num_workers)]
+        
         
     def start(self):
         for worker in self.workers:
@@ -208,6 +214,7 @@ class Uploader:
         upload_pickle_to_google_drive(data, f"pkls/{self.save_name}_{self.index}.pkl", self.creds)
         print(f"Saved {len(data)} images")
         self.index += 1
+        return 1
 
 def main():
     dm = DataManager.remote(10, 32)
@@ -222,7 +229,7 @@ def main():
         batch = ray.get(shared_storage.get_batch.remote(BATCH_SIZE))
         if batch:
             num_uploaded += BATCH_SIZE
-            uploader.save.remote(batch)
+            ray.get(uploader.save.remote(batch))
         num_images = ray.get(shared_storage.get_num_images.remote())
         images_per_second = (num_uploaded + num_images) / (time.time() - start_time)
         time_till_next_upload = (BATCH_SIZE - num_images) / (images_per_second + 1e-6)
