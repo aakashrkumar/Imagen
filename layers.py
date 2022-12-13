@@ -21,6 +21,7 @@ from flax.linen import partitioning as nn_partitioning
 from config import BlockConfig, UnetConfig, ImagenConfig
 
 with_sharding_constraint = nn_partitioning.with_sharding_constraint
+param_with_axes = nn_partitioning.param_with_axes
 
 
 class EinopsToAndFrom(nn.Module):
@@ -49,17 +50,17 @@ class Attention(nn.Module):
         if self.block_config.num_heads == 0:
             return x
         b, n = x.shape[:2]
-        
+
         scale = self.config.dim_heads ** -0.5
         inner_dim = self.config.dim_heads * self.block_config.num_heads
 
         x = LayerNorm()(x)
         x = with_sharding_constraint(x, ("batch", "length", "embed"))
-        
+
         q = nnp.Dense(features=inner_dim, use_bias=False, shard_axes={
                       "kernel": ("heads", "kv")}, dtype=self.config.dtype)(x)
         k, v = nnp.Dense(features=self.config.dim_heads * 2, use_bias=False,
-                         shard_axes={"kernel": ("heads", "kv")}, dtype=self.config.dtype)(x).split(2, axis=-1) # TODO: Check if it should be 2 or 3 kernel shards
+                         shard_axes={"kernel": ("heads", "kv")}, dtype=self.config.dtype)(x).split(2, axis=-1)  # TODO: Check if it should be 2 or 3 kernel shards
 
         q = rearrange(q, 'b n (h d) -> b h n d', h=self.block_config.num_heads)
         q = q * scale
@@ -68,8 +69,8 @@ class Attention(nn.Module):
         k = with_sharding_constraint(k, ("batch", "heads", "kv"))
         v = with_sharding_constraint(v, ("batch", "heads", "kv"))
 
-        null_kv = self.param(
-            'null_kv', nn.initializers.lecun_normal(), (2, self.config.dim_heads))
+        null_kv = param_with_axes(
+            'null_kv', nn.initializers.lecun_normal(), (2, self.config.dim_heads), axes=("kv", "heads"))
         null_kv = null_kv.astype(self.config.dtype)
         # null kv for classifier free guidance
         nk, nv = repeat_many(jax_unstack(null_kv, axis=-2), 'd -> b 1 d', b=b)
@@ -91,7 +92,6 @@ class Attention(nn.Module):
             k = jnp.concatenate((k, ck), axis=-2)
             v = jnp.concatenate((v, cv), axis=-2)
 
-        
         sim = jnp.einsum('b h i d, b j d -> b h i j', q, k)
         if exists(attn_bias):
             sim = sim + attn_bias
@@ -101,11 +101,10 @@ class Attention(nn.Module):
             mask = jnp.pad(mask, (1, 0), constant_values=True)
             mask = rearrange(mask, 'b j -> b 1 1 j')
             sim = jnp.where(mask, sim, max_neg_value)
-            
-        
+
         attn = nn.softmax(sim, axis=-1)
         attn = with_sharding_constraint(attn, ("batch", "length", "heads", "kv"))
-        
+
         attn.astype(self.config.dtype)
         out = jnp.einsum('b h i j, b j d -> b h i d', attn, v)
 
@@ -135,21 +134,22 @@ class ChannelFeedForward(nn.Module):
     @nn.compact
     def __call__(self, x):
         x = ChannelLayerNorm(dim=self.dim)(x)
-        x = nn.Conv(features=self.dim * self.mult, kernel_size=(1, 1))(x)
+        x = nnp.Conv(features=self.dim * self.mult, kernel_size=(1, 1), shard_axes={"kernel": ("width", "height", "mlp")})(x)
         x = nn.gelu(x)
         x = ChannelLayerNorm(dim=self.dim * self.mult)(x)
-        x = nn.Conv(features=self.dim, kernel_size=(1, 1))(x)
+        x = nnp.Conv(features=self.dim, kernel_size=(1, 1), shard_axes={"kernel": ("width", "height", "mlp")})(x)
         return x
 
+
 class LayerNorm(nn.Module):
-    axis: int  = -1
+    axis: int = -1
     eps: float = 1e-3
-    
+
     @nn.compact
     def __call__(self, x):
         var = jnp.var(x, axis=self.axis, keepdims=True)
         mean = jnp.mean(x, axis=self.axis, keepdims=True)
-        g = self.param('g', nn.initializers.ones, (x.shape[-1], *((1,) * (-self.axis - 1))))
+        g = param_with_axes('g', nn.initializers.ones, (x.shape[-1], *((1,) * (-self.axis - 1))), axes=("embed",))
         return (x - mean) / jnp.sqrt(var + self.eps) * g
 
 
@@ -181,8 +181,8 @@ class CrossAttention(nn.Module):
         inner_dim = self.config.dim_heads * self.block_config.num_heads
 
         b, n = x.shape[:2]
-        x = nn.LayerNorm()(x)
-        context = nn.LayerNorm()(context)
+        x = nnp.LayerNorm()(x)
+        context = nnp.LayerNorm()(context)
 
         q = nnp.Dense(features=inner_dim, use_bias=False, shard_axes={
                       "kernel": ("heads", "kv")})(x)
@@ -196,8 +196,8 @@ class CrossAttention(nn.Module):
         k = with_sharding_constraint(k, ("batch", "length", "heads", "kv"))
         v = with_sharding_constraint(v, ("batch", "length", "heads", "kv"))
 
-        null_kv = self.param('null_kv', nn.initializers.lecun_normal(),
-                             (2, self.config.dim_heads))
+        null_kv = param_with_axes('null_kv', nn.initializers.lecun_normal(),
+                                  (2, self.config.dim_heads), axes=("kv", "heads"))
 
         nk, nv = repeat_many(jax_unstack(null_kv, axis=-2),
                              'd -> b h 1 d', h=self.block_config.num_heads, b=b)
@@ -228,7 +228,7 @@ class CrossAttention(nn.Module):
         out = rearrange(out, 'b h n d -> b n (h d)')
         out = nnp.Dense(features=self.block_config.dim, use_bias=False,
                         shard_axes={"kernel": ("heads", "kv")})(out)
-        out = nn.LayerNorm()(out)
+        out = nnp.LayerNorm()(out)
 
         return out
 
@@ -262,7 +262,10 @@ class CrossEmbedLayer(nn.Module):
         convs = []
         for kernel, dim_scale in zip(kernel_sizes, dim_scales):
             convs.append(nnp.Conv(features=dim_scale, kernel_size=(
-                kernel, kernel), strides=self.stride, padding=(kernel - self.stride) // 2, dtype=self.dtype)(x))
+                kernel, kernel), strides=self.stride, padding=(kernel - self.stride) // 2, dtype=self.dtype, shard_axes={
+                    "kernel": ("width", "height", "mlp"),
+                    "bias": ("width", "height", "mlp"),
+            })(x))
 
         return jnp.concatenate(convs, axis=-1)
 
@@ -279,7 +282,9 @@ class TextConditioning(nn.Module):
     def __call__(self, text_embeds, text_mask, time_cond, time_tokens, rng):
         if exists(text_embeds):
             text_tokens = nnp.Dense(features=self.cond_dim, shard_axes={
-                                    "kernel": ("embed", "mlp")})(text_embeds)
+                                    "kernel": ("embed", "mlp"),
+                                    "bias": ("embed", "mlp")
+                                    })(text_embeds)
             text_tokens = text_tokens[:, :self.max_token_length]
             text_tokens_len = text_tokens.shape[1]
             remainder = self.max_token_length - text_tokens_len
@@ -294,21 +299,21 @@ class TextConditioning(nn.Module):
                 text_mask = rearrange(text_mask, 'b n -> b n 1')
                 text_keep_mask_embed = text_mask & text_keep_mask_embed
 
-            null_text_embed = self.param('null_text_embed', nn.initializers.lecun_normal(), (1, self.max_token_length, self.cond_dim))
+            null_text_embed = param_with_axes('null_text_embed', nn.initializers.lecun_normal(), (1, self.max_token_length, self.cond_dim), axes=("embed", "mlp"))
             # TODO: should this be inverted?
             text_tokens = jnp.where(
                 text_keep_mask_embed, text_tokens, null_text_embed)
 
             mean_pooled_text_tokens = jnp.mean(text_tokens, axis=-2)
             text_hiddens = nn.LayerNorm()(mean_pooled_text_tokens)
-            text_hiddens = nnp.Dense(features=self.time_cond_dim, shard_axes={"kernel": ("embed", "mlp")}, dtype=self.dtype)(text_hiddens)
+            text_hiddens = nnp.Dense(features=self.time_cond_dim, shard_axes={"kernel": ("embed", "mlp"), "bias": ("embed", "mlp")}, dtype=self.dtype)(text_hiddens)
             text_hiddens = nn.silu(text_hiddens)
-            text_hiddens = nnp.Dense(features=self.time_cond_dim, shard_axes={"kernel": ("embed", "mlp")}, dtype=self.dtype)(text_hiddens)
+            text_hiddens = nnp.Dense(features=self.time_cond_dim, shard_axes={"kernel": ("embed", "mlp"), "bias": ("embed", "mlp")}, dtype=self.dtype)(text_hiddens)
 
             text_keep_mask_hidden = rearrange(text_keep_mask, 'b -> b 1')
 
-            null_text_hidden = self.param(
-                'null_text_hidden', nn.initializers.lecun_normal(), (1, self.time_cond_dim))
+            null_text_hidden = param_with_axes(
+                'null_text_hidden', nn.initializers.lecun_normal(), (1, self.time_cond_dim), axes=("embed", "mlp"))
             text_hiddens = jnp.where(
                 text_keep_mask_hidden, text_hiddens, null_text_hidden)  # same question
 
@@ -324,14 +329,14 @@ class Block(nn.Module):
 
     @nn.compact
     def __call__(self, x, shift_scale=None):
-        x = nn.GroupNorm(num_groups=8)(x)
+        x = nnp.GroupNorm(num_groups=8, shard_axes={"scale": ("embed",), "bias":("embed",)})(x)
         if exists(shift_scale):
             shift, scale = shift_scale
             x = x * (scale + 1) + shift
             x = with_sharding_constraint(
                 x, ("batch", "width", "height", "dim"))
         x = nn.silu(x)
-        return nnp.Conv(features=self.dim, kernel_size=(3, 3), padding=1)(x)
+        return nnp.Conv(features=self.dim, kernel_size=(3, 3), padding=1, shard_axes=({"kernel": ("width", "height", "mlp")}))(x)
 
 
 class ResnetBlock(nn.Module):
@@ -355,7 +360,7 @@ class ResnetBlock(nn.Module):
 
         h = Block(self.block_config.dim)(h, shift_scale=scale_shift)
         # padding was not same
-        return h + nn.Conv(features=self.block_config.dim, kernel_size=(1, 1), padding="same")(x)
+        return h + nnp.Conv(features=self.block_config.dim, kernel_size=(1, 1), padding="same", shard_axes={"kernel": ("width", "height", "mlp")})(x)
 
 
 class Downsample(nn.Module):
@@ -364,7 +369,7 @@ class Downsample(nn.Module):
 
     @nn.compact
     def __call__(self, x):
-        return nn.Conv(features=self.block_config.dim, kernel_size=(5, 5), strides=(2, 2), padding=2)(x)
+        return nnp.Conv(features=self.block_config.dim, kernel_size=(5, 5), strides=(2, 2), padding=2, shard_axes={"kernel": ("width", "height", "mlp")})(x)
 
 
 class Upsample(nn.Module):
@@ -378,7 +383,7 @@ class Upsample(nn.Module):
             shape=(x.shape[0], x.shape[1] * 2, x. shape[2] * 2, x.shape[3]),
             method="nearest",
         )
-        x = nn.Conv(features=self.block_config.dim, kernel_size=(5, 5), padding=2)(x)
+        x = nnp.Conv(features=self.block_config.dim, kernel_size=(5, 5), padding=2, shard_axes={"kernel": ("width", "height", "mlp")})(x)
         return x
 
 

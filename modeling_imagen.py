@@ -15,7 +15,6 @@ with_sharding_constraint = nn_partitioning.with_sharding_constraint
 scan_with_axes = nn_partitioning.scan_with_axes
 ScanIn = nn_partitioning.ScanIn
 
-
 class EfficentUNet(nn.Module):
     config: UnetConfig
 
@@ -116,5 +115,5 @@ class EfficentUNet(nn.Module):
         x = ResnetBlock(config=self.config, block_config=block_config)(x, t, c)
             
         # x = nn.Dense(features=3, dtype=self.dtype)(x)
-        x = nn.Conv(features=3, kernel_size=(3, 3), strides=1, dtype=self.config.dtype, padding=1)(x)
+        x = nnp.Conv(features=3, kernel_size=(3, 3), strides=1, dtype=self.config.dtype, padding=1, shard_axes={"kernel": ("width", "height", "mlp")})(x)
         return x    

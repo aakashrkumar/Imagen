@@ -33,6 +33,8 @@ from config import ImagenConfig
 
 from t5x.partitioning import PjitPartitioner
 from t5x.checkpoints import Checkpointer
+from t5x.train_state import FlaxOptimTrainState
+from t5x.optimizers import OptaxWrapper
 
 mesh_shape = (2, 4)
 
@@ -214,35 +216,49 @@ class Imagen:
 
         self.config = config
 
-        devices = np.asarray(jax.devices()).reshape(*mesh_shape)
-        self.mesh = maps.Mesh(devices, ("X", "Y"))
+        # devices = np.asarray(jax.devices()).reshape(*mesh_shape)
+        # self.mesh = maps.Mesh(devices, ("X", "Y"))
         batch_size = config.batch_size
 
         self.unets = []
         self.train_steps = []
         self.sample_steps = []
         self.schedulers = []
-        self.partitioner = PjitPartitioner(num_partitions=8, logical_axis_rules=DEFAULT_TPU_RULES)
+        self.partitioner = PjitPartitioner(num_partitions=1, logical_axis_rules=DEFAULT_TPU_RULES)
         num_total_params = 0
         # with maps.Mesh(self.mesh.devices, self.mesh.axis_names), nn_partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
         for i in range(len(config.unets)):
             unet_config = config.unets[i]
             img_size = self.config.image_sizes[i]
             unet = EfficentUNet(config=unet_config)
+
             def init_state():
                 key = self.get_key()
-                image = jnp.ones((batch_size, img_size, img_size, 3)) # image
-                time_step = jnp.ones(batch_size, dtype=jnp.int16) # timestep
-                text = jnp.ones((batch_size, unet_config.max_token_len, unet_config.token_embedding_dim)) # text
-                attention_mask = jnp.ones((batch_size, unet_config.max_token_len)) # attention mask
-                
-                lowres_cond_image = jnp.ones((batch_size, img_size, img_size, 3)) if unet_config.lowres_conditioning else None # lowres_cond_image
-                lowres_aug_times = jnp.ones(batch_size, dtype=jnp.int16)  if unet_config.lowres_conditioning else None # lowres_aug_times
-                
-                params = unet_init(unet, key, image, time_step, text, attention_mask, config.cond_drop_prob, lowres_cond_image, lowres_aug_times, key)
-                
-            self.random_state, key = jax.random.split(self.random_state)
+                image = jnp.ones((batch_size, img_size, img_size, 3))  # image
+                time_step = jnp.ones(batch_size, dtype=jnp.int16)  # timestep
+                text = jnp.ones((batch_size, unet_config.max_token_len, unet_config.token_embedding_dim))  # text
+                attention_mask = jnp.ones((batch_size, unet_config.max_token_len))  # attention mask
 
+                lowres_cond_image = jnp.ones((batch_size, img_size, img_size, 3)) if unet_config.lowres_conditioning else None  # lowres_cond_image
+                lowres_aug_times = jnp.ones(batch_size, dtype=jnp.int16) if unet_config.lowres_conditioning else None  # lowres_aug_times
+
+                params = unet.init(key, image, time_step, text, attention_mask, config.cond_drop_prob, lowres_cond_image, lowres_aug_times, key)
+                
+                lr = optax.warmup_cosine_decay_schedule(
+                init_value=0.0,
+                peak_value=1e-4,
+                warmup_steps=10000,
+                decay_steps=2500000,
+                end_value=1e-5)
+                
+                opt = optax.chain(
+                    optax.clip(1.0),
+                    optax.adamw(learning_rate=lr, b1=0.9, b2=0.999,
+                                eps=1e-8, weight_decay=1e-8)
+                )
+                opt = OptaxWrapper(opt)
+                return FlaxOptimTrainState.create(opt, params)
+            
             scheduler = GaussianDiffusionContinuousTimes.create(
                 noise_schedule="cosine", num_timesteps=1000
             )
@@ -258,41 +274,37 @@ class Imagen:
             params = p_init()
             # self.paramsB = self.unet.init(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, key)
 
-            lr = optax.warmup_cosine_decay_schedule(
-                init_value=0.0,
-                peak_value=1e-4,
-                warmup_steps=10000,
-                decay_steps=2500000,
-                end_value=1e-5)
+            
             # self.opt = optax.adafactor(learning_rate=1e-4)
-            opt = optax.chain(
-                optax.clip(1.0),
-                optax.adamw(learning_rate=lr, b1=0.9, b2=0.999,
-                            eps=1e-8, weight_decay=1e-8)
-            )  # TODO: this is a hack, fix this later
+           # opt = optax.chain(
+            #    optax.clip(1.0),
+           #     optax.adamw(learning_rate=lr, b1=0.9, b2=0.999,
+            #                eps=1e-8, weight_decay=1e-8)
+            #)  # TODO: this is a hack, fix this later
             # opt = optax.adamw(
             #   learning_rate=lr, b1=0.9, b2=0.999,
             #   eps=1e-8, weight_decay=1e-8
             # )
-            train_state = TrainState.create(
-                apply_fn=unet.apply,
-                tx=opt,
-                params=params['params']
-            )
-            state_spec = self.partitioner.get_mesh_axes(train_state)
+           # train_state = TrainState.create(
+            #    apply_fn=unet.apply,
+            #    tx=opt,
+            #    params=params['params']
+           # )
+            
+            # params_spec = self.partitioner.get_mesh_axes(train_state)
             sampler_spec = jax.tree_map(lambda x: None, scheduler)
             config_spec = jax.tree_map(lambda x: None, self.config)
             unet_config_spec = jax.tree_map(lambda x: None, unet_config)
 
             imagen_spec = UnetState(
-                train_state=state_spec,
+                train_state=params_spec,
                 sampler=sampler_spec,
                 config=config_spec,
                 unet_config=unet_config_spec
             )
 
             unet_state = UnetState(
-                train_state=train_state,
+                train_state=params,
                 sampler=scheduler,
                 config=self.config,
                 unet_config=unet_config

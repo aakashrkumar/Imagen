@@ -98,11 +98,29 @@ class ShardMixIn:
                 nn_partitioning.AxisMetadata(axes),
                 reduce_fn=nn_partitioning._param_with_axes_sow_reduce_fn,
             )
+        if name == "bias" and "bias" not in self.shard_axes.keys():
+            axes = self.shard_axes["kernel"]
+            param = nn_partitioning.with_sharding_constraint(param, axes)
+            
+            self.sow(
+                "params_axes",
+                f"{name}_axes",
+                nn_partitioning.AxisMetadata(axes),
+                reduce_fn=nn_partitioning._param_with_axes_sow_reduce_fn,
+            )
 
         return param
 
 class Dense(ShardMixIn, nn.Dense):
-    pass
-
+    pass                    
 class Conv(ShardMixIn, nn.Conv):
     pass
+
+class GroupNorm(ShardMixIn, nn.GroupNorm):
+    pass
+
+class LayerNorm(ShardMixIn, nn.LayerNorm):
+    # default shard_axes for LayerNorm: {'scale': ('batch',), 'bias': ('batch',)}
+    def __post_init__(self):
+        if self.shard_axes is None:
+            self.shard_axes = {"scale": ("batch",), "bias": ("batch",)}
