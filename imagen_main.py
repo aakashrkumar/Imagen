@@ -227,6 +227,8 @@ class Imagen:
         self.partitioner = PjitPartitioner(num_partitions=1, logical_axis_rules=DEFAULT_TPU_RULES)
         num_total_params = 0
         # with maps.Mesh(self.mesh.devices, self.mesh.axis_names), nn_partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
+        opt = adamw(learning_rate=1e-4, b1=0.9, b2=0.999,
+                   eps=1e-8, weight_decay=1e-8)
         for i in range(len(config.unets)):
             unet_config = config.unets[i]
             img_size = self.config.image_sizes[i]
@@ -250,9 +252,6 @@ class Imagen:
                 decay_steps=2500000,
                 end_value=1e-5)
                 
-                opt = adamw(learning_rate=1e-4, b1=0.9, b2=0.999,
-                   eps=1e-8, weight_decay=1e-8)
-
                 # opt = OptaxWrapper(opt)
                 return FlaxOptimTrainState.create(opt, params)
             
@@ -263,6 +262,7 @@ class Imagen:
             params_shape = jax.eval_shape(
                 init_state
             )
+            
             params_spec = self.partitioner.get_mesh_axes(params_shape)
             # print(params_spec)
             p_init = self.partitioner.partition(init_state, in_axis_resources=(
