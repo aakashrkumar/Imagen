@@ -15,6 +15,8 @@ class BlockConfig(struct.PyTreeNode):
     dim:                       int = 128
     num_heads:                 int = 4
     num_resnet_blocks:         int = 8
+    self_attention:            bool = True
+    cross_attention:           bool = True
         
 
 class UnetConfig(struct.PyTreeNode):
@@ -30,7 +32,7 @@ class UnetConfig(struct.PyTreeNode):
 
     channels:                  int = 3
 
-    dim_heads:                 int = 32
+    dim_heads:                 int = 64
     num_heads:                 SingleOrTuple(int) = 4
     ff_mult:                   int = 2
 
@@ -95,7 +97,7 @@ class UnetConfig(struct.PyTreeNode):
 
 class ImagenConfig(struct.PyTreeNode):
     unets:                  Tuple[UnetConfig] = (
-                                UnetConfig.create(dim=128, dim_mults=(1, 2, 4, 8), num_heads=4, num_resnet_blocks=3, 
+                                UnetConfig.create(dim=128, dim_mults=(1, 2, 4, 8), num_heads=(0, 2, 4, 8), num_resnet_blocks=3, 
                                                   scheduler="cosine", lowres_conditioning=False, dtype=jnp.bfloat16),
                                 UnetConfig.create(dim=128, dim_mults=(1, 2, 4, 8), num_heads=(0, 0, 0, 8), num_resnet_blocks=(2, 4, 8, 8), 
                                                   scheduler="cosine", lowres_conditioning=True, dtype=jnp.bfloat16),
