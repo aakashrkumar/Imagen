@@ -65,6 +65,8 @@ DEFAULT_TPU_RULES = [
 class UnetState(struct.PyTreeNode):
     train_state: FlaxOptimTrainState
     apply_fn: Any = struct.field(pytree_node=False)
+    lr: Any = struct.field(pytree_node=False)
+    step: int
     
     sampler: GaussianDiffusionContinuousTimes
     unet_config: Any
@@ -186,8 +188,9 @@ def train_step(unet_state, imgs_start, timestep, texts, attention_masks, lowres_
         return loss, predicted_noise
     gradient_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (loss, logits), grads = gradient_fn(unet_state.train_state.params)
-    train_state = unet_state.train_state.apply_gradient(grads=grads, learning_rate=1e-4)
-    unet_state = unet_state.replace(train_state=train_state)
+    
+    train_state = unet_state.train_state.apply_gradient(grads=grads, learning_rate=unet_state.lr(unet_state.step))
+    unet_state = unet_state.replace(train_state=train_state, step=unet_state.step + 1)
 
     return unet_state, compute_metrics(loss, logits, imgs_start.shape[1])
 
@@ -229,13 +232,23 @@ class Imagen:
         self.partitioner = PjitPartitioner(num_partitions=8, logical_axis_rules=DEFAULT_TPU_RULES)
         num_total_params = 0
         # with maps.Mesh(self.mesh.devices, self.mesh.axis_names), nn_partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
-        opt = adamw(learning_rate=1e-4, b1=0.9, b2=0.999,
-                   eps=1e-8, weight_decay=1e-8)
+        
         for i in range(len(config.unets)):
             unet_config = config.unets[i]
             img_size = self.config.image_sizes[i]
             unet = EfficentUNet(config=unet_config)
             key = self.get_key()
+            lr = optax.warmup_cosine_decay_schedule(
+                init_value=0.0,
+                peak_value=1e-4,
+                warmup_steps=10000,
+                decay_steps=2500000,
+                end_value=1e-5
+                )
+
+            opt = adamw(learning_rate=lr, b1=0.9, b2=0.999,
+                   eps=1e-8, weight_decay=1e-8)
+            
             def init_state():
                 image = jnp.ones((batch_size, img_size, img_size, 3))  # image
                 time_step = jnp.ones(batch_size, dtype=jnp.int16)  # timestep
@@ -246,13 +259,6 @@ class Imagen:
                 lowres_aug_times = jnp.ones(batch_size, dtype=jnp.int16) if unet_config.lowres_conditioning else None  # lowres_aug_times
 
                 params = unet.init(key, image, time_step, text, attention_mask, config.cond_drop_prob, lowres_cond_image, lowres_aug_times, key)
-                
-                lr = optax.warmup_cosine_decay_schedule(
-                init_value=0.0,
-                peak_value=1e-4,
-                warmup_steps=10000,
-                decay_steps=2500000,
-                end_value=1e-5)
                 # opt = OptaxWrapper(opt)
                 return FlaxOptimTrainState.create(opt, params)
             
@@ -297,6 +303,8 @@ class Imagen:
             imagen_spec = UnetState(
                 train_state=params_spec,
                 apply_fn=unet.apply,
+                lr=lr,
+                step=0,
                 sampler=sampler_spec,
                 config=config_spec,
                 unet_config=unet_config_spec
@@ -305,6 +313,8 @@ class Imagen:
             unet_state = UnetState(
                 train_state=params,
                 apply_fn=unet.apply,
+                lr=lr,
+                step=0,
                 sampler=scheduler,
                 config=self.config,
                 unet_config=unet_config
