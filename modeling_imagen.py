@@ -81,6 +81,7 @@ class EfficentUNet(nn.Module):
         # downsample
         hiddens = []
         for block_config in self.config.block_configs:
+            print("block_config", block_config.dim, block_config.num_resnet_blocks)
             x = Downsample(config=self.config, block_config=block_config)(x)
             x = ResnetBlock(config=self.config, block_config=block_config)(x, t, c)
             for _ in range(self.config.num_resnet_blocks):
@@ -90,6 +91,10 @@ class EfficentUNet(nn.Module):
             x = TransformerBlock(config=self.config, block_config=block_config)(x)
             x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
             hiddens.append(x)
+        
+        # middle
+        block_config = self.config.block_configs[-1]
+        print("block_config", block_config.dim, block_config.num_resnet_blocks)
         x = ResnetBlock(config=self.config, block_config=block_config)(x, t, c)
         x = EinopsToAndFrom(Attention(config=self.config, block_config=block_config), 'b h w c', 'b (h w) c')(x)
         x = ResnetBlock(config=self.config, block_config=block_config)(x, t, c)
@@ -97,6 +102,7 @@ class EfficentUNet(nn.Module):
         # Upsample
         add_skip_connection = lambda x: jnp.concatenate([x, hiddens.pop()], axis=-1)
         for block_config in reversed(self.config.block_configs):
+            print("block_config", block_config.dim, block_config.num_resnet_blocks)
             x = add_skip_connection(x)
             x = ResnetBlock(config=self.config, block_config=block_config)(x, t, c)
             for _ in range(self.config.num_resnet_blocks):
