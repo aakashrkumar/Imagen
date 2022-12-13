@@ -102,7 +102,7 @@ class ImagenConfig(struct.PyTreeNode):
                             )
     image_sizes:            Tuple[int] = (
                                 64,
-                                # 256,
+                                256,
                             )
     timesteps:              int = 1000
 
