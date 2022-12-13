@@ -214,7 +214,7 @@ class CrossAttention(nn.Module):
         if exists(mask):
             mask = jnp.pad(mask, (1, 0), value=True)
             mask = rearrange(mask, 'b j -> b 1 1 j')
-            # to do, check if mask should be inverted
+            # TODO check if mask should be inverted
             sim = jnp.where(mask, sim, max_neg_value)
 
         attn = nn.softmax(sim, axis=-1)
