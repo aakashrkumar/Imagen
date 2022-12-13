@@ -394,7 +394,8 @@ class Imagen:
 
 
 def compute_metrics(loss, logits, unet_size):
-    loss = jnp.mean(loss)
+    loss = np.asarray(loss)
+    loss = np.mean(loss)
     return {f"loss_unet_{unet_size}": loss}
 
 
