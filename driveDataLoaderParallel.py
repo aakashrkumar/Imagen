@@ -20,7 +20,7 @@ import PIL.Image
 import io
 
 USER_AGENT = get_datasets_user_agent()
-USE_SAFETY_CHECKER = False
+USE_SAFETY_CHECKER = True
 
 
 SCOPES = ['https://www.googleapis.com/auth/drive']
@@ -105,9 +105,6 @@ def fetch_single_image(image_url, timeout=None, retries=0):
             )
             with urllib.request.urlopen(request, timeout=timeout) as req:
                 image = PIL.Image.open(io.BytesIO(req.read()))
-                # convert to array H, W, C
-                image = np.array(image)
-
             break
         except Exception:
             image = None
@@ -166,17 +163,14 @@ class DataCollector:
             image = fetch_single_image(url)
             if image is None:
                 continue
-            if len(image.shape) != 3:
-                continue
-            h, w, c = image.shape
+            w, h= image.size
             MIN_IMAGE_SIZE = 256
             if h < MIN_IMAGE_SIZE or w < MIN_IMAGE_SIZE:
                 continue
             if USE_SAFETY_CHECKER:
-                safety_checket_imput = self.feature_extractor(images=image, return_tensors="np")
-                image, has_unsafe_content = self.safety_checker(images=image, clip_input=safety_checket_imput.pixel_values)
-            
-                if has_unsafe_content:
+                safety_cheker_input = self.feature_extractor(image, return_tensors="pt")
+                image, has_unsafe_concept = self.safety_checker(images=[image], clip_input=safety_cheker_input.pixel_values)
+                if has_unsafe_concept[0]:
                     continue
             self.shared_storage.add_data.remote([image], [text])
             
@@ -209,7 +203,9 @@ class Uploader:
         self.save_name = "laion"
         
     def save(self, data):
+        print(f"Saving {len(data)} images")
         upload_pickle_to_google_drive(data, f"pkls/{self.save_name}_{self.index}.pkl", self.creds)
+        print(f"Saved {len(data)} images")
         self.index += 1
 
 def main():
@@ -218,13 +214,18 @@ def main():
     uploader = Uploader.remote()
     shared_storage = ray.get(dm.get_shared_storage.remote())
     BATCH_SIZE = 1000
+    start_time = time.time()
+    num_uploaded = 0
     while True:
+        time.sleep(5)
         batch = ray.get(shared_storage.get_batch.remote(BATCH_SIZE))
         if batch:
+            num_uploaded += BATCH_SIZE
             uploader.save.remote(batch)
-            print(f"Uploaded")
-        print(f"Num images: {ray.get(shared_storage.get_num_images.remote())}")
-        time.sleep(5)
+        num_images = ray.get(shared_storage.get_num_images.remote())
+        images_per_second = (num_uploaded + num_images) / (time.time() - start_time)
+        time_till_next_upload = (BATCH_SIZE - num_images) / (images_per_second + 1e-6)
+        print(f"Images per second: {images_per_second:.2f}, uploaded: {num_uploaded}, Images: {num_images}, time till next upload: {time_till_next_upload:.2f}")
             
         
 if __name__ == "__main__":

@@ -172,6 +172,7 @@ def process_parquet(parquet_file, save_name, creds, chunk_size = 10000):
                 # print("img too small, continuing...")
                 continue
             safety_cheker_input = feature_extractor(img, return_tensors="pt")
+            print(img)
             image, has_unsafe_concept = safety_checker(images=img, clip_input=safety_cheker_input.pixel_values)
 
             # print(f"img ({w}, {h}), sf: {has_unsafe_concept[0]}, ", end='')
@@ -192,7 +193,8 @@ def process_parquet(parquet_file, save_name, creds, chunk_size = 10000):
                 index += 1
                 data = []
                 num_img = 0
-        except:
+        except Exception as e:
+            # print(e)
             # print("failed to open url, continuing...")
             pass
     im = Image.fromarray(np.zeros((256, 256, 3)))
@@ -213,7 +215,7 @@ def main():
         # if os.path.isfile(directory + parquet_file):
         file_name, file_type = os.path.splitext(parquet_file)
         print(file_name)
-        process_threaded(directory + '/' + parquet_file, file_name, creds)
+        process_parquet(directory + '/' + parquet_file, file_name, creds)
 
 
 if __name__ == "__main__":
