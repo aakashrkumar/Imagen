@@ -80,6 +80,9 @@ class GaussianDiffusionContinuousTimes(struct.PyTreeNode):
             self.sqrt_one_minus_alphas_cumprod, t, x_start.shape)
         return sqrt_alphas_cumprod_t * x_start + sqrt_one_minus_alphas_cumprod_t * noise
 
+    def sample_random_timestep(self, batch_size, rng):
+        return jax.random.randint(rng, (batch_size,), 0, self.num_timesteps)
+    
     def predict_start_from_noise(self, x_t, t, noise):
         return(
             extract(self.sqrt_recip_alphas_cumprod,
