@@ -55,7 +55,7 @@ class Trainer:
                     f.close()
                     print("Saved batches to disk")
         print("Loaded batches, now preparing imagen")
-        jax_config.update("jax_debug_nans", True) 
+       #  jax_config.update("jax_debug_nans", True) 
         self.imagen = Imagen(config=config)
         print("Prepared imagen, now begining training")
 
@@ -85,7 +85,6 @@ class Trainer:
                 #  metrics["loss"] = np.asarray(metrics["loss"])
                 # metrics["loss"] = np.mean(metrics["loss"])
                 # print(metrics)
-                print(metrics)
                 wandb.log(metrics, step=passes)
 
             if step % wandb.config.save_every == 0:
