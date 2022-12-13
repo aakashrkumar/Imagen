@@ -296,7 +296,7 @@ class Imagen:
             unet_config_spec = jax.tree_map(lambda x: None, unet_config)
             imagen_spec = UnetState(
                 train_state=params_spec,
-                apply_fn=None,
+                apply_fn=unet.apply,
                 sampler=sampler_spec,
                 config=config_spec,
                 unet_config=unet_config_spec
