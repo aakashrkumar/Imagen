@@ -229,45 +229,34 @@ class Imagen:
             unet_config = config.unets[i]
             img_size = self.config.image_sizes[i]
             unet = EfficentUNet(config=unet_config)
+            def init_state():
+                key = self.get_key()
+                image = jnp.ones((batch_size, unet_config, unet_config, 3)) # image
+                time_step = jnp.ones(batch_size, dtype=jnp.int16) # timestep
+                text = jnp.ones((batch_size, unet_config.max_token_len, unet_config.token_embedding_dim)) # text
+                attention_mask = jnp.ones((batch_size, unet_config.max_token_len)) # attention mask
+                
+                lowres_cond_image = jnp.ones((batch_size, unet_config, unet_config, 3)) # lowres_cond_image
+                lowres_aug_times = jnp.ones(batch_size, dtype=jnp.int16) # lowres_aug_times
+                
+                return unet_init(unet, key, image, time_step, text, attention_mask, config.cond_drop_prob, lowres_cond_image, lowres_aug_times)
+            
+                
             self.random_state, key = jax.random.split(self.random_state)
 
             scheduler = GaussianDiffusionContinuousTimes.create(
                 noise_schedule="cosine", num_timesteps=1000
             )
 
-            punet_init = partial(unet_init, unet)
-
-            unetInitParams = (
-                key,
-                jnp.ones((batch_size, img_size, img_size, 3)),  # image
-                jnp.ones(batch_size, dtype=jnp.int16),  # timestep
-                jnp.ones((batch_size, unet_config.max_token_len, unet_config.token_embedding_dim)),  # text
-                jnp.ones((batch_size, unet_config.max_token_len)),  # attention mask
-
-                config.cond_drop_prob,  # conditional dropout prob
-                jnp.ones((batch_size, img_size, img_size, 3)) if unet_config.lowres_conditioning else None,  # lowres_cond_image
-                jnp.ones(batch_size, dtype=jnp.int16) if unet_config.lowres_conditioning else None,  # lowres_aug_times
-
-                self.random_state
-            )
-
             params_shape = jax.eval_shape(
-                unet.init, *unetInitParams
+                init_state
             )
-            params_spec = self.partitioner.get_mesh_axes(params_shape)
-            p_init = self.partitioner.partition(punet_init, in_axis_resources=(
-                None,  # key
-                P("X", "Y", None, None),  # image
-                P("X"),  # timestep
-                P("X", None, "Y"),  # text
-                P("X", "Y"),  # attention mask
-                None,  # conditional dropout prob
-                P("X", None, None, None) if unet_config.lowres_conditioning else None,  # lowres_image
-                P("X",) if unet_config.lowres_conditioning else None,  # lowres_image
-                None  # key
+            params_spec = self.partitioner.get_mesh_axes(params_shape).params
+            p_init = self.partitioner.partition(init_state, in_axis_resources=(
+                None,
             ), out_axis_resources=params_spec)
 
-            params = p_init(*unetInitParams)
+            params = p_init()
             # self.paramsB = self.unet.init(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, key)
 
             lr = optax.warmup_cosine_decay_schedule(
