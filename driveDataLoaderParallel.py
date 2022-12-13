@@ -18,6 +18,7 @@ import os
 from datasets.utils.file_utils import get_datasets_user_agent
 import PIL.Image
 import io
+import datetime
 
 USER_AGENT = get_datasets_user_agent()
 USE_SAFETY_CHECKER = True
@@ -225,7 +226,7 @@ def main():
         num_images = ray.get(shared_storage.get_num_images.remote())
         images_per_second = (num_uploaded + num_images) / (time.time() - start_time)
         time_till_next_upload = (BATCH_SIZE - num_images) / (images_per_second + 1e-6)
-        print(f"Images per second: {images_per_second:.2f}, uploaded: {num_uploaded}, Images: {num_images}, time till next upload: {time_till_next_upload:.2f}")
+        print(f"Images per second: {images_per_second:.2f}, uploaded: {num_uploaded}, Images: {num_images}, time till next upload: {datetime.timedelta(seconds=round(time_till_next_upload))}")
             
         
 if __name__ == "__main__":

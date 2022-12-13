@@ -66,12 +66,6 @@ class StableDiffusionSafetyChecker(PreTrainedModel):
             #if has_nsfw_concept:
                #  images[idx] = np.zeros(images[idx].shape)  # black image
 
-        if any(has_nsfw_concepts):
-            print(
-                "Something went wrong with the generation."+
-                "Try again with a different prompt and/or seed."
-            )
-
         return images, has_nsfw_concepts
 
     @torch.inference_mode()
