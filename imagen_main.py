@@ -236,8 +236,8 @@ class Imagen:
                 text = jnp.ones((batch_size, unet_config.max_token_len, unet_config.token_embedding_dim)) # text
                 attention_mask = jnp.ones((batch_size, unet_config.max_token_len)) # attention mask
                 
-                lowres_cond_image = jnp.ones((batch_size, unet_config, unet_config, 3)) # lowres_cond_image
-                lowres_aug_times = jnp.ones(batch_size, dtype=jnp.int16) # lowres_aug_times
+                lowres_cond_image = jnp.ones((batch_size, img_size, img_size, 3)) if unet_config.lowres_conditioning else None # lowres_cond_image
+                lowres_aug_times = jnp.ones(batch_size, dtype=jnp.int16)  if unet_config.lowres_conditioning else None # lowres_aug_times
                 
                 return unet_init(unet, key, image, time_step, text, attention_mask, config.cond_drop_prob, lowres_cond_image, lowres_aug_times)
             
