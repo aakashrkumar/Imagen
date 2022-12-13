@@ -34,7 +34,7 @@ from config import ImagenConfig
 from t5x.partitioning import PjitPartitioner
 from t5x.checkpoints import Checkpointer
 from t5x.train_state import FlaxOptimTrainState
-from t5x.optimizers import OptaxWrapper
+from t5x.optimizers import adamw, chain, clip
 
 mesh_shape = (2, 4)
 
@@ -250,12 +250,12 @@ class Imagen:
                 decay_steps=2500000,
                 end_value=1e-5)
                 
-                opt = optax.chain(
-                    optax.clip(1.0),
-                    optax.adamw(learning_rate=lr, b1=0.9, b2=0.999,
+                opt = chain(
+                    clip(1.0),
+                    adamw(learning_rate=lr, b1=0.9, b2=0.999,
                                 eps=1e-8, weight_decay=1e-8)
                 )
-                opt = OptaxWrapper(opt)
+                # opt = OptaxWrapper(opt)
                 return FlaxOptimTrainState.create(opt, params)
             
             scheduler = GaussianDiffusionContinuousTimes.create(
