@@ -64,7 +64,7 @@ DEFAULT_TPU_RULES = [
 
 class UnetState(struct.PyTreeNode):
     train_state: FlaxOptimTrainState
-    unet: EfficentUNet = struct.field(pytree_node=False)
+    apply_fn: Any
     
     sampler: GaussianDiffusionContinuousTimes
     unet_config: Any
@@ -81,7 +81,7 @@ class GeneratorState(struct.PyTreeNode):
 
 
 def conditioning_pred(generator_state, t, cond_scale):
-    pred = generator_state.unet_state.unet.apply(
+    pred = generator_state.unet_state.apply_fn(
         {"params": generator_state.unet_state.train_state.params},
         generator_state.image,
         t,
@@ -92,7 +92,7 @@ def conditioning_pred(generator_state, t, cond_scale):
         jnp.ones(generator_state.image.shape[0], dtype=jnp.int16) * 999 if generator_state.lowres_cond_image is not None else None,
         generator_state.rng
     )
-    null_logits = generator_state.unet_state.unet.apply(
+    null_logits = generator_state.unet_state.apply_fn(
         {"params": generator_state.unet_state.train_state.params},
         generator_state.image,
         t,
@@ -171,7 +171,7 @@ def train_step(unet_state, imgs_start, timestep, texts, attention_masks, lowres_
         lowres_cond_image_noise = None
 
     def loss_fn(params):
-        predicted_noise = unet_state.unet.apply(
+        predicted_noise = unet_state.apply_fn(
             {"params": params},
             x_noise,
             timestep,
@@ -294,10 +294,9 @@ class Imagen:
             sampler_spec = jax.tree_map(lambda x: None, scheduler)
             config_spec = jax.tree_map(lambda x: None, self.config)
             unet_config_spec = jax.tree_map(lambda x: None, unet_config)
-            unet_spec = jax.tree_map(lambda x: None, unet)
             imagen_spec = UnetState(
                 train_state=params_spec,
-                unet=unet_spec,
+                apply_fn=None,
                 sampler=sampler_spec,
                 config=config_spec,
                 unet_config=unet_config_spec
@@ -305,7 +304,7 @@ class Imagen:
 
             unet_state = UnetState(
                 train_state=params,
-                unet=unet,
+                apply_fn=unet.apply,
                 sampler=scheduler,
                 config=self.config,
                 unet_config=unet_config
