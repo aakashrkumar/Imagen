@@ -318,7 +318,7 @@ class Imagen:
                 )           
                 num_total_params += n_params_flax
             
-            print(f"Imagen setup complete, it took {time.time() - start_time: 0.4f} seconds for a total of {num_total_params} parameters")
+            print(f"Imagen setup complete, it took {time.time() - start_time: 0.4f} seconds for a total of {num_total_params:,} parameters")
 
     def get_key(self):
         self.random_state, key = jax.random.split(self.random_state)
