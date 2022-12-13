@@ -389,13 +389,14 @@ class Imagen:
                 lowres_aug_times,
                 key
             )
+            for key in unet_metrics:
+                unet_metrics[key] = np.asarray(unet_metrics[key])
+                unet_metrics[key] = np.mean(unet_metrics[key])
             metrics = {**metrics, **unet_metrics}
         return metrics
 
 
 def compute_metrics(loss, logits, unet_size):
-    loss = np.asarray(loss)
-    loss = np.mean(loss)
     return {f"loss_unet_{unet_size}": loss}
 
 
