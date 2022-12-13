@@ -38,7 +38,7 @@ class UnetConfig(struct.PyTreeNode):
 
     lowres_conditioning:       bool = False
 
-    strides: Tuple[int, int] = (2, 2)
+    strides:                   Tuple[int, int] = (2, 2)
     
     block_configs:             Tuple[BlockConfig] = None
     
