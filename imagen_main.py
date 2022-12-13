@@ -34,7 +34,7 @@ from config import ImagenConfig
 from t5x.partitioning import PjitPartitioner
 from t5x.checkpoints import Checkpointer
 from t5x.train_state import FlaxOptimTrainState
-from t5x.optimizers import adamw, chain, clip
+from t5x.optimizers import adamw
 
 mesh_shape = (2, 4)
 
