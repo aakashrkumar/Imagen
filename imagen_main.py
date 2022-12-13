@@ -326,12 +326,12 @@ class Imagen:
 
             p_sample = self.partitioner.partition(sample, in_axis_resources=(
                 imagen_spec,
-                P("X", None, None, None),  # image
+                P("X"),  # image
                 P("X", None, "Y"),  # text
                 P("X", "Y"),  # masks
-                P("X", None, None, None) if unet_config.lowres_conditioning else None,  # lowres_image
+                P("X") if unet_config.lowres_conditioning else None,  # lowres_image
                 None  # key
-            ), out_axis_resources=(P("X", None, None, None))
+            ), out_axis_resources=(P("X"))
             )
 
             self.train_steps.append(p_train_step)
