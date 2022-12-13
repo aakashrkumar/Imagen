@@ -102,7 +102,7 @@ class ShardMixIn:
                 reduce_fn=nn_partitioning._param_with_axes_sow_reduce_fn,
             )
         elif self.shard_axes and name == "bias" and "bias" not in self.shard_axes.keys() and "kernel" in self.shard_axes.keys():
-            axes = self.shard_axes["kernel"][-1]
+            axes = (self.shard_axes["kernel"][-1],)
             param = nn_partitioning.with_sharding_constraint(param, axes)
             
             self.sow(
