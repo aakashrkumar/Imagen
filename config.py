@@ -99,12 +99,12 @@ class ImagenConfig(struct.PyTreeNode):
     unets:                  Tuple[UnetConfig] = (
                                 UnetConfig.create(dim=128, dim_mults=(1, 2, 4, 8), num_heads=(0, 2, 4, 8), num_resnet_blocks=3, 
                                                   scheduler="cosine", lowres_conditioning=False, dtype=jnp.bfloat16),
-                    #            UnetConfig.create(dim=128, dim_mults=(1, 2, 4, 8), num_heads=(0, 0, 0, 8), num_resnet_blocks=(2, 4, 8, 8), 
-                                       #           scheduler="cosine", lowres_conditioning=True, dtype=jnp.bfloat16),
+                                UnetConfig.create(dim=128, dim_mults=(1, 2, 4, 8), num_heads=(0, 0, 0, 8), num_resnet_blocks=(2, 4, 8, 8), 
+                                                  scheduler="cosine", lowres_conditioning=True, dtype=jnp.bfloat16),
                             )
     image_sizes:            Tuple[int] = (
                                 64,
-                               # 256,
+                                256,
                             )
     timesteps:              int = 1000
 
