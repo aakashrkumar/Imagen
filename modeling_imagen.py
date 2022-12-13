@@ -65,7 +65,7 @@ class EfficentUNet(nn.Module):
             lowres_t = nnp.Dense(features=self.config.time_conditiong_dim, dtype=self.config.dtype, shard_axes={"kernel": ("embed", "mlp")})(lowres_time_hiddens)
 
             t = t + lowres_t
-            time_tokens = jnp.concatenate([time_tokens, lowres_time_tokens], dim=-2)
+            time_tokens = jnp.concatenate([time_tokens, lowres_time_tokens], axis=-2)
 
         t, c = TextConditioning(cond_dim=cond_dim, time_cond_dim=self.config.time_conditiong_dim, max_token_length=self.config.max_token_len, cond_drop_prob=condition_drop_prob)(texts, attention_masks, t, time_tokens, rng)
         # TODO: add lowres conditioning
