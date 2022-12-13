@@ -177,7 +177,7 @@ class DataCollector:
                 if has_unsafe_concept[0]:
                     continue
             self.shared_storage.add_data.remote([image], [text])
-            while self.shared_storage.get_num_images.remote() > 50_000:
+            while self.shared_storage.get_num_images.remote() > 10_000:
                 time.sleep(5)
             
 @ray.remote
