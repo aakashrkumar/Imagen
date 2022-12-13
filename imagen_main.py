@@ -37,10 +37,10 @@ from t5x.checkpoints import Checkpointer
 mesh_shape = (2, 4)
 
 DEFAULT_TPU_RULES = [
-    ('batch', 'X'),
-    ('mlp', 'Y'),
-    ('heads', 'Y'),
-    ('vocab', 'Y'),
+    ('batch', 'data'),
+    ('mlp', 'model'),
+    ('heads', 'model'),
+    ('vocab', 'model'),
     ('embed', None),
     ('kv', None),
     ('joined_kv', None),
@@ -54,8 +54,8 @@ DEFAULT_TPU_RULES = [
     ("width", None),
     ("height", None),
 
-    ("X", "X"),
-    ("Y", "Y"),
+    ("data", "data"),
+    ("model", "model"),
     (None, None),
 ]
 
