@@ -63,7 +63,7 @@ DEFAULT_TPU_RULES = [
 
 
 class UnetState(struct.PyTreeNode):
-    train_state: TrainState
+    train_state: FlaxOptimTrainState
     sampler: GaussianDiffusionContinuousTimes
     unet_config: Any
     config: Any
@@ -251,7 +251,6 @@ class Imagen:
                 warmup_steps=10000,
                 decay_steps=2500000,
                 end_value=1e-5)
-                
                 # opt = OptaxWrapper(opt)
                 return FlaxOptimTrainState.create(opt, params)
             
