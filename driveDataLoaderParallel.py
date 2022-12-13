@@ -24,6 +24,8 @@ import datetime
 USER_AGENT = get_datasets_user_agent()
 USE_SAFETY_CHECKER = False
 
+UPLOAD_BUFFER = 10_000
+
 
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
@@ -177,7 +179,7 @@ class DataCollector:
                 if has_unsafe_concept[0]:
                     continue
             self.shared_storage.add_data.remote([image], [text])
-            while self.shared_storage.get_num_images.remote() > 10_000:
+            while self.shared_storage.get_num_images.remote() > UPLOAD_BUFFER:
                 time.sleep(5)
             
 @ray.remote
