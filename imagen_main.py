@@ -265,8 +265,8 @@ class Imagen:
             params_shape = jax.eval_shape(
                 init_state
             )
-            params_spec = self.partitioner.get_mesh_axes(params_shape).params
-            print(params_spec)
+            params_spec = self.partitioner.get_mesh_axes(params_shape)
+            # print(params_spec)
             p_init = self.partitioner.partition(init_state, in_axis_resources=(
                 None
             ), out_axis_resources=params_spec)
