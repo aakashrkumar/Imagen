@@ -324,8 +324,8 @@ class Imagen:
             p_sample = self.partitioner.partition(sample, in_axis_resources=(
                 imagen_spec,
                 P("data"),  # image
-                P("data", None, "model"),  # text
-                P("data", "model"),  # masks
+                P("data"),  # text
+                P("data"),  # masks
                 P("data") if unet_config.lowres_conditioning else None,  # lowres_image
                 None  # key
             ), out_axis_resources=(P("data"))
