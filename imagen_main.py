@@ -64,7 +64,7 @@ DEFAULT_TPU_RULES = [
 
 class UnetState(struct.PyTreeNode):
     train_state: FlaxOptimTrainState
-    unet: EfficentUNet
+    unet: EfficentUNet = struct.field(pytree_node=False)
     
     sampler: GaussianDiffusionContinuousTimes
     unet_config: Any
