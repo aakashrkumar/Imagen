@@ -268,7 +268,7 @@ class Imagen:
             params_spec = self.partitioner.get_mesh_axes(params_shape).params
             p_init = self.partitioner.partition(init_state, in_axis_resources=(
                 None
-            ), out_axis_resources={params_spec, None})
+            ), out_axis_resources=FrozenDict({params_spec, P(None)}))
 
             params = p_init()
             # self.paramsB = self.unet.init(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, key)
