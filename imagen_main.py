@@ -250,11 +250,9 @@ class Imagen:
                 decay_steps=2500000,
                 end_value=1e-5)
                 
-                opt = chain(
-                    clip(1.0),
-                    adamw(learning_rate=lr, b1=0.9, b2=0.999,
-                                eps=1e-8, weight_decay=1e-8)
-                )
+                opt = adamw(learning_rate=1e-4, b1=0.9, b2=0.999,
+                   eps=1e-8, weight_decay=1e-8)
+
                 # opt = OptaxWrapper(opt)
                 return FlaxOptimTrainState.create(opt, params)
             
