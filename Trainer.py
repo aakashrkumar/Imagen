@@ -11,7 +11,7 @@ import os
 from T5Utils import get_tokenizer_and_model, encode_text
 
 import pickle
-from datasets import get_cifar100, get_mnist
+from dataset_utils import get_cifar100, get_mnist
 from config import ImagenConfig
 
 class Trainer:

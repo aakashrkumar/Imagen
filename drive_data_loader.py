@@ -1,3 +1,4 @@
+import time
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -12,6 +13,9 @@ from helpers import StableDiffusionSafetyChecker, numpy_to_pil
 from transformers import CLIPFeatureExtractor, AutoFeatureExtractor
 import numpy as np
 import os
+
+import multiprocessing as mp
+
 
 safety_model_id = "CompVis/stable-diffusion-safety-checker"
 feature_extractor = AutoFeatureExtractor.from_pretrained(safety_model_id)
@@ -88,6 +92,62 @@ def upload_pickle_to_google_drive(data, pickle_file_name, creds=None, upload_dat
         print(f"An error occurred while uploading the file: {error}")
         # Handle the error
 
+def get_data(data):
+    url, text = data
+    try:
+        url = url
+        # print(f"url:{url}, ", end='')
+        urllib.request.urlretrieve(
+            str(url),
+            "temp.png"
+        )
+        img = Image.open("temp.png")
+        w, h = img.size
+        
+        if not (w >= 255 and h >= 255 and w == h):
+            # print("img too small, continuing...")
+            return None
+        safety_cheker_input = feature_extractor(img, return_tensors="pt")
+        image, has_unsafe_concept = safety_checker(images=img, clip_input=safety_cheker_input.pixel_values)
+
+        # print(f"img ({w}, {h}), sf: {has_unsafe_concept[0]}, ", end='')
+        added = False
+
+        if not has_unsafe_concept[0]:
+            sample = {"image":image, "text":text}
+            num_img += 1
+            added = True
+            
+            print(f'added: {added}, num: {num_img}')
+            return sample
+    except:
+        # print("failed to open url, continuing...")
+        return None
+
+    
+def threaded_get_data(urls, texts):
+    with mp.Pool(10) as p:
+        data = p.map(get_data, zip(urls, texts))
+        data = [d for d in data if d is not None]
+
+
+def process_threaded(parquet_file, save_name, creds, chunk_size = 10000):
+    log = open(f"{save_name}-runlog.txt", 'w')
+    table = pq.read_table(parquet_file)
+    
+    data = []
+    index = 0
+    num_img = 0
+    images = []
+    texts = []
+    
+    while index < len(table["URL"]):
+        texts.append(table["TEXT"][index])
+        images.append(table["URL"][index])
+        if len(images) >= 100:
+            threaded_get_data(images, texts)
+            images = []
+            texts = []
 
 def process_parquet(parquet_file, save_name, creds, chunk_size = 10000):
     log = open(f"{save_name}-runlog.txt", 'w')
@@ -97,24 +157,27 @@ def process_parquet(parquet_file, save_name, creds, chunk_size = 10000):
     data = []
     index = 0
     num_img = 0
-
     for i in range(len(table["URL"])):
         try:
             url = table["URL"][i]
-            print(f"url:{url}, ", end='')
+            # print(f"url:{url}, ", end='')
             urllib.request.urlretrieve(
                 str(url),
                 "temp.png"
             )
             img = Image.open("temp.png")
             w, h = img.size
+            
+            if not (w >= 255 and h >= 255 and w == h):
+                # print("img too small, continuing...")
+                continue
             safety_cheker_input = feature_extractor(img, return_tensors="pt")
             image, has_unsafe_concept = safety_checker(images=img, clip_input=safety_cheker_input.pixel_values)
 
-            print(f"img ({w}, {h}), sf: {has_unsafe_concept[0]}, ", end='')
+            # print(f"img ({w}, {h}), sf: {has_unsafe_concept[0]}, ", end='')
             added = False
 
-            if not has_unsafe_concept[0] and w >= 255 and h >= 255:
+            if not has_unsafe_concept[0]:
                 sample = {"image":image, "text":table["TEXT"][i]}
                 data.append(sample)
                 num_img += 1
@@ -130,8 +193,8 @@ def process_parquet(parquet_file, save_name, creds, chunk_size = 10000):
                 data = []
                 num_img = 0
         except:
-            print("failed to open url, continuing...")
-
+            # print("failed to open url, continuing...")
+            pass
     im = Image.fromarray(np.zeros((256, 256, 3)))
     im.save("temp.png")
     log.close()
@@ -150,7 +213,7 @@ def main():
         # if os.path.isfile(directory + parquet_file):
         file_name, file_type = os.path.splitext(parquet_file)
         print(file_name)
-        process_parquet(directory + '/' + parquet_file, file_name, creds)
+        process_threaded(directory + '/' + parquet_file, file_name, creds)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 import numpy as np
-from datasets import load_dataset
+from dataset_utils import load_dataset
 
 from functools import partial
 from concurrent.futures import ThreadPoolExecutor
@@ -9,7 +9,7 @@ import urllib
 
 import PIL.Image
 
-from datasets import load_dataset
+from dataset_utils import load_dataset
 from datasets.utils.file_utils import get_datasets_user_agent
 
 import ray

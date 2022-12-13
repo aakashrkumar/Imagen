@@ -6,7 +6,7 @@ import urllib
 
 import PIL.Image
 
-from datasets import load_dataset
+from dataset_utils import load_dataset
 from datasets.utils.file_utils import get_datasets_user_agent
 
 from torch.utils.data import DataLoader
