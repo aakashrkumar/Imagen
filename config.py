@@ -114,5 +114,5 @@ class ImagenConfig(struct.PyTreeNode):
     loss_type:              str = struct.field(pytree_node=False, default="l2")
     cond_drop_prob:         float = 0.5
     
-    batch_size:             int = 256
+    batch_size:             int = 128
 
