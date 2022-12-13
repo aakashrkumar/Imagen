@@ -30,6 +30,9 @@ DEFAULT_TPU_RULES = [
     (None, None),
 ]
 
+param_with_axes = nn_partitioning.param_with_axes
+
+
 def get_params_axes(
     esm_params: frozen_dict.FrozenDict,
     esm_axes: frozen_dict.FrozenDict,
@@ -98,8 +101,8 @@ class ShardMixIn:
                 nn_partitioning.AxisMetadata(axes),
                 reduce_fn=nn_partitioning._param_with_axes_sow_reduce_fn,
             )
-        if name == "bias" and "bias" not in self.shard_axes.keys():
-            axes = self.shard_axes["kernel"]
+        elif self.shard_axes and name == "bias" and "bias" not in self.shard_axes.keys() and "kernel" in self.shard_axes.keys():
+            axes = ("mlp",)
             param = nn_partitioning.with_sharding_constraint(param, axes)
             
             self.sow(
@@ -108,6 +111,17 @@ class ShardMixIn:
                 nn_partitioning.AxisMetadata(axes),
                 reduce_fn=nn_partitioning._param_with_axes_sow_reduce_fn,
             )
+        elif name == "scale" or name == "bias" and self.shard_axes is None:
+            axes = ("batch",)
+            param = nn_partitioning.with_sharding_constraint(param, axes)
+            
+            self.sow(
+                "params_axes",
+                f"{name}_axes",
+                nn_partitioning.AxisMetadata(axes),
+                reduce_fn=nn_partitioning._param_with_axes_sow_reduce_fn,
+            )
+            
 
         return param
 
@@ -120,7 +134,4 @@ class GroupNorm(ShardMixIn, nn.GroupNorm):
     pass
 
 class LayerNorm(ShardMixIn, nn.LayerNorm):
-    # default shard_axes for LayerNorm: {'scale': ('batch',), 'bias': ('batch',)}
-    def __post_init__(self):
-        if self.shard_axes is None:
-            self.shard_axes = {"scale": ("batch",), "bias": ("batch",)}
+    pass

@@ -84,7 +84,7 @@ class Attention(nn.Module):
         v = with_sharding_constraint(v, ("batch", "heads", "kv"))
 
         if exists(context):
-            context_hidden = nn.LayerNorm()(context)
+            context_hidden = nnp.LayerNorm()(context)
             context_hidden = nnp.Dense(
                 features=self.config.dim_heads*2, shard_axes={"kernel": ("heads", "kv")}, dtype=self.config.dtype)(context_hidden)
             ck, cv = context_hidden.split(2, axis=-1)
@@ -264,7 +264,6 @@ class CrossEmbedLayer(nn.Module):
             convs.append(nnp.Conv(features=dim_scale, kernel_size=(
                 kernel, kernel), strides=self.stride, padding=(kernel - self.stride) // 2, dtype=self.dtype, shard_axes={
                     "kernel": ("width", "height", "mlp"),
-                    "bias": ("width", "height", "mlp"),
             })(x))
 
         return jnp.concatenate(convs, axis=-1)
@@ -283,7 +282,6 @@ class TextConditioning(nn.Module):
         if exists(text_embeds):
             text_tokens = nnp.Dense(features=self.cond_dim, shard_axes={
                                     "kernel": ("embed", "mlp"),
-                                    "bias": ("embed", "mlp")
                                     })(text_embeds)
             text_tokens = text_tokens[:, :self.max_token_length]
             text_tokens_len = text_tokens.shape[1]
@@ -305,10 +303,10 @@ class TextConditioning(nn.Module):
                 text_keep_mask_embed, text_tokens, null_text_embed)
 
             mean_pooled_text_tokens = jnp.mean(text_tokens, axis=-2)
-            text_hiddens = nn.LayerNorm()(mean_pooled_text_tokens)
-            text_hiddens = nnp.Dense(features=self.time_cond_dim, shard_axes={"kernel": ("embed", "mlp"), "bias": ("embed", "mlp")}, dtype=self.dtype)(text_hiddens)
+            text_hiddens = nnp.LayerNorm()(mean_pooled_text_tokens)
+            text_hiddens = nnp.Dense(features=self.time_cond_dim, shard_axes={"kernel": ("embed", "mlp")}, dtype=self.dtype)(text_hiddens)
             text_hiddens = nn.silu(text_hiddens)
-            text_hiddens = nnp.Dense(features=self.time_cond_dim, shard_axes={"kernel": ("embed", "mlp"), "bias": ("embed", "mlp")}, dtype=self.dtype)(text_hiddens)
+            text_hiddens = nnp.Dense(features=self.time_cond_dim, shard_axes={"kernel": ("embed", "mlp")}, dtype=self.dtype)(text_hiddens)
 
             text_keep_mask_hidden = rearrange(text_keep_mask, 'b -> b 1')
 
@@ -320,7 +318,7 @@ class TextConditioning(nn.Module):
             time_cond = time_cond + text_hiddens
         c = time_tokens if not exists(text_embeds) else jnp.concatenate([
             time_tokens, text_tokens], axis=-2)
-        c = nn.LayerNorm()(c)
+        c = nnp.LayerNorm()(c)
         return time_cond, c
 
 
@@ -442,7 +440,7 @@ class CombineEmbs(nn.Module):
             x = x + text_embed_proj
 
         # use layer norm as suggested by the paper
-        x = nn.LayerNorm(dtype=self.dtype)(x)
+        x = nnp.LayerNorm(dtype=self.dtype)(x)
         return x
 
 
@@ -489,7 +487,7 @@ class AlternateCrossAttentionBlock(nn.Module):
         output = nn.Dense(features=x.shape[-1], dtype=self.num_channels)
 
         x = x + output  # add original information
-        x = nn.LayerNorm(dtype=self.dtype)(x)  # normalize
+        x = nnp.LayerNorm(dtype=self.dtype)(x)  # normalize
 
         return x
 
@@ -535,6 +533,6 @@ class CrossAttentionBlock(nn.Module):
         output = reduce(output, 'b w h s c -> b w h c', 'max')
 
         x = x + output  # add original information
-        x = nn.LayerNorm(dtype=self.dtype)(x)  # normalize
+        x = nnp.LayerNorm(dtype=self.dtype)(x)  # normalize
 
         return x

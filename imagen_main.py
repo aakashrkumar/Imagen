@@ -231,9 +231,8 @@ class Imagen:
             unet_config = config.unets[i]
             img_size = self.config.image_sizes[i]
             unet = EfficentUNet(config=unet_config)
-
+            key = self.get_key()
             def init_state():
-                key = self.get_key()
                 image = jnp.ones((batch_size, img_size, img_size, 3))  # image
                 time_step = jnp.ones(batch_size, dtype=jnp.int16)  # timestep
                 text = jnp.ones((batch_size, unet_config.max_token_len, unet_config.token_embedding_dim))  # text
@@ -268,8 +267,8 @@ class Imagen:
             )
             params_spec = self.partitioner.get_mesh_axes(params_shape).params
             p_init = self.partitioner.partition(init_state, in_axis_resources=(
-                None,
-            ), out_axis_resources=params_spec)
+                None
+            ), out_axis_resources={params_spec, None})
 
             params = p_init()
             # self.paramsB = self.unet.init(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, key)
