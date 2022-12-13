@@ -21,7 +21,7 @@ import io
 import datetime
 
 USER_AGENT = get_datasets_user_agent()
-USE_SAFETY_CHECKER = True
+USE_SAFETY_CHECKER = False
 
 
 SCOPES = ['https://www.googleapis.com/auth/drive']
