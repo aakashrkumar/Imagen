@@ -231,7 +231,7 @@ class Imagen:
             unet = EfficentUNet(config=unet_config)
             def init_state():
                 key = self.get_key()
-                image = jnp.ones((batch_size, unet_config, unet_config, 3)) # image
+                image = jnp.ones((batch_size, img_size, img_size, 3)) # image
                 time_step = jnp.ones(batch_size, dtype=jnp.int16) # timestep
                 text = jnp.ones((batch_size, unet_config.max_token_len, unet_config.token_embedding_dim)) # text
                 attention_mask = jnp.ones((batch_size, unet_config.max_token_len)) # attention mask
