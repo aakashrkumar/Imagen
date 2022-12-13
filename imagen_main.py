@@ -222,7 +222,7 @@ class Imagen:
         self.train_steps = []
         self.sample_steps = []
         self.schedulers = []
-        self.partitioner = PjitPartitioner(model_parallel_submesh=(2, 4), logical_axis_rules=DEFAULT_TPU_RULES)
+        self.partitioner = PjitPartitioner(num_partitions=8, logical_axis_rules=DEFAULT_TPU_RULES)
         num_total_params = 0
         # with maps.Mesh(self.mesh.devices, self.mesh.axis_names), nn_partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
         for i in range(len(config.unets)):
