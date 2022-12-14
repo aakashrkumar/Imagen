@@ -19,7 +19,8 @@ def right_pad_dims_to(x, t):
     padding_dims = t.ndim - x.ndim
     if padding_dims <= 0:
         return t
-    return jnp.pad(t, [(0, 0)] * padding_dims + [(0, 0), (0, 0)])
+    return jnp.reshape(t, *t.shape, *((1,) * padding_dims))
+
 
 
 def cosine_beta_schedule(timesteps: int, s: float = 0.008) -> float:
