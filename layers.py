@@ -134,10 +134,10 @@ class ChannelFeedForward(nn.Module):
 
     @nn.compact
     def __call__(self, x):
-        x = ChannelLayerNorm(dim=self.dim)(x)
+        x = ChannelLayerNorm()(x)
         x = nnp.Conv(features=self.dim * self.mult, kernel_size=(1, 1), shard_axes={"kernel": ("width", "height", "mlp")})(x)
         x = nn.gelu(x)
-        x = ChannelLayerNorm(dim=self.dim * self.mult)(x)
+        x = ChannelLayerNorm()(x)
         x = nnp.Conv(features=self.dim, kernel_size=(1, 1), shard_axes={"kernel": ("width", "height", "mlp")})(x)
         return x
 
