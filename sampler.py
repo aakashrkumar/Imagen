@@ -4,12 +4,16 @@ import jax
 import flax
 from flax import linen as nn
 import jax.numpy as jnp
+from torch import unbind
 
 from tqdm import tqdm
 
 from functools import partial
 import numpy as np
 from flax import struct
+
+from einops import rearrange, repeat
+from utils import jax_unstack, default
 
 
 def right_pad_dims_to(x, t):
@@ -45,8 +49,87 @@ def extract(a, t, x_shape):
     # reshape the output
     return jnp.reshape(out, (batch_size, *((1,) * (len(x_shape) - 1))))
 
+@jax.jit
+def alpha_cosine_log_snr(t, s: float = 0.008):
+    return -jnp.log((jnp.cos((t + s) / (1 + s) * jnp.pi * 0.5) ** -2) - 1, eps = 1e-5)
 
-class GaussianDiffusionContinuousTimes(struct.PyTreeNode):
+def sigmoid(x):
+    return 1 / (1 + jnp.exp(-x))
+
+def log_snr_to_alpha_sigma(log_snr):
+    return jnp.sqrt(sigmoid(log_snr)), jnp.sqrt(sigmoid(-log_snr))
+
+class GaussianDiffusionContinousTimes(struct.PyTreeNode):
+    noise_schedule: str = struct.field(pytree_node=False)
+    num_timesteps: int = struct.field(pytree_node=False)
+    beta_schedule: Any = struct.field(pytree_node=False)
+    
+    log_snr: Any = struct.field(pytree_node=False)
+    
+
+    def get_times(self):
+        return self.beta_schedule(self.num_timesteps)
+
+    def sample_random_timestep(self, batch_size, rng):
+        return jax.random.uniform(rng, (batch_size,), 0, self.num_timesteps, minval=0, maxval=1)
+    
+    def get_sampling_timesteps(self, batch):
+        times = jnp.linspace(1., 0., self.num_timesteps + 1)
+        times = repeat(times, 't -> b t', b = batch)
+        times = jnp.stack((times[:, :-1], times[:, 1:]), dim = 0)
+        times = unbind(times, axis =-1)
+        return times
+
+    
+    
+    def q_posterior(self, x_start, x_t, t):
+        t_next = default(t_next, lambda: jnp.maximum(0, (t - 1. / self.num_timesteps)))
+        log_snr = self.log_snr(t)
+        log_snr_next = self.log_snr(t_next)
+        log_snr, log_snr_next = map(partial(right_pad_dims_to, x_t), (log_snr, log_snr_next))
+
+        alpha, sigma = log_snr_to_alpha_sigma(log_snr)
+        alpha_next, sigma_next = log_snr_to_alpha_sigma(log_snr_next)
+
+        # c - as defined near eq 33
+        c = -jnp.expm1(log_snr - log_snr_next)
+        posterior_mean = alpha_next * (x_t * (1 - c) / alpha + c * x_start)
+
+        # following (eq. 33)
+        posterior_variance = (sigma_next ** 2) * c
+        posterior_log_variance_clipped = jnp.log(posterior_variance, eps = 1e-20)
+        return posterior_mean, posterior_variance, posterior_log_variance_clipped
+    
+    def q_sample(self, x_start, t, noise):
+        dtype = x_start.dtype
+
+        if isinstance(t, float):
+            batch = x_start.shape[0]
+            t = jnp.full((batch,), t, device = x_start.device, dtype = dtype)
+
+        log_snr = self.log_snr(t)
+        log_snr_padded_dim = right_pad_dims_to(x_start, log_snr)
+        alpha, sigma =  log_snr_to_alpha_sigma(log_snr_padded_dim)
+
+        return alpha * x_start + sigma * noise, log_snr, alpha, sigma
+
+    def predict_start_from_noise(self, x_t, t, noise):
+        log_snr = self.log_snr(t)
+        log_snr = right_pad_dims_to(x_t, log_snr)
+        alpha, sigma = log_snr_to_alpha_sigma(log_snr)
+        return (x_t - sigma * noise) / jnp.maximum(alpha, 1e-8)
+
+    @classmethod
+    def create(cls, noise_schedule, num_timesteps):
+        if noise_schedule == "cosine":
+            log_snr = alpha_cosine_log_snr
+        elif noise_schedule == "linear":
+            log_snr = linear_beta_schedule
+        else:
+            ValueError(f"Unknown noise schedule {noise_schedule}")
+        return cls(noise_schedule=noise_schedule, num_timesteps=num_timesteps, log_snr=log_snr)
+        
+class GaussianDiffusion(struct.PyTreeNode):
     noise_schedule: str = struct.field(pytree_node=False)
     num_timesteps: int = struct.field(pytree_node=False)
     beta_schedule: Any = struct.field(pytree_node=False)

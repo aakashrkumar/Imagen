@@ -1,3 +1,4 @@
+from functools import partial
 import math
 from typing import Any, Dict, Tuple
 import jax
@@ -152,8 +153,8 @@ class LayerNorm(nn.Module):
         g = param_with_axes('g', nn.initializers.ones, (x.shape[-1], *((1,) * (-self.axis - 1))), axes=("embed",))
         return (x - mean) / jnp.sqrt(var + self.eps) * g
 
-
-class ChannelLayerNorm(nn.Module):
+ChannelLayerNorm = partial(LayerNorm, axis=(-1))
+class ChannelLayerNorm2(nn.Module):
     """
     LayerNorm for :class:`.ChanFeedForward`.
     """

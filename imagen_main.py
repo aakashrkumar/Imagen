@@ -110,7 +110,7 @@ def conditioning_pred(generator_state, t, cond_scale):
 
 def p_mean_variance(t_index, generator_state):
     t_index = 999-t_index
-    t = jnp.ones(generator_state.image.shape[0], dtype=jnp.int16) * t_index
+    t = jnp.ones(generator_state.image.shape[0]) * t_index/999.0
     pred = conditioning_pred(generator_state, t, 4.0)
     x_start = generator_state.unet_state.sampler.predict_start_from_noise(
         generator_state.image, t=t, noise=pred)
@@ -133,7 +133,7 @@ def p_sample(t_index, generator_state):
         t_index, generator_state)
     rng, key = jax.random.split(generator_state.rng)
     generator_state = generator_state.replace(rng=rng)
-    noise = jax.random.normal(key, generator_state.image.shape)
+    noise = jax.random.uniform(key, generator_state.image.shape, minval=-1, maxval=1)
     x = jax.lax.cond(t_index > 0, lambda x: model_mean + noise *
                      jnp.exp(0.5 * model_log_variance), lambda x: model_mean, None)
     return generator_state.replace(image=x)
@@ -164,7 +164,7 @@ def sample(unet_state, noise, texts, attention, lowres_cond_image, rng):
 def train_step(unet_state, imgs_start, timestep, texts, attention_masks, lowres_cond_image, lowres_aug_times, rng):
     rng, key = jax.random.split(rng)
     rng, key2 = jax.random.split(rng)
-    noise = jax.random.normal(key, imgs_start.shape)
+    noise = jax.random.uniform(key, imgs_start.shape, minval=-1, maxval=1)
     timestep = jnp.array(timestep, dtype=jnp.int16)
     x_noise = unet_state.sampler.q_sample(imgs_start, timestep, noise)
     if lowres_cond_image is not None:
@@ -363,7 +363,7 @@ class Imagen:
             batch_size = texts.shape[0]
             if self.unets[i].unet_config.lowres_conditioning:
                 lowres_images = jax.image.resize(lowres_images, (texts.shape[0], self.config.image_sizes[i], self.config.image_sizes[i], lowres_images.shape[-1]), method='nearest')
-            noise = jax.random.normal(self.get_key(), (batch_size, self.config.image_sizes[i], self.config.image_sizes[i], 3))
+            noise = jax.random.uniform(self.get_key(), (batch_size, self.config.image_sizes[i], self.config.image_sizes[i], 3), minval=-1, maxval=1)
             image = self.sample_steps[i](self.unets[i], noise, texts, attention, lowres_images, self.get_key())
             lowres_images = image
         return image
