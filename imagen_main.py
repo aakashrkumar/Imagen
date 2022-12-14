@@ -304,7 +304,7 @@ class Imagen:
                 train_state=params_spec,
                 apply_fn=unet.apply,
                 lr=lr,
-                step=0,
+                step=None,
                 sampler=sampler_spec,
                 config=config_spec,
                 unet_config=unet_config_spec
