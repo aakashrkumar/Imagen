@@ -59,7 +59,7 @@ def sigmoid(x):
 def log_snr_to_alpha_sigma(log_snr):
     return jnp.sqrt(sigmoid(log_snr)), jnp.sqrt(sigmoid(-log_snr))
 
-class GaussianDiffusionContinousTimes(struct.PyTreeNode):
+class GaussianDiffusionContinuousTimes(struct.PyTreeNode):
     noise_schedule: str = struct.field(pytree_node=False)
     num_timesteps: int = struct.field(pytree_node=False)
     beta_schedule: Any = struct.field(pytree_node=False)
