@@ -15,7 +15,6 @@ from flax import struct
 from einops import rearrange, repeat
 from utils import jax_unstack, default
 
-
 def right_pad_dims_to(x, t):
     padding_dims = t.ndim - x.ndim
     if padding_dims <= 0:
@@ -95,7 +94,9 @@ class GaussianDiffusionContinuousTimes(struct.PyTreeNode):
 
         # following (eq. 33)
         posterior_variance = (sigma_next ** 2) * c
-        posterior_log_variance_clipped = jnp.log(posterior_variance, eps = 1e-20)
+        # add epsilon to q_posterior_variance to avoid numerical issues
+        posterior_variance = jnp.maximum(posterior_variance, 1e-8)
+        posterior_log_variance_clipped = jnp.log(posterior_variance)
         return posterior_mean, posterior_variance, posterior_log_variance_clipped
     
     def q_sample(self, x_start, t, noise):
