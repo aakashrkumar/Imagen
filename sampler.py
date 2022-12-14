@@ -67,7 +67,7 @@ class GaussianDiffusionContinuousTimes(struct.PyTreeNode):
     
 
     def sample_random_timestep(self, batch_size, rng):
-        return jax.random.uniform(rng, (batch_size,), 0, self.num_timesteps, minval=0, maxval=1)
+        return jax.random.uniform(key=rng, shape=(batch_size,), minval=0, maxval=1)
     
     def get_sampling_timesteps(self, batch):
         times = jnp.linspace(1., 0., self.num_timesteps + 1)
