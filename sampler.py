@@ -51,7 +51,9 @@ def extract(a, t, x_shape):
 
 @jax.jit
 def alpha_cosine_log_snr(t, s: float = 0.008):
-    return -jnp.log((jnp.cos((t + s) / (1 + s) * jnp.pi * 0.5) ** -2) - 1, eps = 1e-5)
+    x = ((jnp.cos((t + s) / (1 + s) * jnp.pi * 0.5) ** -2) - 1)
+    x = jnp.clip(x, a_min=1e-8, a_max=1e8)
+    return -jnp.log(x)
 
 def sigmoid(x):
     return 1 / (1 + jnp.exp(-x))
