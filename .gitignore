@@ -3,3 +3,8 @@ __pycache__/
 pain.ipynb
 samples/
 ckpt/
+token.json
+credentials.json
+laion/
+laion/
+*.pkl

@@ -30,6 +30,9 @@ DEFAULT_TPU_RULES = [
     (None, None),
 ]
 
+param_with_axes = nn_partitioning.param_with_axes
+
+
 def get_params_axes(
     esm_params: frozen_dict.FrozenDict,
     esm_axes: frozen_dict.FrozenDict,
@@ -98,11 +101,37 @@ class ShardMixIn:
                 nn_partitioning.AxisMetadata(axes),
                 reduce_fn=nn_partitioning._param_with_axes_sow_reduce_fn,
             )
+        elif self.shard_axes and name == "bias" and "bias" not in self.shard_axes.keys() and "kernel" in self.shard_axes.keys():
+            axes = (self.shard_axes["kernel"][-1],)
+            param = nn_partitioning.with_sharding_constraint(param, axes)
+            
+            self.sow(
+                "params_axes",
+                f"{name}_axes",
+                nn_partitioning.AxisMetadata(axes),
+                reduce_fn=nn_partitioning._param_with_axes_sow_reduce_fn,
+            )
+        elif name == "scale" or name == "bias" and self.shard_axes is None:
+            axes = ("batch",)
+            param = nn_partitioning.with_sharding_constraint(param, axes)
+            
+            self.sow(
+                "params_axes",
+                f"{name}_axes",
+                nn_partitioning.AxisMetadata(axes),
+                reduce_fn=nn_partitioning._param_with_axes_sow_reduce_fn,
+            )
+            
 
         return param
 
 class Dense(ShardMixIn, nn.Dense):
+    pass                    
+class Conv(ShardMixIn, nn.Conv):
     pass
 
-class Conv(ShardMixIn, nn.Conv):
+class GroupNorm(ShardMixIn, nn.GroupNorm):
+    pass
+
+class LayerNorm(ShardMixIn, nn.LayerNorm):
     pass

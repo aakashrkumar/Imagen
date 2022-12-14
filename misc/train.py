@@ -8,7 +8,7 @@ import urllib
 import io
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
-from datasets import load_dataset
+from dataset_utils import load_dataset
 import numpy as np
 import wandb
 from imagen_main import Imagen

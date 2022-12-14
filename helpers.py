@@ -62,15 +62,9 @@ class StableDiffusionSafetyChecker(PreTrainedModel):
 
         has_nsfw_concepts = [len(res["bad_concepts"]) > 0 for res in result]
 
-        for idx, has_nsfw_concept in enumerate(has_nsfw_concepts):
-            if has_nsfw_concept:
-                images[idx] = np.zeros(images[idx].shape)  # black image
-
-        if any(has_nsfw_concepts):
-            print(
-                "Something went wrong with the generation."+
-                "Try again with a different prompt and/or seed."
-            )
+       # for idx, has_nsfw_concept in enumerate(has_nsfw_concepts):
+            #if has_nsfw_concept:
+               #  images[idx] = np.zeros(images[idx].shape)  # black image
 
         return images, has_nsfw_concepts
 

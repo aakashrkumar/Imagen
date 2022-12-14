@@ -11,8 +11,9 @@ import os
 from T5Utils import get_tokenizer_and_model, encode_text
 
 import pickle
-from datasets import get_cifar100, get_mnist
+from dataset_utils import get_cifar100, get_mnist
 from config import ImagenConfig
+from jax.config import config as jax_config
 
 class Trainer:
     def __init__(self):
@@ -54,6 +55,7 @@ class Trainer:
                     f.close()
                     print("Saved batches to disk")
         print("Loaded batches, now preparing imagen")
+       #  jax_config.update("jax_debug_nans", True) 
         self.imagen = Imagen(config=config)
         print("Prepared imagen, now begining training")
 
@@ -71,11 +73,7 @@ class Trainer:
             captions_encoded = jnp.array(captions_encoded)
             attention_masks = jnp.array(attention_masks)
 
-            timesteps = list(range(0, 1000))
-
-            timesteps = np.random.permutation(timesteps)[:timesteps_per_image]
-
-            for ts in timesteps:
+            for ts in range(timesteps_per_image):
                 passes += 1
                 start_time = time.time()
                 # TODO: add guidance free conditioning
