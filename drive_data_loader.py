@@ -2,7 +2,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google.auth.transport.requests import Request
-from googleapiclient.http import MediaFileUpload
+from googleapiclient.http import MediaFileUpload, MediaIoBaseUpload
 from google_auth_oauthlib.flow import InstalledAppFlow
 import pickle
 import pyarrow.parquet as pq
@@ -12,6 +12,7 @@ from helpers import StableDiffusionSafetyChecker, numpy_to_pil
 from transformers import CLIPFeatureExtractor, AutoFeatureExtractor
 import numpy as np
 import os
+import io
 
 safety_model_id = "CompVis/stable-diffusion-safety-checker"
 feature_extractor = AutoFeatureExtractor.from_pretrained(safety_model_id)
@@ -72,7 +73,8 @@ def upload_pickle_to_google_drive(data, pickle_file_name, creds=None, upload_dat
 
 
     # Dump the data you want to upload to a pickle file
-    pickle.dump(data, open(pickle_file_name, "wb"))
+    if not upload_data_without_file:
+        pickle.dump(data, open(pickle_file_name, "wb"))
 
     try:
         # Upload the pickle file to Google Drive
@@ -80,7 +82,11 @@ def upload_pickle_to_google_drive(data, pickle_file_name, creds=None, upload_dat
             "name": pickle_file_name,
             "parents": [shared_drive_id]
             }
-        media = MediaFileUpload(pickle_file_name, resumable=True, mimetype='unknown/pkl')
+        media = None
+        if not upload_data_without_file:
+            media = MediaFileUpload(pickle_file_name, resumable=True, mimetype='unknown/pkl')
+        else: 
+            media = MediaIoBaseUpload(io.BytesIO(data), mimetype='unknown/pkl', resumable=True)
         file = service.files().create(body=file_metadata, media_body=media, fields='id', supportsAllDrives=True).execute()
         print(f"File uploaded: {file.get('id')}")
 
