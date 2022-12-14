@@ -166,9 +166,9 @@ def train_step(unet_state, imgs_start, timestep, texts, attention_masks, lowres_
     rng, key2 = jax.random.split(rng)
     noise = jax.random.uniform(key, imgs_start.shape, minval=-1, maxval=1)
     timestep = jnp.array(timestep, dtype=jnp.int16)
-    x_noise = unet_state.sampler.q_sample(imgs_start, timestep, noise)
+    x_noise = unet_state.sampler.q_sample(imgs_start, t=timestep, noise=noise)
     if lowres_cond_image is not None:
-        lowres_cond_image_noise = unet_state.sampler.q_sample(lowres_cond_image, lowres_aug_times, noise)
+        lowres_cond_image_noise = unet_state.sampler.q_sample(lowres_cond_image, t=lowres_aug_times, noise=noise)
     else:
         lowres_cond_image_noise = None
 
