@@ -62,13 +62,9 @@ def log_snr_to_alpha_sigma(log_snr):
 class GaussianDiffusionContinuousTimes(struct.PyTreeNode):
     noise_schedule: str = struct.field(pytree_node=False)
     num_timesteps: int = struct.field(pytree_node=False)
-    beta_schedule: Any = struct.field(pytree_node=False)
     
     log_snr: Any = struct.field(pytree_node=False)
     
-
-    def get_times(self):
-        return self.beta_schedule(self.num_timesteps)
 
     def sample_random_timestep(self, batch_size, rng):
         return jax.random.uniform(rng, (batch_size,), 0, self.num_timesteps, minval=0, maxval=1)
