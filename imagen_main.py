@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 import optax
 
-from sampler import GaussianDiffusionContinuousTimes, extract
+from sampler import GaussianDiffusionContinuousTimes
 from einops import rearrange, repeat, reduce, pack, unpack
 from flax.training.train_state import TrainState
 
