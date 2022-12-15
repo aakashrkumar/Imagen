@@ -174,7 +174,7 @@ if __name__ == "__main__":
             image = sampler.q_sample(np.array([image]), ts, noise=jax.random.uniform(key, (1, 64, 64, 3), minval=-1, maxval=1))
             img_min = np.min(image)
             img_max = np.max(image)
-            if img_min < -1 or img_max > 1:
+            if img_min < -2 or img_max > 2:
                 print(img_min, img_max)
         print("done with one epoch")
         
