@@ -325,7 +325,7 @@ class TextConditioning(nn.Module):
             text_tokens = text_tokens[:, :self.max_token_length]
             
             if exists(text_mask):
-                text_mask = text_mask[:, :self.max_text_len]
+                text_mask = text_mask[:, :self.max_token_length]
             
             text_tokens_len = text_tokens.shape[1]
             remainder = self.max_token_length - text_tokens_len
