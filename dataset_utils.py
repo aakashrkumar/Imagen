@@ -159,8 +159,15 @@ def get_cifar100():
     return images, lables
 
 if __name__ == "__main__":
+    from sampler import GaussianDiffusionContinuousTimes
+    import jax
     images, lables = get_mnist()
+    sampler = GaussianDiffusionContinuousTimes.create(noise_schedule="cosine", num_timesteps=1000)
+    rng = jax.random.PRNGKey(0)
     for image in images:
+        rng, key = jax.random.split(rng)
         # print the max pixel value and the min pixel value
         image = np.array(image, dtype=np.float32)
+        ts = sampler.sample_random_timestep(1, key)
+        sampler.q_sample(np.array([image]), )
         print(np.max(image), np.min(image))
