@@ -160,5 +160,5 @@ def get_cifar100():
 
 if __name__ == "__main__":
     images, lables = get_mnist()
-    for image in range(images):
+    for image in images:
         print(image)
