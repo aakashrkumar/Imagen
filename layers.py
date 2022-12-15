@@ -93,7 +93,7 @@ class Attention(nn.Module):
             k = jnp.concatenate((k, ck), axis=-2)
             v = jnp.concatenate((v, cv), axis=-2)
 
-        sim = jnp.einsum('b i d, b j d -> b h i j', q, k)
+        sim = jnp.einsum('b h i d, b j d -> b h i j', q, k)
         if exists(attn_bias):
             sim = sim + attn_bias
 
