@@ -16,12 +16,10 @@ from einops import rearrange, repeat
 from utils import jax_unstack, default
 
 def right_pad_dims_to(x, t):
-    padding_dims = t.ndim - x.ndim
+    padding_dims = x.ndim - t.ndim
     if padding_dims <= 0:
         return t
-    return jnp.reshape(t, *t.shape, *((1,) * padding_dims))
-
-
+    return jnp.reshape(t, (*t.shape, *((1,) * padding_dims)))
 
 def cosine_beta_schedule(timesteps: int, s: float = 0.008) -> float:
     """Cosine decay schedule."""
@@ -104,9 +102,6 @@ class GaussianDiffusionContinuousTimes(struct.PyTreeNode):
         if isinstance(t, float):
             batch = x_start.shape[0]
             t = jnp.full((batch,), t, dtype = dtype)
-            print(t.shape)
-        else:
-            print("ERROR")
         log_snr = self.log_snr(t)
         log_snr_padded_dim = right_pad_dims_to(x_start, log_snr)
         alpha, sigma =  log_snr_to_alpha_sigma(log_snr_padded_dim)
@@ -135,7 +130,7 @@ def get_noisy_image(x, t, noise, sampler):
 
 def test():
     import cv2
-    img = jnp.ones((64, 256, 256, 3))
+    img = jnp.ones((64, 64, 64, 3))
     img = jnp.array(img)
     img /= 255.0
     noise = jax.random.normal(jax.random.PRNGKey(0), img.shape)
@@ -144,9 +139,8 @@ def test():
     images = []
     # ts = scheduler.get_sampling_timesteps(64, jax.random.PRNGKey(0))
     ts = 1.
-    x_noise = get_noisy_image(img, ts, noise, scheduler)
+    x_noise, _, _, _ = get_noisy_image(img, ts, noise, scheduler)
     # print(x_noise)
-    quit()
     for i in range(1000):
        
         x_noise = x_noise * 255.0
