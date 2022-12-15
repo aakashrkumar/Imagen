@@ -161,4 +161,6 @@ def get_cifar100():
 if __name__ == "__main__":
     images, lables = get_mnist()
     for image in images:
-        print(np.maximum(image))
+        # print the max pixel value and the min pixel value
+        image = np.array(image, dtype=np.float32)
+        print(np.max(image), np.min(image))
