@@ -13,7 +13,7 @@ import optax
 
 from sampler import GaussianDiffusionContinuousTimes, extract
 from einops import rearrange, repeat, reduce, pack, unpack
-from utils import exists, default, jax_unstack
+from utils import exists, default, jax_unstack, prob_mask_like
 from einops_exts import rearrange_many, repeat_many
 import partitioning as nnp
 
@@ -52,10 +52,10 @@ class Attention(nn.Module):
             return x
         b, n = x.shape[:2]
 
-        scale = self.config.dim_heads ** -0.5
+        scale = self.config.dim_heads ** -0.5 # TODO: Implement cosine sim attention
         inner_dim = self.config.dim_heads * self.block_config.num_heads
 
-        x = LayerNorm()(x)
+        x = LayerNorm()(x) # TODO: Figure out if layer norm axes are correct
         x = with_sharding_constraint(x, ("batch", "length", "embed"))
 
         q = nnp.Dense(features=inner_dim, use_bias=False, shard_axes={
@@ -93,20 +93,19 @@ class Attention(nn.Module):
             k = jnp.concatenate((k, ck), axis=-2)
             v = jnp.concatenate((v, cv), axis=-2)
 
-        sim = jnp.einsum('b h i d, b j d -> b h i j', q, k)
+        sim = jnp.einsum('b i d, b j d -> b h i j', q, k)
         if exists(attn_bias):
             sim = sim + attn_bias
 
-        max_neg_value = -jnp.finfo(sim.dtype).max
         if exists(mask):
             mask = jnp.pad(mask, (1, 0), constant_values=True)
             mask = rearrange(mask, 'b j -> b 1 1 j')
-            sim = jnp.where(mask, sim, max_neg_value)
+            sim = jnp.where(mask, -jnp.inf, sim) # TODO: make sure the order of params is correct
 
         attn = nn.softmax(sim, axis=-1)
+        attn.astype(self.config.dtype)
         attn = with_sharding_constraint(attn, ("batch", "length", "heads", "kv"))
 
-        attn.astype(self.config.dtype)
         out = jnp.einsum('b h i j, b j d -> b h i d', attn, v)
 
         out = rearrange(out, 'b h n d -> b n (h d)')
@@ -122,11 +121,27 @@ class TransformerBlock(nn.Module):
 
     @nn.compact
     def __call__(self, x, context=None):
+        # TODO: implement attention_depth
+        # TODO: maybe implement pack/unpack
         x = EinopsToAndFrom(Attention(config=self.config, block_config=self.block_config), 'b h w c', 'b (h w) c')(x, context=context) + x
         x = with_sharding_constraint(x, ("batch", "length", "embed"))
-        x = ChannelFeedForward(dim=self.block_config.dim, mult=self.config.ff_mult)(x) + x
+        x = ChannelFeedForward(dim=self.block_config.dim, mult=self.config.ff_mult)(x) + x # TODO: Lucidrains uses FeedForward instead of ChannelFeedForward
         return x
 
+class FeedForward(nn.Module):
+    dim: int
+    mult:int = 2
+    
+    @nn.compact
+    def __call__(self, x):
+        hidden_dim = int(self.dim * self.mult)
+        x = LayerNorm(axis=-2)(x) # TODO: Figure out if layer norm axes are correct
+        x = nn.Dense(hidden_dim, bias = False)(x)
+        x = nn.gelu(x)
+        x = LayerNorm(axis=-2)(x) # ibid
+        x = nn.Dense(self.dim, bias = False)(x)
+        return x
+        
 
 class ChannelFeedForward(nn.Module):
     dim: int
@@ -144,14 +159,15 @@ class ChannelFeedForward(nn.Module):
 
 class LayerNorm(nn.Module):
     axis: int = -1
-    eps: float = 1e-3
 
     @nn.compact
     def __call__(self, x):
         var = jnp.var(x, axis=self.axis, keepdims=True)
         mean = jnp.mean(x, axis=self.axis, keepdims=True)
+        eps:float = 1e-5 if x.dtype == jnp.float32 else 1e-3
+
         g = param_with_axes('g', nn.initializers.ones, (x.shape[-1], *((1,) * (-self.axis - 1))), axes=("embed",))
-        return (x - mean) / jnp.sqrt(var + self.eps) * g
+        return (x - mean) / jnp.sqrt(var + eps) * g
 
 ChannelLayerNorm = partial(LayerNorm, axis=(-1))
 class ChannelLayerNorm2(nn.Module):
@@ -176,15 +192,18 @@ class CrossAttention(nn.Module):
 
     @nn.compact
     def __call__(self, x, context, mask=None):
-        if self.block_config.num_heads == 0:
-            return x
+        # TODO: again, implement cosine sim attention
+        assert self.block_config.num_heads > 0
+        
         scale = self.config.dim_heads ** -0.5
         inner_dim = self.config.dim_heads * self.block_config.num_heads
 
         b, n = x.shape[:2]
+        
         x = nnp.LayerNorm()(x)
-        context = nnp.LayerNorm()(context)
-
+        if self.norm_context:
+            context = nnp.LayerNorm()(context)
+        
         q = nnp.Dense(features=inner_dim, use_bias=False, shard_axes={
                       "kernel": ("heads", "kv")})(x)
         k, v = nnp.Dense(features=inner_dim * 2, use_bias=False, shard_axes={
@@ -215,26 +234,28 @@ class CrossAttention(nn.Module):
         q = q * scale
 
         sim = jnp.einsum('b h i d, b h j d -> b h i j', q, k)
-        max_neg_value = -jnp.finfo(sim.dtype).max
 
         if exists(mask):
             mask = jnp.pad(mask, (1, 0), value=True)
             mask = rearrange(mask, 'b j -> b 1 1 j')
-            # TODO check if mask should be inverted
-            sim = jnp.where(mask, sim, max_neg_value)
+            # TODO check if mask should be inverted and if params are correct
+            sim = jnp.where(mask, -jnp.inf, sim)
 
-        attn = nn.softmax(sim, axis=-1)
-
+        attn = nn.softmax(sim, axis=-1, dtype=self.config.dtype)
+        attn = with_sharding_constraint(attn, ("batch", "length", "heads", "kv"))
+        
         out = jnp.einsum('b h i j, b h j d -> b h i d', attn, v)
+        out = with_sharding_constraint(out, ("batch", "length", "heads", "kv"))
+        
         out = rearrange(out, 'b h n d -> b n (h d)')
+        
         out = nnp.Dense(features=self.block_config.dim, use_bias=False,
                         shard_axes={"kernel": ("heads", "kv")})(out)
         out = nnp.LayerNorm()(out)
-
         return out
 
 
-class SinusoidalPositionEmbeddings(nn.Module):
+class SinusoidalPosEmb(nn.Module):
     config: UnetConfig
 
     @nn.compact
@@ -244,7 +265,17 @@ class SinusoidalPositionEmbeddings(nn.Module):
         emb = jnp.exp(jnp.arange(half_dim, dtype=self.config.dtype) * -emb)
         emb = rearrange(time, "i -> i 1") * rearrange(emb, "j -> 1 j")
         return jnp.concatenate([jnp.sin(emb), jnp.cos(emb)], axis=-1, dtype=self.config.dtype)
-
+    
+class LearnedSinusoidalPosEmb(nn.Module):
+    config: UnetConfig
+    @nn.compact
+    def __call__(self, time):
+        weights = param_with_axes('pos_emb', nn.initializers.normal(), (self.config.dim,), axes=("embed",))
+        time = rearrange(time, "b -> b 1")
+        freqs = time * rearrange(weights, "d -> 1 d") * 2 * math.pi
+        foruriered = jnp.concatenate([jnp.sin(freqs), jnp.cos(freqs)], axis=-1, dtype=self.config.dtype)
+        foruriered = jnp.concatenate([time, foruriered], axis=-1, dtype=self.config.dtype)
+        return foruriered
 
 class CrossEmbedLayer(nn.Module):
     dim: int = 128
@@ -280,19 +311,30 @@ class TextConditioning(nn.Module):
 
     @nn.compact
     def __call__(self, text_embeds, text_mask, time_cond, time_tokens, rng):
+        text_tokens = None
         if exists(text_embeds):
+            batch_size = text_embeds.shape[0]
+            rng, key = jax.random.split(rng)
+            text_keep_mask = prob_mask_like((batch_size,), 1 - self.cond_drop_prob, key)
+            text_keep_mask_embed = rearrange(text_keep_mask, 'b -> b 1 1')
+            text_keep_mask_hidden = rearrange(text_keep_mask, 'b -> b 1')
+
             text_tokens = nnp.Dense(features=self.cond_dim, shard_axes={
                                     "kernel": ("embed", "mlp"),
                                     })(text_embeds)
             text_tokens = text_tokens[:, :self.max_token_length]
+            
+            if exists(text_mask):
+                text_mask = text_mask[:, :self.max_text_len]
+            
             text_tokens_len = text_tokens.shape[1]
             remainder = self.max_token_length - text_tokens_len
+            
             if remainder > 0:
-                text_tokens = jnp.pad(text_tokens, ((0, 0), (0, remainder)))
+                text_tokens = jnp.pad(text_tokens, ((0, 0), (0, remainder))) # TODO: check how to do padding here
+                # text_tokens = F.pad(text_tokens, (0, 0, 0, remainder))
+            
             rng, key = jax.random.split(rng)
-            text_keep_mask = jax.random.uniform(
-                key, (text_tokens.shape[0],)) > self.cond_drop_prob
-            text_keep_mask_embed = rearrange(text_keep_mask, 'b -> b 1 1')
             if remainder > 0:
                 text_mask = jnp.pad(text_mask, (0, remainder), value=False)
                 text_mask = rearrange(text_mask, 'b n -> b n 1')
@@ -301,15 +343,17 @@ class TextConditioning(nn.Module):
             null_text_embed = param_with_axes('null_text_embed', nn.initializers.lecun_normal(), (1, self.max_token_length, self.cond_dim), axes=("embed", "mlp"))
             # TODO: should this be inverted?
             text_tokens = jnp.where(
-                text_keep_mask_embed, text_tokens, null_text_embed)
+                text_keep_mask_embed, text_tokens, null_text_embed) # TODO: check this too
 
+            # TODO: add attention pooling
+            
             mean_pooled_text_tokens = jnp.mean(text_tokens, axis=-2)
+            
             text_hiddens = nnp.LayerNorm()(mean_pooled_text_tokens)
             text_hiddens = nnp.Dense(features=self.time_cond_dim, shard_axes={"kernel": ("embed", "mlp")}, dtype=self.dtype)(text_hiddens)
             text_hiddens = nn.silu(text_hiddens)
             text_hiddens = nnp.Dense(features=self.time_cond_dim, shard_axes={"kernel": ("embed", "mlp")}, dtype=self.dtype)(text_hiddens)
 
-            text_keep_mask_hidden = rearrange(text_keep_mask, 'b -> b 1')
 
             null_text_hidden = param_with_axes(
                 'null_text_hidden', nn.initializers.lecun_normal(), (1, self.time_cond_dim), axes=("embed", "mlp"))
@@ -327,14 +371,14 @@ class Block(nn.Module):
     dim: int
 
     @nn.compact
-    def __call__(self, x, shift_scale=None):
+    def __call__(self, x, scale_shift=None):
         x = nnp.GroupNorm(num_groups=8, shard_axes={"scale": ("embed",), "bias":("embed",)})(x)
-        if exists(shift_scale):
-            shift, scale = shift_scale
+        if exists(scale_shift):
+            scale, shift = scale_shift
             x = x * (scale + 1) + shift
             x = with_sharding_constraint(
                 x, ("batch", "width", "height", "dim"))
-        x = nn.silu(x)
+        x = nn.silu(x) # TODO: Try swish
         return nnp.Conv(features=self.dim, kernel_size=(3, 3), padding=1, shard_axes=({"kernel": ("width", "height", "mlp")}))(x)
 
 
@@ -354,11 +398,12 @@ class ResnetBlock(nn.Module):
             scale_shift = jnp.split(time_emb, 2, axis=-1)
         h = Block(self.block_config.dim)(x)
         if exists(cond):
+            # TODO: maybe use pack like lucidrains, but maybe Einops is better, at least notationally
             h = EinopsToAndFrom(CrossAttention(config=self.config, block_config=self.block_config),
                                 'b h w c', ' b (h w) c')(h, context=cond) + h
 
-        h = Block(self.block_config.dim)(h, shift_scale=scale_shift)
-        # padding was not same
+        h = Block(self.block_config.dim)(h, scale_shift=scale_shift)
+        # TODO: Maybe implement global context like lucidrains
         return h + nnp.Conv(features=self.block_config.dim, kernel_size=(1, 1), padding="same", shard_axes={"kernel": ("width", "height", "mlp")})(x)
 
 
@@ -368,6 +413,7 @@ class Downsample(nn.Module):
 
     @nn.compact
     def __call__(self, x):
+        # TODO: Implement the pixel shuffle from lucidrains
         return nnp.Conv(features=self.block_config.dim, kernel_size=(5, 5), strides=(2, 2), padding=2, shard_axes={"kernel": ("width", "height", "mlp")})(x)
 
 
@@ -382,9 +428,9 @@ class Upsample(nn.Module):
             shape=(x.shape[0], x.shape[1] * 2, x. shape[2] * 2, x.shape[3]),
             method="nearest",
         )
-        x = nnp.Conv(features=self.block_config.dim, kernel_size=(5, 5), padding=2, shard_axes={"kernel": ("width", "height", "mlp")})(x)
+        x = nnp.Conv(features=self.block_config.dim, kernel_size=(5, 5), padding=2, shard_axes={"kernel": ("width", "height", "mlp")})(x) # TODO: Check kernel size/padding
         return x
-
+# TODO: Implement pixel shuffle resampling
 
 class CombineEmbs(nn.Module):
     """Combine positional encoding with text/image encoding."""

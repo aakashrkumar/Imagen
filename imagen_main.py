@@ -140,20 +140,11 @@ def p_sample(t_index, generator_state):
 
 
 def p_sample_loop(unet_state, img, texts, attention, lowres_cond_image, rng):
-    # img is x0
-    batch_size = img.shape[0]
     rng, key = jax.random.split(rng)
-    # imgs = []
     generator_state = GeneratorState(
-        unet_state=unet_state, image=img, text=texts, attention=attention, lowres_cond_image=lowres_cond_image, rng=rng)
+        unet_state=unet_state, image=img, text=texts, attention=attention, lowres_cond_image=lowres_cond_image, rng=key)
     generator_state = jax.lax.fori_loop(0, 1000, p_sample, generator_state)
     img = generator_state.image
-    # for i in reversed(range(sampler.num_timesteps)):
-    #  rng, key = jax.random.split(rng)
-    #  img = p_sample(unet_state, sampler, img, texts, jnp.ones(batch_size, dtype=jnp.int16) * i, i, key)
-    # imgs.append(img)
-    # frames, batch, height, width, channels
-    # reshape batch, frames, height, width, channels
     return img
 
 
@@ -163,8 +154,8 @@ def sample(unet_state, noise, texts, attention, lowres_cond_image, rng):
 
 def train_step(unet_state, imgs_start, timestep, texts, attention_masks, lowres_cond_image, lowres_aug_times, rng):
     rng, key = jax.random.split(rng)
-    rng, key2 = jax.random.split(rng)
     noise = jax.random.uniform(key, imgs_start.shape, minval=-1, maxval=1)
+    rng, key = jax.random.split(rng)
     timestep = jnp.array(timestep, dtype=jnp.int16)
     x_noise = unet_state.sampler.q_sample(imgs_start, t=timestep, noise=noise)
     if lowres_cond_image is not None:
@@ -182,7 +173,7 @@ def train_step(unet_state, imgs_start, timestep, texts, attention_masks, lowres_
             unet_state.config.cond_drop_prob,
             lowres_cond_image_noise,
             lowres_aug_times,
-            key2
+            key
         )
         loss = jnp.mean((noise - predicted_noise) ** 2)
         return loss, predicted_noise
@@ -195,23 +186,6 @@ def train_step(unet_state, imgs_start, timestep, texts, attention_masks, lowres_
     return unet_state, compute_metrics(loss, logits, imgs_start.shape[1])
 
 
-def unet_init(unet, *args):
-    params, params_axes = unet.init(*args).pop("params_axes")
-    return params
-
-
-def get_vars_pspec(state, rules, params_axes):
-    # Apply the mapping rules to all leafs ot `param_axes`. This means we replace
-    # the name of the each Flax Module axis (e.g., `mlp_in'`) with the name of a
-    # Mesh axis (e.g., `model`), or None (if it should not be partitioned).
-    rd = {k: v for k, v in rules}
-    vars_pspec = jax.tree_map(lambda x: P(*(rd[k] for k in x)), params_axes)
-    # Replace all FrozenDicts in the train state with the new one.
-    vars_pspec = jax.tree_map(
-        lambda x: vars_pspec if isinstance(x, FrozenDict) else None,
-        state,
-        is_leaf=lambda x: isinstance(x, FrozenDict))
-    return vars_pspec
 
 
 class Imagen:
@@ -221,8 +195,6 @@ class Imagen:
 
         self.config = config
 
-        # devices = np.asarray(jax.devices()).reshape(*mesh_shape)
-        # self.mesh = maps.Mesh(devices, ("X", "Y"))
         batch_size = config.batch_size
 
         self.unets = []
@@ -231,8 +203,7 @@ class Imagen:
         self.schedulers = []
         self.partitioner = PjitPartitioner(num_partitions=8, logical_axis_rules=DEFAULT_TPU_RULES)
         num_total_params = 0
-        # with maps.Mesh(self.mesh.devices, self.mesh.axis_names), nn_partitioning.axis_rules(nnp.DEFAULT_TPU_RULES):
-        
+                
         for i in range(len(config.unets)):
             unet_config = config.unets[i]
             img_size = self.config.image_sizes[i]
@@ -271,32 +242,12 @@ class Imagen:
             )
             
             params_spec = self.partitioner.get_mesh_axes(params_shape)
-            # print(params_spec)
             p_init = self.partitioner.partition(init_state, in_axis_resources=(
                 None
             ), out_axis_resources=params_spec)
 
             params = p_init()
-            # self.paramsB = self.unet.init(key, jnp.ones((batch_size, img_size, img_size, 3)), jnp.ones(batch_size, dtype=jnp.int16), jnp.ones((batch_size, sequence_length, encoder_latent_dims)), jnp.ones((batch_size, sequence_length)), 0.1, key)
-
             
-            # self.opt = optax.adafactor(learning_rate=1e-4)
-           # opt = optax.chain(
-            #    optax.clip(1.0),
-           #     optax.adamw(learning_rate=lr, b1=0.9, b2=0.999,
-            #                eps=1e-8, weight_decay=1e-8)
-            #)  # TODO: this is a hack, fix this later
-            # opt = optax.adamw(
-            #   learning_rate=lr, b1=0.9, b2=0.999,
-            #   eps=1e-8, weight_decay=1e-8
-            # )
-           # train_state = TrainState.create(
-            #    apply_fn=unet.apply,
-            #    tx=opt,
-            #    params=params['params']
-           # )
-            
-            # params_spec = self.partitioner.get_mesh_axes(train_state)
             sampler_spec = jax.tree_map(lambda x: None, scheduler)
             config_spec = jax.tree_map(lambda x: None, self.config)
             unet_config_spec = jax.tree_map(lambda x: None, unet_config)
@@ -367,14 +318,11 @@ class Imagen:
             image = self.sample_steps[i](self.unets[i], noise, texts, attention, lowres_images, self.get_key())
             lowres_images = image
         return image
-        # return self.p_sample(self.unet_state, noise, texts, attention, self.get_key())
 
     def train_step(self, image_batch, texts_batches=None, attention_batches=None):
         image_batch = image_batch.astype(jnp.bfloat16)
         texts_batches = texts_batches.astype(jnp.bfloat16)
         attention_batches = attention_batches.astype(jnp.bfloat16)
-        # shard prng key
-        # image_batch_shape = (batch_size, image_size, image_size, 3)
 
         key = self.get_key()
         metrics = {}
@@ -419,9 +367,7 @@ def test():
         imagen.train_step(jnp.ones((config.batch_size, 64, 64, 3)),
                           jnp.ones((config.batch_size, 256, 512)),
                           jnp.ones((config.batch_size, 256)))
-        # imagen.sample(jnp.ones((16, 256, 512)), jnp.ones((16, 256)))
         pb.update(1)
-#        print("done")
 
 
 if __name__ == "__main__":

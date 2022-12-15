@@ -17,6 +17,8 @@ class BlockConfig(struct.PyTreeNode):
     num_resnet_blocks:         int = 8
     self_attention:            bool = True
     cross_attention:           bool = True
+    
+    attention_depth:          int = 1
         
 
 class UnetConfig(struct.PyTreeNode):
@@ -67,10 +69,12 @@ class UnetConfig(struct.PyTreeNode):
         for i in range(len(dim_mults)):
             n_heads = num_heads if isinstance(num_heads, int) else num_heads[i]
             n_resnet_blocks = num_resnet_blocks if isinstance(num_resnet_blocks, int) else num_resnet_blocks[i]
+            depth = 1
             block_configs.append(BlockConfig(
                 dim=dim * dim_mults[i],
                 num_heads=n_heads,
                 num_resnet_blocks=n_resnet_blocks,
+                attention_depth=depth,
             ))
         if cond_dim is None:
             cond_dim = dim

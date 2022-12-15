@@ -4,7 +4,7 @@ import jax.numpy as jnp
 
 from einops import rearrange, repeat, reduce, pack, unpack
 from utils import exists, default
-from layers import ResnetBlock, SinusoidalPositionEmbeddings, CrossEmbedLayer, TextConditioning, TransformerBlock, Downsample, Upsample, Attention, EinopsToAndFrom
+from layers import ResnetBlock, CrossEmbedLayer, TextConditioning, TransformerBlock, Downsample, Upsample, Attention, EinopsToAndFrom, LearnedSinusoidalPosEmb
 from jax.experimental.pjit import PartitionSpec as P
 import partitioning as nnp
 from flax.linen import partitioning as nn_partitioning
@@ -40,9 +40,10 @@ class EfficentUNet(nn.Module):
             x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
             x = x.astype(self.config.dtype)
 
-        cond_dim = default(self.config.cond_dim, self.config.dim)
+        x = CrossEmbedLayer(dim=self.config.dim,
+                    kernel_sizes=(3, 7, 15), stride=1)(x)
 
-        time_hidden = SinusoidalPositionEmbeddings(config=self.config)(time)  # (b, 1, d)
+        time_hidden = LearnedSinusoidalPosEmb(config=self.config)(time)  # (b, 1, d)
         time_hidden = nnp.Dense(features=self.config.time_conditiong_dim, shard_axes={"kernel": ("embed", "mlp")})(time_hidden)
         time_hidden = nn.silu(time_hidden)
 
@@ -56,24 +57,26 @@ class EfficentUNet(nn.Module):
 
         time_tokens = with_sharding_constraint(time_tokens, P("batch", "seq", "embed"))
         if self.config.lowres_conditioning:
-            lowres_time_hiddens = SinusoidalPositionEmbeddings(config=self.config)(lowres_noise_times)  # (b, 1, d)
+            lowres_time_hiddens = LearnedSinusoidalPosEmb(config=self.config)(lowres_noise_times)  # (b, 1, d)
             lowres_time_hiddens = nnp.Dense(features=self.config.time_conditiong_dim, shard_axes={"kernel": ("embed", "mlp")})(lowres_time_hiddens)
             lowres_time_hiddens = nn.silu(lowres_time_hiddens)
+            
             lowres_time_tokens = nnp.Dense(self.config.cond_dim * self.config.num_time_tokens, shard_axes={"kernel": ("embed", "mlp")})(lowres_time_hiddens)
             lowres_time_tokens = rearrange(lowres_time_tokens, 'b (r d) -> b r d', r=self.config.num_time_tokens)
+            
             lowres_t = nnp.Dense(features=self.config.time_conditiong_dim, dtype=self.config.dtype, shard_axes={"kernel": ("embed", "mlp")})(lowres_time_hiddens)
 
             t = t + lowres_t
             time_tokens = jnp.concatenate([time_tokens, lowres_time_tokens], axis=-2)
 
-        t, c = TextConditioning(cond_dim=cond_dim, time_cond_dim=self.config.time_conditiong_dim, max_token_length=self.config.max_token_len, cond_drop_prob=condition_drop_prob)(texts, attention_masks, t, time_tokens, rng)
-        # TODO: add lowres conditioning
+        t, c = TextConditioning(cond_dim=self.config.cond_dim, time_cond_dim=self.config.time_conditiong_dim, max_token_length=self.config.max_token_len, cond_drop_prob=condition_drop_prob)(texts, attention_masks, t, time_tokens, rng)
+
+        
+        # TODO: add init resnet block
 
         t = with_sharding_constraint(t, ("batch", "embed"))
         c = with_sharding_constraint(c, ("batch", "embed"))
 
-        x = CrossEmbedLayer(dim=self.config.dim,
-                            kernel_sizes=(3, 7, 15), stride=1)(x)
         x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
 
         init_conv_residual = x
@@ -109,6 +112,8 @@ class EfficentUNet(nn.Module):
             
             x = TransformerBlock(config=self.config, block_config=block_config)(x)
             x = Upsample(config=self.config, block_config=block_config)(x)
+        
+        # TODO: add upsample combiner
         
         x = jnp.concatenate([x, init_conv_residual], axis=-1)
         
