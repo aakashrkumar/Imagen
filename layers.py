@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 import optax
 
-from sampler import GaussianDiffusionContinuousTimes, extract
+from sampler import GaussianDiffusionContinuousTimes
 from einops import rearrange, repeat, reduce, pack, unpack
 from utils import exists, default, jax_unstack, prob_mask_like
 from einops_exts import rearrange_many, repeat_many
