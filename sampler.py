@@ -106,7 +106,7 @@ class GaussianDiffusionContinuousTimes(struct.PyTreeNode):
         log_snr_padded_dim = right_pad_dims_to(x_start, log_snr)
         alpha, sigma =  log_snr_to_alpha_sigma(log_snr_padded_dim)
 
-        return alpha * x_start + sigma * noise, log_snr, alpha, sigma
+        return alpha * x_start + sigma * noise# , log_snr, alpha, sigma
 
     def predict_start_from_noise(self, x_t, t, noise):
         log_snr = self.log_snr(t)
