@@ -22,9 +22,5 @@ def right_pad_dims_to(x, t):
     return jnp.reshape(t, t.shape + (1,) * padding_dims)
 
 def prob_mask_like(shape, prob, key):
-    if prob == 1:
-        return jnp.ones(shape, dtype = jnp.bool)
-    elif prob == 0:
-        return jnp.zeros(shape, dtype = jnp.bool)
-    else:
-        return jax.random.uniform(key, shape, minval=0, maxval=1) < prob
+    return jax.random.uniform(key, shape, minval=0, maxval=1) < prob
+        
