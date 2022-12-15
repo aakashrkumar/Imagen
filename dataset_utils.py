@@ -157,3 +157,8 @@ def get_cifar100():
     lables = list(map(lambda x: labels_ids[x].replace("_", " "), lables))
     # np.save("train_ds.npy", train_ds)
     return images, lables
+
+if __name__ == "__main__":
+    images, lables = get_mnist()
+    for image in range(images):
+        print(image)
