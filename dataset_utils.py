@@ -169,5 +169,6 @@ if __name__ == "__main__":
         # print the max pixel value and the min pixel value
         image = np.array(image, dtype=np.float32)
         ts = sampler.sample_random_timestep(1, key)
-        sampler.q_sample(np.array([image]), )
+        rng, key = jax.random.split(rng)
+        sampler.q_sample(np.array([image]), ts, noise=jax.random.uniform(key, (1, 64, 64, 3), minval=-1, maxval=1)
         print(np.max(image), np.min(image))
