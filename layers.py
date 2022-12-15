@@ -241,7 +241,7 @@ class CrossAttention(nn.Module):
             # TODO check if mask should be inverted and if params are correct
             sim = jnp.where(mask, -jnp.inf, sim)
 
-        attn = nn.softmax(sim, axis=-1, dtype=self.config.dtype)
+        attn = nn.softmax(sim, axis=-1)
         attn = with_sharding_constraint(attn, ("batch", "length", "heads", "kv"))
         
         out = jnp.einsum('b h i j, b h j d -> b h i d', attn, v)
