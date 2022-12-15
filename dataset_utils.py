@@ -164,15 +164,16 @@ if __name__ == "__main__":
     images, lables = get_mnist()
     sampler = GaussianDiffusionContinuousTimes.create(noise_schedule="cosine", num_timesteps=1000)
     rng = jax.random.PRNGKey(0)
-    for image in images:
-        rng, key = jax.random.split(rng)
-        # print the max pixel value and the min pixel value
-        image = np.array(image, dtype=np.float32)
-        ts = sampler.sample_random_timestep(1, key)
-        rng, key = jax.random.split(rng)
-        image = sampler.q_sample(np.array([image]), ts, noise=jax.random.uniform(key, (1, 64, 64, 3), minval=-1, maxval=1))
-        img_min = np.min(image)
-        img_max = np.max(image)
-        if img_min < -1 or img_max > 1:
-            print(img_min, img_max)
+    while True:
+        for image in images:
+            rng, key = jax.random.split(rng)
+            # print the max pixel value and the min pixel value
+            image = np.array(image, dtype=np.float32)
+            ts = sampler.sample_random_timestep(1, key)
+            rng, key = jax.random.split(rng)
+            image = sampler.q_sample(np.array([image]), ts, noise=jax.random.uniform(key, (1, 64, 64, 3), minval=-1, maxval=1))
+            img_min = np.min(image)
+            img_max = np.max(image)
+            if img_min < -1 or img_max > 1:
+                print(img_min, img_max)
         
