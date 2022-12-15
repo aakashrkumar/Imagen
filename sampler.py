@@ -77,7 +77,7 @@ class GaussianDiffusionContinuousTimes(struct.PyTreeNode):
         return times
 
     def q_posterior(self, x_start, x_t, t, t_next = None):
-        t_next = default(t_next, lambda: jnp.maximum(0, (t - 1. / self.num_timesteps)))
+        t_next = default(t_next, jnp.maximum(0, (t - 1. / self.num_timesteps)))
         log_snr = self.log_snr(t)
         log_snr_next = self.log_snr(t_next)
         log_snr, log_snr_next = map(partial(right_pad_dims_to, x_t), (log_snr, log_snr_next))
