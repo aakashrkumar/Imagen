@@ -176,4 +176,5 @@ if __name__ == "__main__":
             img_max = np.max(image)
             if img_min < -1 or img_max > 1:
                 print(img_min, img_max)
+        print("done with one epoch")
         
