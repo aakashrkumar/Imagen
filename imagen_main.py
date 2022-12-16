@@ -276,7 +276,7 @@ class Imagen:
                 self.unets.append(unet_state)
                 self.schedulers.append(scheduler)
 
-                p_train_step = self.partitioner.partition(train_step, in_axis_resources=(
+                p_train_step = pjit.pjit(train_step, in_axis_resources=(
                     imagen_spec,
                     P("data",),  # image
                     P("data",),  # timesteps
