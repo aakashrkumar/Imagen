@@ -164,20 +164,28 @@ if __name__ == "__main__":
     images, lables = get_mnist()
     sampler = GaussianDiffusionContinuousTimes.create(noise_schedule="cosine", num_timesteps=1000)
     rng = jax.random.PRNGKey(0)
+    batches = []
+    batch = []
+    for image in images:
+        batch.append(image)
+        if len(batch) == 32:
+            batches.append(np.array(batch))
+            batch = []
     while True:
-        for image in images:
+        for batch in batches:
             rng, key = jax.random.split(rng)
             # print the max pixel value and the min pixel value
-            image = np.array(image, dtype=np.float32)
-            ts = sampler.sample_random_timestep(1, key)
+            batch = np.array(batch, dtype=np.float32)
+            batch_size = batch.shape[0]
+            ts = sampler.sample_random_timestep(batch_size, key)
             rng, key = jax.random.split(rng)
-            image = sampler.q_sample(np.array([image]), ts, noise=jax.random.uniform(key, (1, 64, 64, 3), minval=-1, maxval=1))
-            img_min = np.min(image)
-            img_max = np.max(image)
+            batch_sampler = sampler.q_sample(batch, ts, noise=jax.random.uniform(key, (batch_size, 64, 64, 3), minval=-1, maxval=1))
+            img_min = np.min(batch_sampler)
+            img_max = np.max(batch_sampler)
             if img_min < -2 or img_max > 2:
                 print(img_min, img_max)
                 quit()
             # raise error if there are nan values
-            assert not np.isnan(image).any()
+            assert not np.isnan(batch_sampler).any()
         print("done with one epoch")
         
