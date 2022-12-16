@@ -203,7 +203,7 @@ class Imagen:
         self.schedulers = []
         self.partitioner = PjitPartitioner(num_partitions=8, logical_axis_rules=DEFAULT_TPU_RULES)
         num_total_params = 0
-        self.mesh = Mesh(np.asarray(jax.devices(), dtype=object).reshape(2,4), ('data', 'model'))
+        self.mesh = Mesh(np.asarray(jax.devices(), dtype=object).reshape(*mesh_shape), ('data', 'model'))
         self.devices = np.asarray(jax.devices()).reshape(*mesh_shape)
         with Mesh(self.devices, ("data", "model")):
             for i in range(len(config.unets)):
