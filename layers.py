@@ -26,7 +26,7 @@ param_with_axes = nn_partitioning.param_with_axes
 
 class CheckNan(nn.Module):
     @nn.compact
-    def __call__(x):
+    def __call__(self, x):
         # check if x is nan or greater than 1000
         assert jnp.all(jnp.isfinite(x))
         assert jnp.all(jnp.abs(x) < 1000)
