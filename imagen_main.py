@@ -323,7 +323,9 @@ class Imagen:
                     lowres_images = jax.image.resize(lowres_images, (texts.shape[0], self.config.image_sizes[i], self.config.image_sizes[i], lowres_images.shape[-1]), method='nearest')
                 noise = jax.random.uniform(self.get_key(), (batch_size, self.config.image_sizes[i], self.config.image_sizes[i], 3), minval=-1, maxval=1)
                 err, image = self.sample_steps[i](self.unets[i], noise, texts, attention, lowres_images, self.get_key())
-                print("Sample error", err.get())
+                err = err.get()
+                if err:
+                    print("Sample error", err)
                 lowres_images = image
         return image
 
