@@ -31,10 +31,10 @@ class CheckNan(nn.Module):
         def true_fn(x):
             pass
         def false_fn(x):
-            jax.debug.breakpoint()
             jax.debug.print("x: {}", x)
+            jax.debug.breakpoint()
         jax.lax.cond(jnp.isfinite(x).all(), true_fn, false_fn, x)
-        jax.lax.cond(jnp.abs(x) < 10000, true_fn, false_fn, x)
+        jax.lax.cond(jnp.max(x) < 10000, true_fn, false_fn, x)
         
         
 class EinopsToAndFrom(nn.Module):
