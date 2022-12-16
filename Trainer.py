@@ -14,6 +14,7 @@ import pickle
 from dataset_utils import get_cifar100, get_mnist
 from config import ImagenConfig
 from jax.config import config as jax_config
+import random
 
 class Trainer:
     def __init__(self):
@@ -31,6 +32,8 @@ class Trainer:
         self.tokenizer, self.model = get_tokenizer_and_model()
         # batch encode the text
         SAVE = False
+        np.random.seed(wandb.config.seed)
+        random.seed(wandb.config.seed)
         if os.path.exists("batches.npy"):
             with open("batches.npy", "rb") as f:
                 self.batches = pickle.load(f)

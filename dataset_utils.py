@@ -4,6 +4,7 @@ import cv2
 import sklearn
 
 def get_mnist():
+    #sklearn seed
     """Load MNIST train and test datasets into memory."""
     ds_builder = tfds.builder('mnist')
     ds_builder.download_and_prepare()
