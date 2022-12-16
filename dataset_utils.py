@@ -176,5 +176,8 @@ if __name__ == "__main__":
             img_max = np.max(image)
             if img_min < -2 or img_max > 2:
                 print(img_min, img_max)
+                quit()
+            # raise error if there are nan values
+            assert not np.isnan(image).any()
         print("done with one epoch")
         
