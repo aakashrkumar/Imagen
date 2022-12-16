@@ -20,11 +20,17 @@ import partitioning as nnp
 from flax.linen import partitioning as nn_partitioning
 
 from config import BlockConfig, UnetConfig, ImagenConfig
+from jax.experimental import checkify
 
 with_sharding_constraint = nn_partitioning.with_sharding_constraint
 param_with_axes = nn_partitioning.param_with_axes
 
-
+class CheckNan(nn.Module):
+    @nn.compact
+    def __call__(self, x):
+        checkify.check(jnp.isfinite(x).all() >= 0, "Infinite (infinite)")
+        checkify.check(jnp.max(x) > 100, "Infinite (max < 2)")
+        
 class EinopsToAndFrom(nn.Module):
     fn: Any
     from_einops: str
@@ -48,8 +54,6 @@ class Attention(nn.Module):
 
     @nn.compact
     def __call__(self, x, context=None, mask=None, attn_bias=None):
-        if self.block_config.num_heads == 0:
-            return x
         b, n = x.shape[:2]
 
         scale = self.config.dim_heads ** -0.5 # TODO: Implement cosine sim attention
