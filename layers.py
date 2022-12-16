@@ -60,8 +60,6 @@ class Attention(nn.Module):
 
     @nn.compact
     def __call__(self, x, context=None, mask=None, attn_bias=None):
-        if self.block_config.num_heads == 0:
-            return x
         b, n = x.shape[:2]
 
         scale = self.config.dim_heads ** -0.5 # TODO: Implement cosine sim attention
