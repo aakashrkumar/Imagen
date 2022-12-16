@@ -29,7 +29,7 @@ class CheckNan(nn.Module):
     @nn.compact
     def __call__(self, x):
         checkify.check(jnp.isfinite(x).all() >= 0, "Infinite (infinite)")
-        checkify.check(jnp.max(x) < 100, "Infinite (max < 2)")
+        checkify.check(jnp.max(x) > 100, "Infinite (max < 2)")
         
 class EinopsToAndFrom(nn.Module):
     fn: Any
