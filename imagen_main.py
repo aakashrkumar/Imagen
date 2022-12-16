@@ -247,11 +247,12 @@ class Imagen:
                 )
                 
                 params_spec = self.partitioner.get_mesh_axes(params_shape)
-                p_init = pjit.pjit(init_state, in_axis_resources=(
+                c_init_state = checkify.checkify(init_state)
+                p_init = pjit.pjit(c_init_state, in_axis_resources=(
                     None
                 ), out_axis_resources=params_spec)
 
-                params = p_init()
+                err, params = p_init()
                 
                 sampler_spec = jax.tree_map(lambda x: None, scheduler)
                 config_spec = jax.tree_map(lambda x: None, self.config)
