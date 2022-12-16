@@ -4,7 +4,7 @@ import jax.numpy as jnp
 
 from einops import rearrange, repeat, reduce, pack, unpack
 from utils import exists, default
-from layers import ResnetBlock, CrossEmbedLayer, TextConditioning, TransformerBlock, Downsample, Upsample, Attention, EinopsToAndFrom, LearnedSinusoidalPosEmb
+from layers import ResnetBlock, CheckNan, CrossEmbedLayer, TextConditioning, TransformerBlock, Downsample, Upsample, Attention, EinopsToAndFrom, LearnedSinusoidalPosEmb
 from jax.experimental.pjit import PartitionSpec as P
 import partitioning as nnp
 from flax.linen import partitioning as nn_partitioning
@@ -26,15 +26,15 @@ class EfficentUNet(nn.Module):
             assert not exists(lowres_cond_img) and not exists(lowres_noise_times), "lowres_cond_img and lowres_noise_times must be None if lowres_conditioning is False"
 
         x = x.astype(self.config.dtype)
+        CheckNan()(x)
         time = time.astype(self.config.dtype)
         if exists(texts):
             texts = texts.astype(self.config.dtype)
         if exists(attention_masks):
             attention_masks = attention_masks.astype(self.config.dtype)
-
+        CheckNan()(x)
         x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
         texts = with_sharding_constraint(texts, P("batch", "length", "embed"))
-
         if exists(lowres_cond_img):
             x = jnp.concatenate([x, lowres_cond_img], axis=-1)
             x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
@@ -42,7 +42,7 @@ class EfficentUNet(nn.Module):
 
         x = CrossEmbedLayer(dim=self.config.dim,
                     kernel_sizes=(3, 7, 15), stride=1)(x)
-
+        CheckNan()(x)
         time_hidden = LearnedSinusoidalPosEmb(config=self.config)(time)  # (b, 1, d)
         time_hidden = nnp.Dense(features=self.config.time_conditiong_dim, shard_axes={"kernel": ("embed", "mlp")})(time_hidden)
         time_hidden = nn.silu(time_hidden)
@@ -56,11 +56,12 @@ class EfficentUNet(nn.Module):
         time_tokens = rearrange(time_tokens, 'b (r d) -> b r d', r=self.config.num_time_tokens)
 
         time_tokens = with_sharding_constraint(time_tokens, P("batch", "seq", "embed"))
+        CheckNan()(x)
         if self.config.lowres_conditioning:
             lowres_time_hiddens = LearnedSinusoidalPosEmb(config=self.config)(lowres_noise_times)  # (b, 1, d)
             lowres_time_hiddens = nnp.Dense(features=self.config.time_conditiong_dim, shard_axes={"kernel": ("embed", "mlp")})(lowres_time_hiddens)
             lowres_time_hiddens = nn.silu(lowres_time_hiddens)
-            
+            CheckNan()(x)
             lowres_time_tokens = nnp.Dense(self.config.cond_dim * self.config.num_time_tokens, shard_axes={"kernel": ("embed", "mlp")})(lowres_time_hiddens)
             lowres_time_tokens = rearrange(lowres_time_tokens, 'b (r d) -> b r d', r=self.config.num_time_tokens)
             
@@ -85,40 +86,52 @@ class EfficentUNet(nn.Module):
         for block_config in self.config.block_configs:
             x = Downsample(config=self.config, block_config=block_config)(x)
             x = ResnetBlock(config=self.config, block_config=block_config)(x, t, c)
+            CheckNan()(x)
             for _ in range(block_config.num_resnet_blocks):
                 x = ResnetBlock(config=self.config, block_config=block_config)(x)
+                CheckNan()(x)
                 x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
                 hiddens.append(x)
             x = TransformerBlock(config=self.config, block_config=block_config)(x)
+            CheckNan()(x)
             x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
             hiddens.append(x)
         
         # middle
         block_config = self.config.block_configs[-1]
         x = ResnetBlock(config=self.config, block_config=block_config)(x, t, c)
+        CheckNan()(x)
         x = EinopsToAndFrom(Attention(config=self.config, block_config=block_config), 'b h w c', 'b (h w) c')(x)
+        CheckNan()(x)
         x = ResnetBlock(config=self.config, block_config=block_config)(x, t, c)
+        CheckNan()(x)
         
         # Upsample
         add_skip_connection = lambda x: jnp.concatenate([x, hiddens.pop()], axis=-1)
         for block_config in reversed(self.config.block_configs):
             x = add_skip_connection(x)
             x = ResnetBlock(config=self.config, block_config=block_config)(x, t, c)
+            CheckNan()(x)
             for _ in range(block_config.num_resnet_blocks):
                 x = add_skip_connection(x)
                 x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
                 x = ResnetBlock(config=self.config, block_config=block_config)(x)
+                CheckNan()(x)
                 x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
             
             x = TransformerBlock(config=self.config, block_config=block_config)(x)
+            CheckNan()(x)
             x = Upsample(config=self.config, block_config=block_config)(x)
+            CheckNan()(x)
         
         # TODO: add upsample combiner
         
         x = jnp.concatenate([x, init_conv_residual], axis=-1)
         
         x = ResnetBlock(config=self.config, block_config=block_config)(x, t, c)
+        CheckNan()(x)
             
         # x = nn.Dense(features=3, dtype=self.dtype)(x)
         x = nnp.Conv(features=3, kernel_size=(3, 3), strides=1, dtype=self.config.dtype, padding=1, shard_axes={"kernel": ("width", "height", "embed")})(x)
+        CheckNan()(x)
         return x    

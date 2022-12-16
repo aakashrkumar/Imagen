@@ -24,7 +24,12 @@ from config import BlockConfig, UnetConfig, ImagenConfig
 with_sharding_constraint = nn_partitioning.with_sharding_constraint
 param_with_axes = nn_partitioning.param_with_axes
 
-
+class CheckNan(nn.Module):
+    @nn.compact
+    def __call__(x):
+        # check if x is nan or greater than 1000
+        assert jnp.all(jnp.isfinite(x))
+        assert jnp.all(jnp.abs(x) < 1000)
 class EinopsToAndFrom(nn.Module):
     fn: Any
     from_einops: str
