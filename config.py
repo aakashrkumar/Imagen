@@ -101,7 +101,7 @@ class UnetConfig(struct.PyTreeNode):
 
 class ImagenConfig(struct.PyTreeNode):
     unets:                  Tuple[UnetConfig] = (
-                                UnetConfig.create(dim=128, dim_mults=(1, 2, 4, 8), num_heads=(2, 2, 4, 8), num_resnet_blocks=3, 
+                                UnetConfig.create(dim=128, dim_mults=(1, 2, 4, 8), num_heads=(2, 2, 4, 4), num_resnet_blocks=3, 
                                                   scheduler="cosine", lowres_conditioning=False, dtype=jnp.bfloat16),
                                 #UnetConfig.create(dim=128, dim_mults=(1, 2, 4, 8), num_heads=(0, 0, 0, 8), num_resnet_blocks=(2, 4, 8, 8), 
                                  #                 scheduler="cosine", lowres_conditioning=True, dtype=jnp.bfloat16),
@@ -118,5 +118,5 @@ class ImagenConfig(struct.PyTreeNode):
     loss_type:              str = struct.field(pytree_node=False, default="l2")
     cond_drop_prob:         float = 0.5
     
-    batch_size:             int = 32
+    batch_size:             int = 256
 
