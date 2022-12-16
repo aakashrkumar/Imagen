@@ -34,7 +34,7 @@ class CheckNan(nn.Module):
             jax.debug.breakpoint()
             jax.debug.print("x: {}", x)
         jax.lax.cond(jnp.isfinite(x).all(), true_fn, false_fn, x)
-        jax.lax.cond
+        jax.lax.cond(jnp.abs(x) < 10000, true_fn, false_fn, x)
         
         
 class EinopsToAndFrom(nn.Module):
