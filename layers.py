@@ -28,8 +28,15 @@ class CheckNan(nn.Module):
     @nn.compact
     def __call__(self, x):
         # check if x is nan or greater than 1000
-        assert jnp.all(jnp.isfinite(x))
-        assert jnp.all(jnp.abs(x) < 1000)
+        def true_fn(x):
+            pass
+        def false_fn(x):
+            jax.debug.breakpoint()
+            jax.debug.print("x: {}", x)
+        jax.lax.cond(jnp.isfinite(x).all(), true_fn, false_fn, x)
+        jax.lax.cond
+        
+        
 class EinopsToAndFrom(nn.Module):
     fn: Any
     from_einops: str
