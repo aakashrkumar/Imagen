@@ -37,7 +37,7 @@ from t5x.train_state import FlaxOptimTrainState
 from t5x.optimizers import adamw
 from jax.experimental.maps import Mesh
 
-mesh_shape = (1, 1)
+mesh_shape = (2, 4)
 
 DEFAULT_TPU_RULES = [
     ('batch', 'data'),
