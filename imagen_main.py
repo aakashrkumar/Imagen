@@ -200,7 +200,7 @@ class Imagen:
         self.train_steps = []
         self.sample_steps = []
         self.schedulers = []
-        self.partitioner = PjitPartitioner(model_parallel_submesh=(2, 4, 1, 1), logical_axis_rules=DEFAULT_TPU_RULES)
+        self.partitioner = PjitPartitioner(model_parallel_submesh=(2, 2, 1, 8), logical_axis_rules=DEFAULT_TPU_RULES)
         num_total_params = 0
                 
         for i in range(len(config.unets)):
