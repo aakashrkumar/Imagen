@@ -35,6 +35,7 @@ from t5x.partitioning import PjitPartitioner
 from t5x.checkpoints import Checkpointer
 from t5x.train_state import FlaxOptimTrainState
 from t5x.optimizers import adamw
+from jax.experimental.maps import Mesh
 
 mesh_shape = (2, 4)
 
@@ -202,104 +203,106 @@ class Imagen:
         self.schedulers = []
         self.partitioner = PjitPartitioner(num_partitions=8, logical_axis_rules=DEFAULT_TPU_RULES)
         num_total_params = 0
+        self.mesh = Mesh(np.asarray(jax.devices(), dtype=object).reshape(2, 4), ('data', 'model'))
+        self.devices = np.asarray(jax.devices()).reshape(*mesh_shape)
+        with Mesh(self.devices, ("data", "model")):
+            for i in range(len(config.unets)):
+                unet_config = config.unets[i]
+                img_size = self.config.image_sizes[i]
+                unet = EfficentUNet(config=unet_config)
+                key = self.get_key()
+                lr = optax.warmup_cosine_decay_schedule(
+                    init_value=0.0,
+                    peak_value=1e-4,
+                    warmup_steps=10000,
+                    decay_steps=2500000,
+                    end_value=1e-5
+                    )
+
+                opt = adamw(learning_rate=lr, b1=0.9, b2=0.999,
+                    eps=1e-8, weight_decay=1e-8)
                 
-        for i in range(len(config.unets)):
-            unet_config = config.unets[i]
-            img_size = self.config.image_sizes[i]
-            unet = EfficentUNet(config=unet_config)
-            key = self.get_key()
-            lr = optax.warmup_cosine_decay_schedule(
-                init_value=0.0,
-                peak_value=1e-4,
-                warmup_steps=10000,
-                decay_steps=2500000,
-                end_value=1e-5
+                def init_state():
+                    image = jnp.ones((batch_size, img_size, img_size, 3))  # image
+                    time_step = jnp.ones(batch_size, dtype=jnp.int16)  # timestep
+                    text = jnp.ones((batch_size, unet_config.max_token_len, unet_config.token_embedding_dim))  # text
+                    attention_mask = jnp.ones((batch_size, unet_config.max_token_len))  # attention mask
+
+                    lowres_cond_image = jnp.ones((batch_size, img_size, img_size, 3)) if unet_config.lowres_conditioning else None  # lowres_cond_image
+                    lowres_aug_times = jnp.ones(batch_size, dtype=jnp.int16) if unet_config.lowres_conditioning else None  # lowres_aug_times
+
+                    params = unet.init(key, image, time_step, text, attention_mask, config.cond_drop_prob, lowres_cond_image, lowres_aug_times, key)
+                    # opt = OptaxWrapper(opt)
+                    return FlaxOptimTrainState.create(opt, params)
+                
+                scheduler = GaussianDiffusionContinuousTimes.create(
+                    noise_schedule="cosine", num_timesteps=1000
                 )
 
-            opt = adamw(learning_rate=lr, b1=0.9, b2=0.999,
-                   eps=1e-8, weight_decay=1e-8)
-            
-            def init_state():
-                image = jnp.ones((batch_size, img_size, img_size, 3))  # image
-                time_step = jnp.ones(batch_size, dtype=jnp.int16)  # timestep
-                text = jnp.ones((batch_size, unet_config.max_token_len, unet_config.token_embedding_dim))  # text
-                attention_mask = jnp.ones((batch_size, unet_config.max_token_len))  # attention mask
+                params_shape = jax.eval_shape(
+                    init_state
+                )
+                
+                params_spec = self.partitioner.get_mesh_axes(params_shape)
+                p_init = pjit.pjit(init_state, in_axis_resources=(
+                    None
+                ), out_axis_resources=params_spec)
 
-                lowres_cond_image = jnp.ones((batch_size, img_size, img_size, 3)) if unet_config.lowres_conditioning else None  # lowres_cond_image
-                lowres_aug_times = jnp.ones(batch_size, dtype=jnp.int16) if unet_config.lowres_conditioning else None  # lowres_aug_times
+                params = p_init()
+                
+                sampler_spec = jax.tree_map(lambda x: None, scheduler)
+                config_spec = jax.tree_map(lambda x: None, self.config)
+                unet_config_spec = jax.tree_map(lambda x: None, unet_config)
+                imagen_spec = UnetState(
+                    train_state=params_spec,
+                    apply_fn=unet.apply,
+                    lr=lr,
+                    step=None,
+                    sampler=sampler_spec,
+                    config=config_spec,
+                    unet_config=unet_config_spec
+                )
 
-                params = unet.init(key, image, time_step, text, attention_mask, config.cond_drop_prob, lowres_cond_image, lowres_aug_times, key)
-                # opt = OptaxWrapper(opt)
-                return FlaxOptimTrainState.create(opt, params)
-            
-            scheduler = GaussianDiffusionContinuousTimes.create(
-                noise_schedule="cosine", num_timesteps=1000
-            )
+                unet_state = UnetState(
+                    train_state=params,
+                    apply_fn=unet.apply,
+                    lr=lr,
+                    step=0,
+                    sampler=scheduler,
+                    config=self.config,
+                    unet_config=unet_config
+                )
 
-            params_shape = jax.eval_shape(
-                init_state
-            )
-            
-            params_spec = self.partitioner.get_mesh_axes(params_shape)
-            p_init = self.partitioner.partition(init_state, in_axis_resources=(
-                None
-            ), out_axis_resources=params_spec)
+                self.unets.append(unet_state)
+                self.schedulers.append(scheduler)
 
-            params = p_init()
-            
-            sampler_spec = jax.tree_map(lambda x: None, scheduler)
-            config_spec = jax.tree_map(lambda x: None, self.config)
-            unet_config_spec = jax.tree_map(lambda x: None, unet_config)
-            imagen_spec = UnetState(
-                train_state=params_spec,
-                apply_fn=unet.apply,
-                lr=lr,
-                step=None,
-                sampler=sampler_spec,
-                config=config_spec,
-                unet_config=unet_config_spec
-            )
+                p_train_step = self.partitioner.partition(train_step, in_axis_resources=(
+                    imagen_spec,
+                    P("data",),  # image
+                    P("data",),  # timesteps
+                    P("data",),  # text
+                    P("data",),  # masks
+                    P("data",) if unet_config.lowres_conditioning else None,  # lowres_image
+                    P("data",) if unet_config.lowres_conditioning else None,  # lowres_image
+                    None
+                ), out_axis_resources=(imagen_spec, None))
 
-            unet_state = UnetState(
-                train_state=params,
-                apply_fn=unet.apply,
-                lr=lr,
-                step=0,
-                sampler=scheduler,
-                config=self.config,
-                unet_config=unet_config
-            )
+                p_sample = pjit.pjit(sample, in_axis_resources=(
+                    imagen_spec,
+                    P("data"),  # image
+                    P("data"),  # text
+                    P("data"),  # masks
+                    P("data") if unet_config.lowres_conditioning else None,  # lowres_image
+                    None  # key
+                ), out_axis_resources=(P("data"))
+                )
 
-            self.unets.append(unet_state)
-            self.schedulers.append(scheduler)
-
-            p_train_step = self.partitioner.partition(train_step, in_axis_resources=(
-                imagen_spec,
-                P("data",),  # image
-                P("data",),  # timesteps
-                P("data",),  # text
-                P("data",),  # masks
-                P("data",) if unet_config.lowres_conditioning else None,  # lowres_image
-                P("data",) if unet_config.lowres_conditioning else None,  # lowres_image
-                None
-            ), out_axis_resources=(imagen_spec, None))
-
-            p_sample = self.partitioner.partition(sample, in_axis_resources=(
-                imagen_spec,
-                P("data"),  # image
-                P("data"),  # text
-                P("data"),  # masks
-                P("data") if unet_config.lowres_conditioning else None,  # lowres_image
-                None  # key
-            ), out_axis_resources=(P("data"))
-            )
-
-            self.train_steps.append(p_train_step)
-            self.sample_steps.append(p_sample)
-            n_params_flax = sum(
-                jax.tree_leaves(jax.tree_map(lambda x: np.prod(x.shape), params))
-            )
-            num_total_params += n_params_flax
+                self.train_steps.append(p_train_step)
+                self.sample_steps.append(p_sample)
+                n_params_flax = sum(
+                    jax.tree_leaves(jax.tree_map(lambda x: np.prod(x.shape), params))
+                )
+                num_total_params += n_params_flax
 
         print(f"Imagen setup complete, it took {time.time() - start_time: 0.4f} seconds for a total of {num_total_params:,} parameters")
 
@@ -309,13 +312,14 @@ class Imagen:
 
     def sample(self, texts, attention):
         lowres_images = None
-        for i in range(len(self.unets)):
-            batch_size = texts.shape[0]
-            if self.unets[i].unet_config.lowres_conditioning:
-                lowres_images = jax.image.resize(lowres_images, (texts.shape[0], self.config.image_sizes[i], self.config.image_sizes[i], lowres_images.shape[-1]), method='nearest')
-            noise = jax.random.uniform(self.get_key(), (batch_size, self.config.image_sizes[i], self.config.image_sizes[i], 3), minval=-1, maxval=1)
-            image = self.sample_steps[i](self.unets[i], noise, texts, attention, lowres_images, self.get_key())
-            lowres_images = image
+        with self.mesh(self.devices, ("data", "model")):
+            for i in range(len(self.unets)):
+                batch_size = texts.shape[0]
+                if self.unets[i].unet_config.lowres_conditioning:
+                    lowres_images = jax.image.resize(lowres_images, (texts.shape[0], self.config.image_sizes[i], self.config.image_sizes[i], lowres_images.shape[-1]), method='nearest')
+                noise = jax.random.uniform(self.get_key(), (batch_size, self.config.image_sizes[i], self.config.image_sizes[i], 3), minval=-1, maxval=1)
+                image = self.sample_steps[i](self.unets[i], noise, texts, attention, lowres_images, self.get_key())
+                lowres_images = image
         return image
 
     def train_step(self, image_batch, texts_batches=None, attention_batches=None):
@@ -325,31 +329,32 @@ class Imagen:
 
         key = self.get_key()
         metrics = {}
-        for i in range(len(self.unets)):
-            # resize image batch to the size of the current unet
-            lowres_cond_image = None
-            lowres_aug_times = None
-            timestep = self.schedulers[i].sample_random_timestep(image_batch.shape[0], key)
-            if self.config.unets[i].lowres_conditioning:
-                lowres_cond_image = jax.image.resize(image_batch, (image_batch.shape[0], self.config.image_sizes[i], self.config.image_sizes[i], 3), method='nearest')
-                lowres_aug_times = self.schedulers[i].sample_random_timestep(1, key)
-                lowres_aug_times = repeat(lowres_aug_times, '1 -> b', b=image_batch.shape[0])
+        with self.mesh(self.devices, ("data", "model")):
+            for i in range(len(self.unets)):
+                # resize image batch to the size of the current unet
+                lowres_cond_image = None
+                lowres_aug_times = None
+                timestep = self.schedulers[i].sample_random_timestep(image_batch.shape[0], key)
+                if self.config.unets[i].lowres_conditioning:
+                    lowres_cond_image = jax.image.resize(image_batch, (image_batch.shape[0], self.config.image_sizes[i], self.config.image_sizes[i], 3), method='nearest')
+                    lowres_aug_times = self.schedulers[i].sample_random_timestep(1, key)
+                    lowres_aug_times = repeat(lowres_aug_times, '1 -> b', b=image_batch.shape[0])
 
-            image_batch = jax.image.resize(image_batch, (image_batch.shape[0], self.config.image_sizes[i], self.config.image_sizes[i], 3), method='nearest')
-            self.unets[i], unet_metrics = self.train_steps[i](
-                self.unets[i],
-                image_batch,
-                timestep,
-                texts_batches,
-                attention_batches,
-                lowres_cond_image,
-                lowres_aug_times,
-                key
-            )
-            for key in unet_metrics:
-                unet_metrics[key] = np.asarray(unet_metrics[key])
-                unet_metrics[key] = np.mean(unet_metrics[key])
-            metrics = {**metrics, **unet_metrics}
+                image_batch = jax.image.resize(image_batch, (image_batch.shape[0], self.config.image_sizes[i], self.config.image_sizes[i], 3), method='nearest')
+                self.unets[i], unet_metrics = self.train_steps[i](
+                    self.unets[i],
+                    image_batch,
+                    timestep,
+                    texts_batches,
+                    attention_batches,
+                    lowres_cond_image,
+                    lowres_aug_times,
+                    key
+                )
+                for key in unet_metrics:
+                    unet_metrics[key] = np.asarray(unet_metrics[key])
+                    unet_metrics[key] = np.mean(unet_metrics[key])
+                metrics = {**metrics, **unet_metrics}
         return metrics
 
 
