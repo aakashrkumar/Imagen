@@ -250,7 +250,7 @@ class Imagen:
                 c_init_state = checkify.checkify(init_state)
                 p_init = pjit.pjit(c_init_state, in_axis_resources=(
                     None
-                ), out_axis_resources=params_spec)
+                ), out_axis_resources=(None, params_spec))
 
                 err, params = p_init()
                 
@@ -289,7 +289,7 @@ class Imagen:
                     P("data",) if unet_config.lowres_conditioning else None,  # lowres_image
                     P("data",) if unet_config.lowres_conditioning else None,  # lowres_image
                     None
-                ), out_axis_resources=(imagen_spec, None))
+                ), out_axis_resources=(None, (imagen_spec, None)))
                 c_sample = checkify.checkify(sample())
                 p_sample = pjit.pjit(c_sample, in_axis_resources=(
                     imagen_spec,
@@ -298,7 +298,7 @@ class Imagen:
                     P("data"),  # masks
                     P("data") if unet_config.lowres_conditioning else None,  # lowres_image
                     None  # key
-                ), out_axis_resources=(P("data"))
+                ), out_axis_resources=(None, P("data"))
                 )
 
                 self.train_steps.append(p_train_step)
