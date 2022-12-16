@@ -290,7 +290,7 @@ class Imagen:
                     P("data",) if unet_config.lowres_conditioning else None,  # lowres_image
                     None
                 ), out_axis_resources=(None, (imagen_spec, None)))
-                c_sample = checkify.checkify(sampleg)
+                c_sample = checkify.checkify(sample)
                 p_sample = pjit.pjit(c_sample, in_axis_resources=(
                     imagen_spec,
                     P("data"),  # image
