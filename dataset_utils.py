@@ -166,9 +166,10 @@ if __name__ == "__main__":
     rng = jax.random.PRNGKey(0)
     batches = []
     batch = []
+    batch_size = 128
     for image in images:
         batch.append(image)
-        if len(batch) == 32:
+        if len(batch) == batch_size:
             batches.append(np.array(batch))
             batch = []
     while True:
