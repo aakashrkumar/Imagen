@@ -331,6 +331,7 @@ class TextConditioning(nn.Module):
             remainder = self.max_token_length - text_tokens_len
             
             if remainder > 0:
+                # the text_tokens shape is (batch_size, max_token_length, cond_dim)
                 text_tokens = jnp.pad(text_tokens, ((0, 0), (0, remainder))) # TODO: check how to do padding here
                 # text_tokens = F.pad(text_tokens, (0, 0, 0, remainder))
             
