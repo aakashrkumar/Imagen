@@ -433,6 +433,14 @@ class Upsample(nn.Module):
         return x
 # TODO: Implement pixel shuffle resampling
 
+class UpsampleCombiner(nn.Module):
+    config: UnetConfig
+    dims: Tuple[int]
+    @nn.compact
+    def __call__(self, x) -> Any:
+        blocks = [Block(dim) for dim in self.dims]
+        # TODO: finish this
+
 class CombineEmbs(nn.Module):
     """Combine positional encoding with text/image encoding."""
 
