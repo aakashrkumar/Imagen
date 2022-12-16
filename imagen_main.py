@@ -289,8 +289,8 @@ class Imagen:
                     P("data",) if unet_config.lowres_conditioning else None,  # lowres_image
                     None
                 ), out_axis_resources=(imagen_spec, None))
-
-                p_sample = pjit.pjit(sample, in_axis_resources=(
+                c_sample = checkify.checkify(sample())
+                p_sample = pjit.pjit(c_sample, in_axis_resources=(
                     imagen_spec,
                     P("data"),  # image
                     P("data"),  # text
@@ -321,7 +321,8 @@ class Imagen:
                 if self.unets[i].unet_config.lowres_conditioning:
                     lowres_images = jax.image.resize(lowres_images, (texts.shape[0], self.config.image_sizes[i], self.config.image_sizes[i], lowres_images.shape[-1]), method='nearest')
                 noise = jax.random.uniform(self.get_key(), (batch_size, self.config.image_sizes[i], self.config.image_sizes[i], 3), minval=-1, maxval=1)
-                image = self.sample_steps[i](self.unets[i], noise, texts, attention, lowres_images, self.get_key())
+                err, image = self.sample_steps[i](self.unets[i], noise, texts, attention, lowres_images, self.get_key())
+                print("Sample error", err.get())
                 lowres_images = image
         return image
 
