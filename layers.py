@@ -28,14 +28,8 @@ param_with_axes = nn_partitioning.param_with_axes
 class CheckNan(nn.Module):
     @nn.compact
     def __call__(self, x):
-        # check if x is nan or greater than 1000
-        def true_fn(x):
-            pass
-        def false_fn(x):
-            # jax.debug.print("x: {}", x)
-            jax.debug.breakpoint()
         checkify.check(jnp.isfinite(x).all() >= 0, "Infinite (infinite)")
-        checkify.check(jnp.max(x) < 100, true_fn, "Infinite (max < 2)")
+        checkify.check(jnp.max(x) < 100, "Infinite (max < 2)")
         
 class EinopsToAndFrom(nn.Module):
     fn: Any
