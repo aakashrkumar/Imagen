@@ -26,10 +26,12 @@ with_sharding_constraint = nn_partitioning.with_sharding_constraint
 param_with_axes = nn_partitioning.param_with_axes
 
 class CheckNan(nn.Module):
+    layer: str
     @nn.compact
     def __call__(self, x):
-        checkify.check(jnp.isfinite(x).all() >= 0, "Infinite (infinite)")
-        checkify.check(jnp.max(x) > 100, "Infinite (max < 2)")
+        checkify.check(jnp.isfinite(x).all() >= 0, f"Infinite (infinite) at {self.layer}")
+        checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo) at {self.layer}")
+        # checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo)")
         
 class EinopsToAndFrom(nn.Module):
     fn: Any
