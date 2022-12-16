@@ -36,6 +36,7 @@ from t5x.checkpoints import Checkpointer
 from t5x.train_state import FlaxOptimTrainState
 from t5x.optimizers import adamw
 from jax.experimental.maps import Mesh
+from jax.experimental import checkify
 
 
 
@@ -240,7 +241,7 @@ class Imagen:
                 scheduler = GaussianDiffusionContinuousTimes.create(
                     noise_schedule="cosine", num_timesteps=1000
                 )
-
+                
                 params_shape = jax.eval_shape(
                     init_state
                 )
@@ -277,8 +278,8 @@ class Imagen:
 
                 self.unets.append(unet_state)
                 self.schedulers.append(scheduler)
-
-                p_train_step = pjit.pjit(train_step, in_axis_resources=(
+                c_train_step = checkify.checkify(train_step)
+                p_train_step = pjit.pjit(c_train_step, in_axis_resources=(
                     imagen_spec,
                     P("data",),  # image
                     P("data",),  # timesteps
@@ -343,7 +344,7 @@ class Imagen:
                     lowres_aug_times = repeat(lowres_aug_times, '1 -> b', b=image_batch.shape[0])
 
                 image_batch = jax.image.resize(image_batch, (image_batch.shape[0], self.config.image_sizes[i], self.config.image_sizes[i], 3), method='nearest')
-                self.unets[i], unet_metrics = self.train_steps[i](
+                err, (self.unets[i], unet_metrics )= self.train_steps[i](
                     self.unets[i],
                     image_batch,
                     timestep,
@@ -353,6 +354,7 @@ class Imagen:
                     lowres_aug_times,
                     key
                 )
+                err.throw()
                 for key in unet_metrics:
                     unet_metrics[key] = np.asarray(unet_metrics[key])
                     unet_metrics[key] = np.mean(unet_metrics[key])

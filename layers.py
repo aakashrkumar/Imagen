@@ -20,6 +20,7 @@ import partitioning as nnp
 from flax.linen import partitioning as nn_partitioning
 
 from config import BlockConfig, UnetConfig, ImagenConfig
+from jax.experimental import checkify
 
 with_sharding_constraint = nn_partitioning.with_sharding_constraint
 param_with_axes = nn_partitioning.param_with_axes
@@ -33,9 +34,8 @@ class CheckNan(nn.Module):
         def false_fn(x):
             # jax.debug.print("x: {}", x)
             jax.debug.breakpoint()
-        jax.lax.cond(jnp.isfinite(x).all(), true_fn, false_fn, x)
-        jax.lax.cond(jnp.max(x) < 10000, true_fn, false_fn, x)
-        
+        checkify.check(jnp.isfinite(x).all() >= 0, "Infinite (infinite)")
+        checkify.check(jnp.max(x) < 100, true_fn, "Infinite (max < 2)")
         
 class EinopsToAndFrom(nn.Module):
     fn: Any
