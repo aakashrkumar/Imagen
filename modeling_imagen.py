@@ -42,26 +42,26 @@ class EfficentUNet(nn.Module):
         x = CrossEmbedLayer(dim=self.config.dim,
                     kernel_sizes=(3, 7, 15), stride=1)(x)
         time_hidden = LearnedSinusoidalPosEmb(config=self.config)(time)  # (b, 1, d)
-        time_hidden = nnp.Dense(features=self.config.time_conditiong_dim, shard_axes={"kernel": ("embed", "mlp")})(time_hidden)
+        time_hidden = nnp.Dense(features=self.config.time_conditiong_dim, shard_axes={"kernel": ("mlp", "embed")})(time_hidden)
         time_hidden = nn.silu(time_hidden)
 
         t = nnp.Dense(features=self.config.time_conditiong_dim,
-                      dtype=self.config.dtype, shard_axes={"kernel": ("embed", "mlp")})(time_hidden)
+                      dtype=self.config.dtype, shard_axes={"kernel": ("mlp", "embed")})(time_hidden)
 
         t = with_sharding_constraint(t, ("batch", "embed"))
 
-        time_tokens = nnp.Dense(self.config.cond_dim * self.config.num_time_tokens, shard_axes={"kernel": ("embed", "mlp")})(t)
+        time_tokens = nnp.Dense(self.config.cond_dim * self.config.num_time_tokens, shard_axes={"kernel": ("mlp", "embed")})(t)
         time_tokens = rearrange(time_tokens, 'b (r d) -> b r d', r=self.config.num_time_tokens)
 
         time_tokens = with_sharding_constraint(time_tokens, P("batch", "seq", "embed"))
         if self.config.lowres_conditioning:
             lowres_time_hiddens = LearnedSinusoidalPosEmb(config=self.config)(lowres_noise_times)  # (b, 1, d)
-            lowres_time_hiddens = nnp.Dense(features=self.config.time_conditiong_dim, shard_axes={"kernel": ("embed", "mlp")})(lowres_time_hiddens)
+            lowres_time_hiddens = nnp.Dense(features=self.config.time_conditiong_dim, shard_axes={"kernel": ("mlp", "embed")})(lowres_time_hiddens)
             lowres_time_hiddens = nn.silu(lowres_time_hiddens)
-            lowres_time_tokens = nnp.Dense(self.config.cond_dim * self.config.num_time_tokens, shard_axes={"kernel": ("embed", "mlp")})(lowres_time_hiddens)
+            lowres_time_tokens = nnp.Dense(self.config.cond_dim * self.config.num_time_tokens, shard_axes={"kernel": ("mlp", "embed")})(lowres_time_hiddens)
             lowres_time_tokens = rearrange(lowres_time_tokens, 'b (r d) -> b r d', r=self.config.num_time_tokens)
             
-            lowres_t = nnp.Dense(features=self.config.time_conditiong_dim, dtype=self.config.dtype, shard_axes={"kernel": ("embed", "mlp")})(lowres_time_hiddens)
+            lowres_t = nnp.Dense(features=self.config.time_conditiong_dim, dtype=self.config.dtype, shard_axes={"kernel": ("mlp", "embed")})(lowres_time_hiddens)
 
             t = t + lowres_t
             time_tokens = jnp.concatenate([time_tokens, lowres_time_tokens], axis=-2)

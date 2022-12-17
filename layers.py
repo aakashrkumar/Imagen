@@ -67,14 +67,14 @@ class Attention(nn.Module):
         q = nnp.Dense(features=inner_dim, use_bias=False, shard_axes={
                       "kernel": ("heads", "kv")}, dtype=self.config.dtype)(x)
         k, v = nnp.Dense(features=self.config.dim_heads * 2, use_bias=False,
-                         shard_axes={"kernel": ("heads", "kv")}, dtype=self.config.dtype)(x).split(2, axis=-1)  # TODO: Check if it should be 2 or 3 kernel shards
+                         shard_axes={"kernel": ("embed", "kv")}, dtype=self.config.dtype)(x).split(2, axis=-1)  # TODO: Check if it should be 2 or 3 kernel shards
 
         q = rearrange(q, 'b n (h d) -> b h n d', h=self.block_config.num_heads)
         q = q * scale
 
         q = with_sharding_constraint(q, ("batch", "length", "heads", "kv"))
-        k = with_sharding_constraint(k, ("batch", "heads", "kv"))
-        v = with_sharding_constraint(v, ("batch", "heads", "kv"))
+        k = with_sharding_constraint(k, ("batch", "length", "kv"))
+        v = with_sharding_constraint(v, ("batch", "length", "kv"))
 
         null_kv = param_with_axes(
             'null_kv', nn.initializers.lecun_normal(), (2, self.config.dim_heads), axes=("kv", "heads"))
@@ -116,7 +116,7 @@ class Attention(nn.Module):
 
         out = rearrange(out, 'b h n d -> b n (h d)')
 
-        out = nnp.Dense(features=self.block_config.dim, use_bias=False, shard_axes={"kernel": ("heads",  "kv")})(out)
+        out = nnp.Dense(features=self.block_config.dim, use_bias=False, shard_axes={"kernel": ("kv",  "embed")})(out)
         out = LayerNorm()(out)
         return out
 
@@ -142,10 +142,10 @@ class FeedForward(nn.Module):
     def __call__(self, x):
         hidden_dim = int(self.dim * self.mult)
         x = LayerNorm(axis=-2)(x) # TODO: Figure out if layer norm axes are correct
-        x = nn.Dense(hidden_dim, bias = False)(x)
+        x = nnp.Dense(hidden_dim, bias = False, shard_axes={"kernel": ("embed", "mlp")})(x)
         x = nn.gelu(x)
         x = LayerNorm(axis=-2)(x) # ibid
-        x = nn.Dense(self.dim, bias = False)(x)
+        x = nnp.Dense(self.dim, bias = False, shard_axes={"kernel": ("mlp", "embed")})(x)
         return x
         
 
@@ -159,7 +159,7 @@ class ChannelFeedForward(nn.Module):
         x = nnp.Conv(features=self.dim * self.mult, kernel_size=(1, 1), shard_axes={"kernel": ("width", "height", "mlp")})(x)
         x = nn.gelu(x)
         x = ChannelLayerNorm()(x)
-        x = nnp.Conv(features=self.dim, kernel_size=(1, 1), shard_axes={"kernel": ("width", "height", "mlp")})(x)
+        x = nnp.Conv(features=self.dim, kernel_size=(1, 1), shard_axes={"kernel": ("width", "height", "embed")})(x)
         return x
 
 
@@ -353,13 +353,13 @@ class TextConditioning(nn.Module):
             mean_pooled_text_tokens = jnp.mean(text_tokens, axis=-2)
             
             text_hiddens = nnp.LayerNorm()(mean_pooled_text_tokens)
-            text_hiddens = nnp.Dense(features=self.time_cond_dim, shard_axes={"kernel": ("embed", "mlp")}, dtype=self.dtype)(text_hiddens)
+            text_hiddens = nnp.Dense(features=self.time_cond_dim, shard_axes={"kernel": ("mlp", "embed")}, dtype=self.dtype)(text_hiddens)
             text_hiddens = nn.silu(text_hiddens)
-            text_hiddens = nnp.Dense(features=self.time_cond_dim, shard_axes={"kernel": ("embed", "mlp")}, dtype=self.dtype)(text_hiddens)
+            text_hiddens = nnp.Dense(features=self.time_cond_dim, shard_axes={"kernel": ("mlp", "embed")}, dtype=self.dtype)(text_hiddens)
 
 
             null_text_hidden = param_with_axes(
-                'null_text_hidden', nn.initializers.lecun_normal(), (1, self.time_cond_dim), axes=("embed", "mlp"))
+                'null_text_hidden', nn.initializers.lecun_normal(), (1, self.time_cond_dim), axes=("mlp", "embed"))
             text_hiddens = jnp.where(
                 text_keep_mask_hidden, text_hiddens, null_text_hidden)  # same question
 
@@ -407,7 +407,7 @@ class ResnetBlock(nn.Module):
 
         h = Block(self.block_config.dim)(h, scale_shift=scale_shift)
         # TODO: Maybe implement global context like lucidrains
-        return h + nnp.Conv(features=self.block_config.dim, kernel_size=(1, 1), padding="same", shard_axes={"kernel": ("width", "height", "mlp")})(x)
+        return h + nnp.Conv(features=self.block_config.dim, kernel_size=(1, 1), padding="same", shard_axes={"kernel": ("width", "height", "embed")})(x)
 
 
 class Downsample(nn.Module):
