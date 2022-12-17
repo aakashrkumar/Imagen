@@ -66,7 +66,6 @@ class EfficentUNet(nn.Module):
             time_tokens = jnp.concatenate([time_tokens, lowres_time_tokens], axis=-2)
 
         t, c = TextConditioning(cond_dim=self.config.cond_dim, time_cond_dim=self.config.time_conditiong_dim, max_token_length=self.config.max_token_len, cond_drop_prob=condition_drop_prob)(texts, attention_masks, t, time_tokens, rng)
-        print(t.shape)
         
         # TODO: add init resnet block
 
