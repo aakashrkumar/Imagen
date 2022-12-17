@@ -60,8 +60,7 @@ class Attention(nn.Module):
 
         scale = self.config.dim_heads ** -0.5 # TODO: Implement cosine sim attention
         inner_dim = self.config.dim_heads * self.block_config.num_heads
-
-        x = LayerNorm()(x) # TODO: Figure out if layer norm axes are correct
+        x = LayerNorm()(x)
         x = with_sharding_constraint(x, ("batch", "length", "embed"))
 
         q = nnp.Dense(features=inner_dim, use_bias=False, shard_axes={
@@ -206,7 +205,8 @@ class CrossAttention(nn.Module):
 
         b, n = x.shape[:2]
         
-        x = nnp.LayerNorm()(x)
+
+
         if self.norm_context:
             context = nnp.LayerNorm()(context)
         
