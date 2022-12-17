@@ -516,7 +516,7 @@ class AlternateCrossAttentionBlock(nn.Module):
 
     @nn.compact
     def __call__(self, x, s, a):
-
+        x = nnp.LayerNorm(dtype=self.dtype)(x)  # normalize
         text_embeds = s
         # repeat mask accross latent dimension
         attention_mask = repeat(a, 'b s -> b s d', d=s.shape[-1])
@@ -553,7 +553,6 @@ class AlternateCrossAttentionBlock(nn.Module):
         output = nn.Dense(features=x.shape[-1], dtype=self.num_channels)
 
         x = x + output  # add original information
-        x = nnp.LayerNorm(dtype=self.dtype)(x)  # normalize
 
         return x
 
@@ -565,7 +564,7 @@ class CrossAttentionBlock(nn.Module):
 
     @nn.compact
     def __call__(self, x, s, a):
-
+        x = nnp.LayerNorm(dtype=self.dtype)(x)  # normalize
         text_embeds = s
         # repeat mask accross latent dimension
         attention_mask = repeat(a, 'b s -> b s d', d=s.shape[-1])
@@ -599,6 +598,4 @@ class CrossAttentionBlock(nn.Module):
         output = reduce(output, 'b w h s c -> b w h c', 'max')
 
         x = x + output  # add original information
-        x = nnp.LayerNorm(dtype=self.dtype)(x)  # normalize
-
         return x

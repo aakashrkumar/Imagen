@@ -50,12 +50,12 @@ class GaussianDiffusionContinuousTimes(struct.PyTreeNode):
     def sample_random_timestep(self, batch_size, rng):
         return jax.random.uniform(key=rng, shape=(batch_size,), minval=0, maxval=1)
 
-    def get_sampling_timesteps(self, batch):
+    def get_sampling_timesteps(self, batch, index):
         times = jnp.linspace(1., 0., self.num_timesteps + 1)
         times = repeat(times, 't -> b t', b=batch)
         times = jnp.stack((times[:, :-1], times[:, 1:]), dim=0)
         times = unbind(times, axis=-1)
-        return times
+        return times[index]
 
     def q_posterior(self, x_start, x_t, t, t_next=None):
         t_next = default(t_next, jnp.maximum(0, (t - 1. / self.num_timesteps)))
