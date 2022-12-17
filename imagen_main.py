@@ -112,11 +112,10 @@ def conditioning_pred(generator_state, t, cond_scale):
     return null_logits + (pred - null_logits) * cond_scale
 
 
-def p_mean_variance(t_index, generator_state):
-    t = generator_state.unet_state.get_sampling_timesteps(generator_state.image.shape[0], t_index)
-    pred = conditioning_pred(generator_state, t, 4.0)
+def p_mean_variance(generator_state, time_steps):
+    pred = conditioning_pred(generator_state, time_steps, 5.0)
     x_start = generator_state.unet_state.sampler.predict_start_from_noise(
-        generator_state.image, t=t, noise=pred)
+        generator_state.image, t=time_steps, noise=pred)
 
     s = jnp.percentile(
         jnp.abs(rearrange(x_start, 'b ... -> b (...)')),
@@ -128,25 +127,26 @@ def p_mean_variance(t_index, generator_state):
     s = right_pad_dims_to(x_start, s)
     x_start = jnp.clip(x_start, -s, s) / s
 
-    return generator_state.unet_state.sampler.q_posterior(x_start, x_t=generator_state.image, t=t)
+    return generator_state.unet_state.sampler.q_posterior(x_start, x_t=generator_state.image, t=time_steps)
 
 
-def p_sample(t_index, generator_state):
+def p_sample(generator_state, time_steps):
     model_mean, _, model_log_variance = p_mean_variance(
-        t_index, generator_state)
+        time_steps, generator_state)
     rng, key = jax.random.split(generator_state.rng)
     generator_state = generator_state.replace(rng=rng)
     noise = jax.random.uniform(key, generator_state.image.shape, minval=-1, maxval=1)
-    x = jax.lax.cond(t_index > 0, lambda x: model_mean + noise *
+    x = jax.lax.cond(time_steps[0] > 0, lambda x: model_mean + noise *
                      jnp.exp(0.5 * model_log_variance), lambda x: model_mean, None)
-    return generator_state.replace(image=x)
+    return generator_state.replace(image=x), x
 
 
 def p_sample_loop(unet_state, img, texts, attention, lowres_cond_image, rng):
     rng, key = jax.random.split(rng)
     generator_state = GeneratorState(
         unet_state=unet_state, image=img, text=texts, attention=attention, lowres_cond_image=lowres_cond_image, rng=key)
-    generator_state = jax.lax.fori_loop(0, 1000, p_sample, generator_state)
+    time_steps = unet_state.sampler.get_sampling_timesteps(img.shape[0])
+    generator_state, images = jax.lax.scan(p_sample, generator_state, time_steps)
     img = generator_state.image
     return img
 
