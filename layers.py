@@ -445,7 +445,7 @@ class UpsampleCombiner(nn.Module):
     @nn.compact
     def __call__(self, x, fmaps=None) -> Any:
         blocks = [Block(self.dim) for _ in range(len(fmaps))]
-        f_maps = [jax.image.resize(fmaps, shape=(x.shape)) for fmap in fmaps]
+        f_maps = [jax.image.resize(fmaps, shape=(x.shape), method="nearest") for fmap in fmaps]
         outs = [block(fmap) for block, fmap in zip(blocks, f_maps)]
         return jnp.concatenate([x, *outs], axis=-1)
 class CombineEmbs(nn.Module):
