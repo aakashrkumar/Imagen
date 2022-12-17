@@ -113,7 +113,6 @@ def conditioning_pred(generator_state, t, cond_scale):
 
 
 def p_mean_variance(generator_state, time_steps):
-    print(time_steps)
     pred = conditioning_pred(generator_state, time_steps, 5.0)
     x_start = generator_state.unet_state.sampler.predict_start_from_noise(
         generator_state.image, t=time_steps, noise=pred)
@@ -132,6 +131,7 @@ def p_mean_variance(generator_state, time_steps):
 
 
 def p_sample(generator_state, time_steps):
+    print(time_steps)
     model_mean, _, model_log_variance = p_mean_variance(generator_state,
         time_steps)
     rng, key = jax.random.split(generator_state.rng)
@@ -147,7 +147,7 @@ def p_sample_loop(unet_state, img, texts, attention, lowres_cond_image, rng):
     generator_state = GeneratorState(
         unet_state=unet_state, image=img, text=texts, attention=attention, lowres_cond_image=lowres_cond_image, rng=key)
     time_steps = unet_state.sampler.get_sampling_timesteps(img.shape[0])
-    generator_state, images = jax.lax.scan(p_sample, generator_state, time_steps)
+    generator_state, images = jax.lax.scan(f=p_sample, init=generator_state, xs=time_steps)
     img = generator_state.image
     return img
 
