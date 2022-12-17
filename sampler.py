@@ -52,7 +52,7 @@ class GaussianDiffusionContinuousTimes(struct.PyTreeNode):
     def get_sampling_timesteps(self, batch):
         times = jnp.linspace(1., 0., self.num_timesteps + 1)
         times = repeat(times, 't -> b t', b=batch)
-        times = jnp.stack((times[:, :-1], times[:, 1:]), axis=0)
+        # times = jnp.stack((times[:, :-1], times[:, 1:]), axis=0)
         times = jax_unstack(times, axis=-1)
         return times
 
@@ -138,6 +138,9 @@ def test():
     noise = jax.random.normal(jax.random.PRNGKey(0), img.shape)
     scheduler = GaussianDiffusionContinuousTimes.create(
         noise_schedule="cosine", num_timesteps=1000)
+    ts = scheduler.get_sampling_timesteps(1)
+    print(ts)
+    quit()
     images = []
     # ts = scheduler.get_sampling_timesteps(64, jax.random.PRNGKey(0))
     ts = 1.
