@@ -397,6 +397,7 @@ class ResnetBlock(nn.Module):
     @nn.compact
     def __call__(self, x, time_emb=None, cond=None):
         scale_shift = None
+        checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo) with x_max equal to {jnp.max(x)}, {self.block_config}")
         if exists(time_emb):
             time_emb = nn.silu(time_emb)
             time_emb = nnp.Dense(features=self.block_config.dim * 2, dtype=self.config.dtype,
@@ -404,12 +405,15 @@ class ResnetBlock(nn.Module):
             time_emb = rearrange(time_emb, 'b c -> b 1 1 c')
             scale_shift = jnp.split(time_emb, 2, axis=-1)
         h = Block(self.block_config.dim)(x)
+        checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo) with x_max equal to {jnp.max(x)}, {self.block_config}")
         if exists(cond):
             # TODO: maybe use pack like lucidrains, but maybe Einops is better, at least notationally
             h = EinopsToAndFrom(CrossAttention(config=self.config, block_config=self.block_config),
                                 'b h w c', ' b (h w) c')(h, context=cond) + h
+            checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo) with x_max equal to {jnp.max(x)}, {self.block_config}")
 
         h = Block(self.block_config.dim)(h, scale_shift=scale_shift)
+        checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo) with x_max equal to {jnp.max(x)}, {self.block_config}")
         # TODO: Maybe implement global context like lucidrains
         return h + nnp.Conv(features=self.block_config.dim, kernel_size=(1, 1), padding="same", shard_axes={"kernel": ("width", "height", "mlp")})(x)
 

@@ -87,25 +87,25 @@ class EfficentUNet(nn.Module):
         for block_config in self.config.block_configs:
             x = Downsample(config=self.config, block_config=block_config)(x)
             x = ResnetBlock(config=self.config, block_config=block_config)(x, t, c)
-            checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo)")
+            checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo) with x_max equal to {jnp.max(x)}, {block_config}")
             for _ in range(block_config.num_resnet_blocks):
                 x = ResnetBlock(config=self.config, block_config=block_config)(x)
-                checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo)")
+                checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo) with x_max equal to {jnp.max(x)}")
                 x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
                 hiddens.append(x)
             x = TransformerBlock(config=self.config, block_config=block_config)(x)
-            checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo)")
+            checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo) with x_max equal to {jnp.max(x)}")
             x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
             hiddens.append(x)
         
         # middle
         block_config = self.config.block_configs[-1]
         x = ResnetBlock(config=self.config, block_config=block_config)(x, t, c)
-        checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo)")
+        checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo) with x_max equal to {jnp.max(x)}")
         x = EinopsToAndFrom(Attention(config=self.config, block_config=block_config), 'b h w c', 'b (h w) c')(x)
-        checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo)")
+        checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo) with x_max equal to {jnp.max(x)}")
         x = ResnetBlock(config=self.config, block_config=block_config)(x, t, c)
-        checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo)")
+        checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo) with x_max equal to {jnp.max(x)}")
         
         # Upsample
         add_skip_connection = lambda x: jnp.concatenate([x, hiddens.pop()], axis=-1)
