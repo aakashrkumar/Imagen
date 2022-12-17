@@ -131,7 +131,7 @@ def p_mean_variance(generator_state, time_steps):
 
 
 def p_sample(generator_state, time_steps):
-    print(time_steps.shape)
+    print(len(time_steps))
     model_mean, _, model_log_variance = p_mean_variance(generator_state,
         time_steps)
     rng, key = jax.random.split(generator_state.rng)
