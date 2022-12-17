@@ -82,11 +82,11 @@ class EfficentUNet(nn.Module):
             x = ResnetBlock(config=self.config, block_config=block_config)(x, t, c)
             for _ in range(block_config.num_resnet_blocks):
                 x = ResnetBlock(config=self.config, block_config=block_config)(x)
-                x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
+                # x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
                 hiddens.append(x)
             if block_config.num_heads > 0:
                 x = TransformerBlock(config=self.config, block_config=block_config)(x)
-            x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
+            # x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
             hiddens.append(x)
         
         # middle
@@ -104,9 +104,9 @@ class EfficentUNet(nn.Module):
             x = ResnetBlock(config=self.config, block_config=block_config)(x, t, c)
             for _ in range(block_config.num_resnet_blocks):
                 x = add_skip_connection(x)
-                x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
+                # x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
                 x = ResnetBlock(config=self.config, block_config=block_config)(x)
-                x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
+               #  x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
             if block_config.num_heads > 0:
                 x = TransformerBlock(config=self.config, block_config=block_config)(x)
             up_hiddens.append(x)
