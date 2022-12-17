@@ -17,3 +17,4 @@ fabric
 tensorflow-datasets
 einops_exts
 scikit-learn
+git+https://github.com/isaaccorley/jax-enhance

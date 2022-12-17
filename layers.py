@@ -21,6 +21,7 @@ from flax.linen import partitioning as nn_partitioning
 
 from config import BlockConfig, UnetConfig, ImagenConfig
 from jax.experimental import checkify
+import jax_enhance
 
 with_sharding_constraint = nn_partitioning.with_sharding_constraint
 param_with_axes = nn_partitioning.param_with_axes
@@ -421,7 +422,7 @@ class Downsample(nn.Module):
     @nn.compact
     def __call__(self, x):
         # TODO: Implement the pixel shuffle from lucidrains
-        x = rearrange('b c (h s1) (w s2) -> b (c s1 s2) h w', s1 = 2, s2 = 2),
+        x = rearrange(x, 'b c (h s1) (w s2) -> b (c s1 s2) h w', s1 = 2, s2 = 2),
         x = nnp.Conv(features=self.block_config.dim, kernel_size=(1, 1), shard_axes={"kernel": ("width", "height", "mlp")})(x) # TODO: Check kernel size/padding
 
 
@@ -438,8 +439,17 @@ class Upsample(nn.Module):
         )
         x = nnp.Conv(features=self.block_config.dim, kernel_size=(5, 5), padding=2, shard_axes={"kernel": ("width", "height", "mlp")})(x) # TODO: Check kernel size/padding
         return x
-# TODO: Implement pixel shuffle resampling
-
+class PixelShuffleUpsample(nn.Module):
+    config: UnetConfig
+    block_config: BlockConfig
+    @nn.compact
+    def __call__(self, x):
+        x = nn.Conv(self.block_config.dim * 4, kernel_size=(1, 1))(x)
+        x = nn.silu(x)
+        x = jax_enhance.layers.PixelShuffle(2)(x)
+        
+        return x
+    
 class UpsampleCombiner(nn.Module):
     config: UnetConfig
 
@@ -449,6 +459,7 @@ class UpsampleCombiner(nn.Module):
         f_maps = [jax.image.resize(fmap, shape=(x.shape), method="nearest") for fmap in fmaps]
         outs = [block(fmap) for block, fmap in zip(blocks, f_maps)]
         return jnp.concatenate([x, *outs], axis=-1)
+
 class CombineEmbs(nn.Module):
     """Combine positional encoding with text/image encoding."""
 
