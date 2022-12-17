@@ -4,7 +4,6 @@ import jax
 import flax
 from flax import linen as nn
 import jax.numpy as jnp
-from torch import unbind
 
 from tqdm import tqdm
 
@@ -53,8 +52,8 @@ class GaussianDiffusionContinuousTimes(struct.PyTreeNode):
     def get_sampling_timesteps(self, batch):
         times = jnp.linspace(1., 0., self.num_timesteps + 1)
         times = repeat(times, 't -> b t', b=batch)
-        times = jnp.stack((times[:, :-1], times[:, 1:]), dim=0)
-        times = unbind(times, axis=-1)
+        times = jnp.stack((times[:, :-1], times[:, 1:]), axis=0)
+        times = jax_unstack(times, axis=-1)
         return times
 
     def q_posterior(self, x_start, x_t, t, t_next=None):
