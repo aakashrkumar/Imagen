@@ -147,6 +147,8 @@ def p_sample_loop(unet_state, img, texts, attention, lowres_cond_image, rng):
     generator_state = GeneratorState(
         unet_state=unet_state, image=img, text=texts, attention=attention, lowres_cond_image=lowres_cond_image, rng=key)
     time_steps = unet_state.sampler.get_sampling_timesteps(img.shape[0])
+    for timestep in time_steps:
+        print(timestep)
     generator_state, images = jax.lax.scan(f=p_sample, init=generator_state, xs=time_steps)
     img = generator_state.image
     return img
