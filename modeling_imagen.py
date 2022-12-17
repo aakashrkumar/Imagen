@@ -28,6 +28,7 @@ class EfficentUNet(nn.Module):
 
         x = x.astype(self.config.dtype)
         checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo)")
+        time = jnp.array(time)
         time = time.astype(self.config.dtype)
         if exists(texts):
             texts = texts.astype(self.config.dtype)
