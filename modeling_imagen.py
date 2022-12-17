@@ -49,7 +49,7 @@ class EfficentUNet(nn.Module):
                       dtype=self.config.dtype, shard_axes={"kernel": ("embed", "mlp")})(time_hidden)
 
         t = with_sharding_constraint(t, ("batch", "mlp"))
-
+        print(time_tokens.shape)
         time_tokens = nnp.Dense(self.config.cond_dim * self.config.num_time_tokens, shard_axes={"kernel": ("mlp", "embed")})(t)
         time_tokens = rearrange(time_tokens, 'b (r d) -> b r d', r=self.config.num_time_tokens)
 
