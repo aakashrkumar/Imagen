@@ -370,11 +370,11 @@ def test():
     print("Done with imagen setup. Starting training loop")
     pb = tqdm(range(100000))
     while True:
-       # imagen.train_step(jnp.ones((config.batch_size, 64, 64, 3)),
-       #                   jnp.ones((config.batch_size, 256, 512)),
-         #                 jnp.ones((config.batch_size, 256)))
-        imagen.sample(jnp.ones((8, 256, 512)),
-                          jnp.ones((8, 256)))
+        imagen.train_step(jnp.ones((config.batch_size, 64, 64, 3)),
+                          jnp.ones((config.batch_size, 256, 512)),
+                          jnp.ones((config.batch_size, 256)))
+        #imagen.sample(jnp.ones((8, 256, 512)),
+         #                 jnp.ones((8, 256)))
         pb.update(1)
 
 
