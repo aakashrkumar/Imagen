@@ -131,8 +131,8 @@ def p_mean_variance(generator_state, time_steps):
 
 
 def p_sample(generator_state, time_steps):
-    model_mean, _, model_log_variance = p_mean_variance(
-        time_steps, generator_state)
+    model_mean, _, model_log_variance = p_mean_variance(generator_state,
+        time_steps)
     rng, key = jax.random.split(generator_state.rng)
     generator_state = generator_state.replace(rng=rng)
     noise = jax.random.uniform(key, generator_state.image.shape, minval=-1, maxval=1)
