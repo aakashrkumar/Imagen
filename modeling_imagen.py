@@ -42,7 +42,7 @@ class EfficentUNet(nn.Module):
         x = CrossEmbedLayer(dim=self.config.dim,
                     kernel_sizes=(3, 7, 15), stride=1)(x)
         time_hidden = LearnedSinusoidalPosEmb(config=self.config)(time)  # (b, 1, d)
-        time_hidden = nnp.Dense(features=self.config.time_conditiong_dim, shard_axes={"kernel": ("mlp", "embed")})(time_hidden)
+        time_hidden = nnp.Dense(features=self.config.time_conditiong_dim, shard_axes={"kernel": ("embed", "mlp")})(time_hidden)
         time_hidden = nn.silu(time_hidden)
 
         t = nnp.Dense(features=self.config.time_conditiong_dim,
