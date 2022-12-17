@@ -407,7 +407,7 @@ class ResnetBlock(nn.Module):
 
         h = Block(self.block_config.dim)(h, scale_shift=scale_shift)
         # TODO: Maybe implement global context like lucidrains
-        return h + nnp.Conv(features=self.block_config.dim, kernel_size=(1, 1), padding="same", shard_axes={"kernel": ("width", "height", "embed")})(x)
+        return h + nnp.Conv(features=self.block_config.dim, kernel_size=(1, 1), padding="same", shard_axes={"kernel": ("width", "height", "mlp")})(x)
 
 
 class Downsample(nn.Module):
