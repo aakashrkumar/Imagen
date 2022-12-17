@@ -115,7 +115,7 @@ class EfficentUNet(nn.Module):
             x = Upsample(config=self.config, block_config=block_config)(x)
         
         # TODO: make this a config option
-        x = UpsampleCombiner(dim=self.config.dim)(x, up_hiddens)
+        x = UpsampleCombiner(config=self.config)(x, up_hiddens)
         x = jnp.concatenate([x, init_conv_residual], axis=-1)
         
         x = ResnetBlock(config=self.config, block_config=block_config)(x, t, c)
