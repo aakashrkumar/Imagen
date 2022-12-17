@@ -138,8 +138,9 @@ def test():
     noise = jax.random.normal(jax.random.PRNGKey(0), img.shape)
     scheduler = GaussianDiffusionContinuousTimes.create(
         noise_schedule="cosine", num_timesteps=1000)
-    ts = scheduler.get_sampling_timesteps(1)
-    print(ts)
+    ts = scheduler.get_sampling_timesteps(128)
+    for t in ts:
+        print(t)
     quit()
     images = []
     # ts = scheduler.get_sampling_timesteps(64, jax.random.PRNGKey(0))

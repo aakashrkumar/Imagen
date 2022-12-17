@@ -131,7 +131,7 @@ def p_mean_variance(generator_state, time_steps):
 
 
 def p_sample(generator_state, time_steps):
-    print(time_steps)
+    print(time_steps.shape)
     model_mean, _, model_log_variance = p_mean_variance(generator_state,
         time_steps)
     rng, key = jax.random.split(generator_state.rng)
@@ -374,8 +374,8 @@ def test():
        # imagen.train_step(jnp.ones((config.batch_size, 64, 64, 3)),
        #                   jnp.ones((config.batch_size, 256, 512)),
          #                 jnp.ones((config.batch_size, 256)))
-        imagen.sample(jnp.ones((config.batch_size, 256, 512)),
-                          jnp.ones((config.batch_size, 256)))
+        imagen.sample(jnp.ones((8, 256, 512)),
+                          jnp.ones((8, 256)))
         pb.update(1)
 
 
