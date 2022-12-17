@@ -62,7 +62,7 @@ class Attention(nn.Module):
         scale = self.config.dim_heads ** -0.5 # TODO: Implement cosine sim attention
         inner_dim = self.config.dim_heads * self.block_config.num_heads
         x = LayerNorm()(x)
-        x = with_sharding_constraint(x, ("batch", "length", "embed"))
+        x = with_sharding_constraint(x, ("batch", "length", "mlp"))
 
         q = nnp.Dense(features=inner_dim, use_bias=False, shard_axes={
                       "kernel": ("heads", "kv")}, dtype=self.config.dtype)(x)
@@ -130,7 +130,7 @@ class TransformerBlock(nn.Module):
         # TODO: implement attention_depth
         # TODO: maybe implement pack/unpack
         x = EinopsToAndFrom(Attention(config=self.config, block_config=self.block_config), 'b h w c', 'b (h w) c')(x, context=context) + x
-        x = with_sharding_constraint(x, ("batch", "length", "embed"))
+        x = with_sharding_constraint(x, ("batch", "length", "mlp"))
         x = ChannelFeedForward(dim=self.block_config.dim, mult=self.config.ff_mult)(x) + x # TODO: Lucidrains uses FeedForward instead of ChannelFeedForward
         return x
 
@@ -235,9 +235,6 @@ class CrossAttention(nn.Module):
         k = jnp.concatenate((nk, k), axis=-2)
         v = jnp.concatenate((nv, v), axis=-2)
 
-        k = with_sharding_constraint(k, ("batch", "length", "heads", "kv"))
-        v = with_sharding_constraint(v, ("batch", "length", "heads", "kv"))
-
         q = q * scale
 
         sim = jnp.einsum('b h i d, b h j d -> b h i j', q, k)
@@ -249,10 +246,8 @@ class CrossAttention(nn.Module):
             sim = jnp.where(mask, -jnp.inf, sim)
 
         attn = nn.softmax(sim, axis=-1)
-        attn = with_sharding_constraint(attn, ("batch", "length", "heads", "kv"))
         
         out = jnp.einsum('b h i j, b h j d -> b h i d', attn, v)
-        out = with_sharding_constraint(out, ("batch", "length", "heads", "kv"))
         
         out = rearrange(out, 'b h n d -> b n (h d)')
         
@@ -385,7 +380,7 @@ class Block(nn.Module):
             scale, shift = scale_shift
             x = x * (scale + 1) + shift
             x = with_sharding_constraint(
-                x, ("batch", "width", "height", "dim"))
+                x, ("batch", "width", "height", "mlp"))
         x = nn.silu(x) # TODO: Try swish
         return nnp.Conv(features=self.dim, kernel_size=(3, 3), padding=1, shard_axes=({"kernel": ("width", "height", "mlp")}))(x)
 
