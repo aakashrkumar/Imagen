@@ -421,7 +421,8 @@ class Downsample(nn.Module):
     @nn.compact
     def __call__(self, x):
         # TODO: Implement the pixel shuffle from lucidrains
-        return nnp.Conv(features=self.block_config.dim, kernel_size=(5, 5), strides=(2, 2), padding=2, shard_axes={"kernel": ("width", "height", "mlp")})(x)
+        x = rearrange('b c (h s1) (w s2) -> b (c s1 s2) h w', s1 = 2, s2 = 2),
+        x = nnp.Conv(features=self.block_config.dim, kernel_size=(1, 1), shard_axes={"kernel": ("width", "height", "mlp")})(x) # TODO: Check kernel size/padding
 
 
 class Upsample(nn.Module):
