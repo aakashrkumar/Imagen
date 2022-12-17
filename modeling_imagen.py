@@ -104,7 +104,8 @@ class EfficentUNet(nn.Module):
         block_config = self.config.block_configs[-1]
         x = ResnetBlock(config=self.config, block_config=block_config)(x, t, c)
         checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo) with x_max equal to {jnp.max(x)}")
-        x = EinopsToAndFrom(Attention(config=self.config, block_config=block_config), 'b h w c', 'b (h w) c')(x)
+        if block_config.num_heads > 0:
+            x = EinopsToAndFrom(Attention(config=self.config, block_config=block_config), 'b h w c', 'b (h w) c')(x)
         checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo) with x_max equal to {jnp.max(x)}")
         x = ResnetBlock(config=self.config, block_config=block_config)(x, t, c)
         checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo) with x_max equal to {jnp.max(x)}")
