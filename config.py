@@ -101,7 +101,7 @@ class UnetConfig(struct.PyTreeNode):
 
 class ImagenConfig(struct.PyTreeNode):
     unets:                  Tuple[UnetConfig] = (
-                                UnetConfig.create(dim=128, dim_mults=(1, 2, 4, 8), num_heads=(0, 4, 4, 4), num_resnet_blocks=3, 
+                                UnetConfig.create(dim=128, dim_mults=(1, 2), num_heads=(0, 4, 4, 4), num_resnet_blocks=1, 
                                                   scheduler="cosine", lowres_conditioning=False, dtype=jnp.bfloat16),
                                 #UnetConfig.create(dim=128, dim_mults=(1, 2, 4, 8), num_heads=(0, 0, 0, 8), num_resnet_blocks=(2, 4, 8, 8), 
                                  #                 scheduler="cosine", lowres_conditioning=True, dtype=jnp.bfloat16),
