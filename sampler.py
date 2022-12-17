@@ -54,6 +54,7 @@ class GaussianDiffusionContinuousTimes(struct.PyTreeNode):
         times = repeat(times, 't -> b t', b=batch)
         # times = jnp.stack((times[:, :-1], times[:, 1:]), axis=0)
         times = jax_unstack(times, axis=-1)
+        times = jnp.array(times)
         return times
 
     def q_posterior(self, x_start, x_t, t, t_next=None):
@@ -129,6 +130,10 @@ class GaussianDiffusionContinuousTimes(struct.PyTreeNode):
 def get_noisy_image(x, t, noise, sampler):
     return sampler.q_sample(x, t, noise)
 
+def test_sample(carry, ts):
+    print(ts)
+    print(len(ts))
+    return carry, ts
 
 def test():
     import cv2
@@ -138,9 +143,9 @@ def test():
     noise = jax.random.normal(jax.random.PRNGKey(0), img.shape)
     scheduler = GaussianDiffusionContinuousTimes.create(
         noise_schedule="cosine", num_timesteps=1000)
-    ts = scheduler.get_sampling_timesteps(128)
-    for t in ts:
-        print(t)
+    ts = scheduler.get_sampling_timesteps(16)
+    ts = jnp.array(ts)
+    jax.lax.scan(test_sample, img, ts)
     quit()
     images = []
     # ts = scheduler.get_sampling_timesteps(64, jax.random.PRNGKey(0))
