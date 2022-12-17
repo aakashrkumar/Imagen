@@ -113,6 +113,7 @@ def conditioning_pred(generator_state, t, cond_scale):
 
 
 def p_mean_variance(generator_state, time_steps):
+    print(time_steps)
     pred = conditioning_pred(generator_state, time_steps, 5.0)
     x_start = generator_state.unet_state.sampler.predict_start_from_noise(
         generator_state.image, t=time_steps, noise=pred)

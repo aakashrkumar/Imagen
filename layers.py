@@ -406,7 +406,7 @@ class ResnetBlock(nn.Module):
             scale_shift = jnp.split(time_emb, 2, axis=-1)
         h = Block(self.block_config.dim)(x)
         checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo) with x_max equal to {jnp.max(x)}, {self.block_config}")
-        if exists(cond):
+        if exists(cond) and self.block_config.num_heads > 0:
             # TODO: maybe use pack like lucidrains, but maybe Einops is better, at least notationally
             h = EinopsToAndFrom(CrossAttention(config=self.config, block_config=self.block_config),
                                 'b h w c', ' b (h w) c')(h, context=cond) + h

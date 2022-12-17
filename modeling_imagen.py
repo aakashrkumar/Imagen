@@ -94,7 +94,8 @@ class EfficentUNet(nn.Module):
                 checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo) with x_max equal to {jnp.max(x)}")
                 x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
                 hiddens.append(x)
-            x = TransformerBlock(config=self.config, block_config=block_config)(x)
+            if block_config.num_heads > 0:
+                x = TransformerBlock(config=self.config, block_config=block_config)(x)
             checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo) with x_max equal to {jnp.max(x)}")
             x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
             hiddens.append(x)
@@ -120,8 +121,8 @@ class EfficentUNet(nn.Module):
                 x = ResnetBlock(config=self.config, block_config=block_config)(x)
                 checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo)")
                 x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
-            
-            x = TransformerBlock(config=self.config, block_config=block_config)(x)
+            if block_config.num_heads > 0:
+                x = TransformerBlock(config=self.config, block_config=block_config)(x)
             checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo)")
             x = Upsample(config=self.config, block_config=block_config)(x)
             checkify.check(jnp.max(x) < 100, f"Infinite (max < 1oo)")
