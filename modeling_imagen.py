@@ -46,9 +46,9 @@ class EfficentUNet(nn.Module):
         time_hidden = nn.silu(time_hidden)
 
         t = nnp.Dense(features=self.config.time_conditiong_dim,
-                      dtype=self.config.dtype, shard_axes={"kernel": ("mlp", "embed")})(time_hidden)
+                      dtype=self.config.dtype, shard_axes={"kernel": ("embed", "mlp")})(time_hidden)
 
-        t = with_sharding_constraint(t, ("batch", "embed"))
+        t = with_sharding_constraint(t, ("batch", "mlp"))
 
         time_tokens = nnp.Dense(self.config.cond_dim * self.config.num_time_tokens, shard_axes={"kernel": ("mlp", "embed")})(t)
         time_tokens = rearrange(time_tokens, 'b (r d) -> b r d', r=self.config.num_time_tokens)
@@ -56,7 +56,7 @@ class EfficentUNet(nn.Module):
         time_tokens = with_sharding_constraint(time_tokens, P("batch", "seq", "embed"))
         if self.config.lowres_conditioning:
             lowres_time_hiddens = LearnedSinusoidalPosEmb(config=self.config)(lowres_noise_times)  # (b, 1, d)
-            lowres_time_hiddens = nnp.Dense(features=self.config.time_conditiong_dim, shard_axes={"kernel": ("mlp", "embed")})(lowres_time_hiddens)
+            lowres_time_hiddens = nnp.Dense(features=self.config.time_conditiong_dim, shard_axes={"kernel": ("embed", "mlp")})(lowres_time_hiddens)
             lowres_time_hiddens = nn.silu(lowres_time_hiddens)
             lowres_time_tokens = nnp.Dense(self.config.cond_dim * self.config.num_time_tokens, shard_axes={"kernel": ("mlp", "embed")})(lowres_time_hiddens)
             lowres_time_tokens = rearrange(lowres_time_tokens, 'b (r d) -> b r d', r=self.config.num_time_tokens)
