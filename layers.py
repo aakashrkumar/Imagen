@@ -130,7 +130,7 @@ class TransformerBlock(nn.Module):
         # TODO: implement attention_depth
         # TODO: maybe implement pack/unpack
         x = EinopsToAndFrom(Attention(config=self.config, block_config=self.block_config), 'b h w c', 'b (h w) c')(x, context=context) + x
-        x = with_sharding_constraint(x, ("batch", "length", "mlp"))
+        x = with_sharding_constraint(x, ("batch", "length", "embed"))
         x = ChannelFeedForward(dim=self.block_config.dim, mult=self.config.ff_mult)(x) + x # TODO: Lucidrains uses FeedForward instead of ChannelFeedForward
         return x
 
@@ -159,7 +159,7 @@ class ChannelFeedForward(nn.Module):
         x = nnp.Conv(features=self.dim * self.mult, kernel_size=(1, 1), shard_axes={"kernel": ("width", "height", "mlp")})(x)
         x = nn.gelu(x)
         x = ChannelLayerNorm()(x)
-        x = nnp.Conv(features=self.dim, kernel_size=(1, 1), shard_axes={"kernel": ("width", "height", "embed")})(x)
+        x = nnp.Conv(features=self.dim, kernel_size=(1, 1), shard_axes={"kernel": ("width", "height", "mlp")})(x)
         return x
 
 

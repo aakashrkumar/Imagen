@@ -75,6 +75,7 @@ class EfficentUNet(nn.Module):
         x = with_sharding_constraint(x, ("batch", "height", "width", "embed"))
 
         init_conv_residual = x
+        return x
         # downsample
         hiddens = []
         for block_config in self.config.block_configs:
