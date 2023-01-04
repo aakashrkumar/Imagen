@@ -297,7 +297,7 @@ class CrossEmbedLayer(nn.Module):
         for kernel, dim_scale in zip(kernel_sizes, dim_scales):
             convs.append(nnp.Conv(features=dim_scale, kernel_size=(
                 kernel, kernel), strides=self.stride, padding=(kernel - self.stride) // 2, dtype=self.dtype, shard_axes={
-                    "kernel": ("width", "height", "embed"),
+                    "kernel": ("width", "height", "channels"),
             })(x))
 
         return jnp.concatenate(convs, axis=-1)
