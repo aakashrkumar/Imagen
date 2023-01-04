@@ -32,11 +32,11 @@ class EfficentUNet(nn.Module):
             texts = texts.astype(self.config.dtype)
         if exists(attention_masks):
             attention_masks = attention_masks.astype(self.config.dtype)
-        x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
+        x = with_sharding_constraint(x, P("batch", "height", "width", "channels"))
         texts = with_sharding_constraint(texts, P("batch", "length", "embed"))
         if exists(lowres_cond_img):
             x = jnp.concatenate([x, lowres_cond_img], axis=-1)
-            x = with_sharding_constraint(x, P("batch", "height", "width", "embed"))
+            x = with_sharding_constraint(x, P("batch", "height", "width", "channels"))
             x = x.astype(self.config.dtype)
 
         x = CrossEmbedLayer(dim=self.config.dim,
@@ -119,5 +119,5 @@ class EfficentUNet(nn.Module):
         x = ResnetBlock(config=self.config, block_config=block_config)(x, t, c)
             
         # x = nn.Dense(features=3, dtype=self.dtype)(x)
-        x = nnp.Conv(features=3, kernel_size=(3, 3), strides=1, dtype=self.config.dtype, padding=1, shard_axes={"kernel": ("width", "height", "embed")})(x)
+        x = nnp.Conv(features=3, kernel_size=(3, 3), strides=1, dtype=self.config.dtype, padding=1, shard_axes={"kernel": ("width", "height", "channels")})(x)
         return x

@@ -58,6 +58,8 @@ DEFAULT_TPU_RULES = [
     ('layers', None),
     ('stack', None),
     ('mlp_activations', None),
+    
+    ("channels", None),
 
     ("width", None),
     ("height", None),
