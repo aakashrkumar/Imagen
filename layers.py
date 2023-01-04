@@ -322,7 +322,7 @@ class TextConditioning(nn.Module):
             text_keep_mask_hidden = rearrange(text_keep_mask, 'b -> b 1')
 
             text_tokens = nnp.Dense(features=self.cond_dim, shard_axes={
-                                    "kernel": ("embed", "mlp"),
+                                    "kernel": ("length", "mlp"),
                                     })(text_embeds)
             text_tokens = text_tokens[:, :self.max_token_length]
             
