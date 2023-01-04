@@ -47,7 +47,9 @@ DEFAULT_TPU_RULES = [
     ('mlp', 'model'),
     ('heads', 'model'),
     ('vocab', 'model'),
-    ('embed', None),
+    # shard both activations and weight matrices on the remaining available axis
+    ('embed', 'model'),
+    ('embed', 'data'),
     ('kv', None),
     ('joined_kv', None),
     ('relpos_buckets', None),
@@ -203,7 +205,7 @@ class Imagen:
         self.train_steps = []
         self.sample_steps = []
         self.schedulers = []
-        self.partitioner = PjitPartitioner(num_partitions=4, logical_axis_rules=DEFAULT_TPU_RULES)
+        self.partitioner = PjitPartitioner(num_partitions=2, logical_axis_rules=DEFAULT_TPU_RULES)
         num_total_params = 0
         for i in range(len(config.unets)):
             unet_config = config.unets[i]
@@ -217,9 +219,9 @@ class Imagen:
                 decay_steps=2500000,
                 end_value=1e-6
                 )
-
-            opt = adamw(learning_rate=lr, b1=0.9, b2=0.999,
-                eps=1e-8, weight_decay=1e-8)
+            lr = lambda step: 1e-5
+            opt = adamw(learning_rate=1e-5, b1=0.9, b2=0.99,
+                eps=1e-8)
             
             def init_state():
                 image = jnp.ones((batch_size, img_size, img_size, 3))  # image
