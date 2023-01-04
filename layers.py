@@ -322,7 +322,7 @@ class TextConditioning(nn.Module):
             text_keep_mask_hidden = rearrange(text_keep_mask, 'b -> b 1')
 
             text_tokens = nnp.Dense(features=self.cond_dim, shard_axes={
-                                    "kernel": ("length", "mlp"),
+                                    "kernel": ("embed", "mlp"),
                                     })(text_embeds)
             text_tokens = text_tokens[:, :self.max_token_length]
             
@@ -343,7 +343,7 @@ class TextConditioning(nn.Module):
                 text_mask = rearrange(text_mask, 'b n -> b n 1')
                 text_keep_mask_embed = text_mask & text_keep_mask_embed
 
-            null_text_embed = param_with_axes('null_text_embed', nn.initializers.lecun_normal(), (1, self.max_token_length, self.cond_dim), axes=("embed", "mlp"))
+            null_text_embed = param_with_axes('null_text_embed', nn.initializers.lecun_normal(), (1, self.max_token_length, self.cond_dim), axes=("length", "mlp"))
             # TODO: should this be inverted?
             text_tokens = jnp.where(
                 text_keep_mask_embed, text_tokens, null_text_embed) # TODO: check this too
