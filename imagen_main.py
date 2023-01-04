@@ -212,10 +212,10 @@ class Imagen:
             key = self.get_key()
             lr = optax.warmup_cosine_decay_schedule(
                 init_value=0.0,
-                peak_value=1e-4,
+                peak_value=1e-5,
                 warmup_steps=10000,
                 decay_steps=2500000,
-                end_value=1e-5
+                end_value=1e-6
                 )
 
             opt = adamw(learning_rate=lr, b1=0.9, b2=0.999,
