@@ -359,7 +359,7 @@ class TextConditioning(nn.Module):
 
 
             null_text_hidden = param_with_axes(
-                'null_text_hidden', nn.initializers.lecun_normal(), (1, self.time_cond_dim), axes=("embed", "mlp"))
+                'null_text_hidden', nn.initializers.lecun_normal(), (1, self.time_cond_dim), axes=("length", "mlp"))
             text_hiddens = jnp.where(
                 text_keep_mask_hidden, text_hiddens, null_text_hidden)  # same question
 
