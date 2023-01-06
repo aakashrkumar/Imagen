@@ -23,7 +23,7 @@ from config import BlockConfig, UnetConfig, ImagenConfig
 from jax.experimental import checkify
 import jax_enhance
 
-with_sharding_constraint = nn_partitioning.with_sharding_constraint
+with_sharding_constraint = lambda x, y: x#nn_partitioning.with_sharding_constraint
 param_with_axes = nn_partitioning.param_with_axes
 
 class CheckNan(nn.Module):
