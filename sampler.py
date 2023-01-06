@@ -144,6 +144,8 @@ def test():
     scheduler = GaussianDiffusionContinuousTimes.create(
         noise_schedule="cosine", num_timesteps=1000)
     ts = scheduler.get_sampling_timesteps(16)
+    print(ts)
+    print(ts[-1][0] > 0)
     ts = jnp.array(ts)
     jax.lax.scan(test_sample, img, ts)
     quit()

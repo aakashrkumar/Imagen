@@ -205,7 +205,7 @@ class Imagen:
         self.train_steps = []
         self.sample_steps = []
         self.schedulers = []
-        self.partitioner = PjitPartitioner(num_partitions=2, logical_axis_rules=DEFAULT_TPU_RULES)
+        self.partitioner = PjitPartitioner(num_partitions=4, logical_axis_rules=DEFAULT_TPU_RULES)
         num_total_params = 0
         for i in range(len(config.unets)):
             unet_config = config.unets[i]
