@@ -44,12 +44,10 @@ class EfficentUNet(nn.Module):
         time_hidden = LearnedSinusoidalPosEmb(config=self.config)(time)  # (b, 1, d)
         time_hidden = nnp.Dense(features=self.config.time_conditiong_dim, shard_axes={"kernel": ("length", "mlp")})(time_hidden)
         time_hidden = nn.silu(time_hidden)
-        print("time_hidden", time_hidden.shape)
         t = nnp.Dense(features=self.config.time_conditiong_dim,
                       dtype=self.config.dtype, shard_axes={"kernel": ("embed", "mlp")})(time_hidden)
 
         t = with_sharding_constraint(t, ("batch", "mlp"))
-        print("t", t.shape)
         time_tokens = nnp.Dense(self.config.cond_dim * self.config.num_time_tokens, shard_axes={"kernel": ("mlp", "embed")})(t)
         time_tokens = rearrange(time_tokens, 'b (r d) -> b r d', r=self.config.num_time_tokens)
 
