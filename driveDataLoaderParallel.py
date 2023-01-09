@@ -121,16 +121,23 @@ def fetch_single_image(image_url, timeout=None, retries=0):
 
 @ray.remote
 class DatasetFetcher:
-    def __init__(self, parquet_file):
+    def __init__(self, parquet_file, starting_index, ending_index=None):
         self.dataset =  pq.read_table(parquet_file)
-        self.index = 0
-
+        self.index = starting_index
+        self.ending_index = ending_index
+        
     def get_data(self):
+        if self.ending_index and self.index >= self.ending_index:
+            print("Done")
+            return None
         url = self.dataset["URL"][self.index]
         text = self.dataset["TEXT"][self.index]
         self.index += 1
         if self.index % 1000 == 0:
             print(f"Index: {self.index}")
+            with open("index.txt", "w") as f:
+                f.write(str(self.index))
+                f.close()
         return url, text
 
 @ray.remote
@@ -190,9 +197,10 @@ class DataCollector:
 @ray.remote
 class DataManager:
     def __init__(self, num_workers, batch_size):
+        START_INDEX = 0
         self.shared_storage = SharedStorage.remote()
         self.batch_size = batch_size
-        self.datasetFetcher = DatasetFetcher.remote("laion/part-00000-5b54c5d5-bbcf-484d-a2ce-0d6f73df1a36-c000.snappy.parquet")
+        self.datasetFetcher = DatasetFetcher.remote("laion/part-00000-5b54c5d5-bbcf-484d-a2ce-0d6f73df1a36-c000.snappy.parquet", START_INDEX)
         self.workers = [DataCollector.remote(self.datasetFetcher, self.shared_storage) for _ in range(num_workers)]
         
         
@@ -215,15 +223,17 @@ class Uploader:
         self.index = 0
         self.creds = None
         self.save_name = "laion"
-        
+        with open("uploader.txt", "r") as f:        
+            self.run_name = f.read()
+            print("Uploading as", self.run_name)
     def save(self, data):
         print(f"Saving {len(data)} images")
-        upload_pickle_to_google_drive(data, f"pkls/{self.save_name}_{self.index}.pkl", self.creds)
+        upload_pickle_to_google_drive(data, f"pkls/{self.run_name}_{self.save_name}_{self.index}.pkl", self.creds)
         print(f"Saved {len(data)} images")
         self.index += 1
         return 1
 
-def main():
+def main():    
     dm = DataManager.remote(10, 32)
     dm.start.remote()
     uploader = Uploader.remote()

@@ -219,8 +219,8 @@ class Imagen:
                 decay_steps=2500000,
                 end_value=1e-6
                 )
-            lr = lambda step: 1e-5
-            opt = adamw(learning_rate=1e-5, b1=0.9, b2=0.99,
+            lr = lambda step: 1e-4
+            opt = adamw(learning_rate=1e-4, b1=0.9, b2=0.99,
                 eps=1e-8)
             
             def init_state():
