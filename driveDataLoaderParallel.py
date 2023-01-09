@@ -227,9 +227,9 @@ class Uploader:
             self.run_name = f.read()
             print("Uploading as", self.run_name)
     def save(self, data):
-        print(f"Saving {len(data)} images")
+        print(f"Saving {len(data[0])} images")
         upload_pickle_to_google_drive(data, f"pkls/{self.run_name}_{self.save_name}_{self.index}.pkl", self.creds)
-        print(f"Saved {len(data)} images")
+        print(f"Saved {len(data[0])} images")
         self.index += 1
         return 1
 
