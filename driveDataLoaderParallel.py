@@ -191,7 +191,7 @@ class DataCollector:
                 if has_unsafe_concept[0]:
                     continue
             self.shared_storage.add_data.remote([image], [text])
-            while self.shared_storage.get_num_images.remote() > UPLOAD_BUFFER:
+            while ray.get(self.shared_storage.get_num_images.remote()) > UPLOAD_BUFFER:
                 time.sleep(5)
             
 @ray.remote
