@@ -20,6 +20,7 @@ from datasets.utils.file_utils import get_datasets_user_agent
 import PIL.Image
 import io
 import datetime
+from datasets import load_dataset
 
 USER_AGENT = get_datasets_user_agent()
 USE_SAFETY_CHECKER = False
@@ -67,7 +68,7 @@ def upload_pickle_to_google_drive(data, pickle_file_name, creds=None, upload_dat
 
     # Obtain the ID of the shared drive
     # Replace "SHARED_DRIVE_NAME" with the name of the shared drive
-    query = "name='APCSC Testing'"
+    query = "name='LAION-ART'"
     results = service.files().list(
         q=query, 
         fields="nextPageToken, files(id, name)", 
@@ -122,7 +123,9 @@ def fetch_single_image(image_url, timeout=None, retries=0):
 @ray.remote
 class DatasetFetcher:
     def __init__(self, parquet_file, starting_index, ending_index=None):
-        self.dataset =  pq.read_table(parquet_file)
+        self.dataset = load_dataset("laion/laion-art")["train"]
+        self.urls = list(self.dataset["URL"])
+        self.texts = list(self.dataset["TEXT"])
         self.index = starting_index
         self.ending_index = ending_index
         
@@ -130,8 +133,8 @@ class DatasetFetcher:
         if self.ending_index and self.index >= self.ending_index:
             print("Done")
             return None
-        url = self.dataset["URL"][self.index]
-        text = self.dataset["TEXT"][self.index]
+        url = self.urls[self.index]
+        text = self.texts[self.index]
         self.index += 1
         if self.index % 1000 == 0:
             print(f"Index: {self.index}")
@@ -180,11 +183,14 @@ class DataCollector:
             url, text = ray.get(self.dataset.get_data.remote())
             image = fetch_single_image(url)
             if image is None:
+                # print("Image is None")
                 continue
             w, h= image.size
             MIN_IMAGE_SIZE = 256
             if h < MIN_IMAGE_SIZE or w < MIN_IMAGE_SIZE:
                 continue
+            #if h != w:
+              #  continue
             if USE_SAFETY_CHECKER:
                 safety_cheker_input = self.feature_extractor(image, return_tensors="pt")
                 image, has_unsafe_concept = self.safety_checker(images=[image], clip_input=safety_cheker_input.pixel_values)
@@ -192,6 +198,7 @@ class DataCollector:
                     continue
             self.shared_storage.add_data.remote([image], [text])
             while ray.get(self.shared_storage.get_num_images.remote()) > UPLOAD_BUFFER:
+                print("Waiting for upload, too many images")
                 time.sleep(5)
             
 @ray.remote
@@ -222,13 +229,13 @@ class Uploader:
     def __init__(self):
         self.index = 0
         self.creds = None
-        self.save_name = "laion"
+        self.save_name = "laion_art"
         with open("uploader.txt", "r") as f:        
             self.run_name = f.read()
             print("Uploading as", self.run_name)
     def save(self, data):
         print(f"Saving {len(data[0])} images")
-        upload_pickle_to_google_drive(data, f"pkls/{self.run_name}_{self.save_name}_{self.index}.pkl", self.creds)
+        upload_pickle_to_google_drive(data, f"{self.run_name}_{self.save_name}_{self.index}.pkl", self.creds)
         print(f"Saved {len(data[0])} images")
         self.index += 1
         return 1
