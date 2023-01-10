@@ -204,7 +204,7 @@ class DataCollector:
 @ray.remote
 class DataManager:
     def __init__(self, num_workers, batch_size):
-        START_INDEX = 0
+        START_INDEX = 146000
         self.shared_storage = SharedStorage.remote()
         self.batch_size = batch_size
         self.datasetFetcher = DatasetFetcher.remote("laion/part-00000-5b54c5d5-bbcf-484d-a2ce-0d6f73df1a36-c000.snappy.parquet", START_INDEX)
@@ -227,7 +227,7 @@ class DataManager:
 @ray.remote
 class Uploader:
     def __init__(self):
-        self.index = 0
+        self.index = 106
         self.creds = None
         self.save_name = "laion_art"
         with open("uploader.txt", "r") as f:        
