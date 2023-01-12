@@ -73,7 +73,7 @@ for file in files:
             try:
                 np_img = cv2.cvtColor(np_img, cv2.COLOR_RGB2BGR)
                 cv2.imshow("image", np_img)
-                if cv2.waitKey(0) & 0xFF == ord('q'):
+                if cv2.waitKey(1) & 0xFF == ord('q'):
                     img.show()
             except Exception as e:
                 print(e)

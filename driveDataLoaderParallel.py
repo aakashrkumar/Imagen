@@ -84,7 +84,9 @@ def upload_pickle_to_google_drive(data, pickle_file_name, creds=None, upload_dat
 
     # Dump the data you want to upload to a pickle file
     if not upload_data_without_file:
-        pickle.dump(data, open(pickle_file_name, "wb"))
+        with open(pickle_file_name, "wb") as f:
+            pickle.dump(data,f)
+            f.close()
 
     try:
         # Upload the pickle file to Google Drive
@@ -204,7 +206,7 @@ class DataCollector:
 @ray.remote
 class DataManager:
     def __init__(self, num_workers, batch_size):
-        START_INDEX = 146000
+        START_INDEX = 607000
         self.shared_storage = SharedStorage.remote()
         self.batch_size = batch_size
         self.datasetFetcher = DatasetFetcher.remote("laion/part-00000-5b54c5d5-bbcf-484d-a2ce-0d6f73df1a36-c000.snappy.parquet", START_INDEX)
@@ -227,7 +229,7 @@ class DataManager:
 @ray.remote
 class Uploader:
     def __init__(self):
-        self.index = 106
+        self.index = 441
         self.creds = None
         self.save_name = "laion_art"
         with open("uploader.txt", "r") as f:        
