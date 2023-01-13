@@ -1,3 +1,4 @@
+from functools import partial
 from transformers import T5Tokenizer, FlaxT5ForConditionalGeneration
 import numpy as np
 import jax
@@ -21,7 +22,7 @@ def tokenize_text(text, tokenizer):
         return_tensors="np")
     return encoding.input_ids, encoding.attention_mask
 
-@jax.jit
+@partial(jax.jit, static_argnums=(2,))
 def encode_text(input_ids, attention_mask, model):
     assert model is not None     
     
