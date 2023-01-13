@@ -22,7 +22,7 @@ def tokenize_texts(text, tokenizer):
         return_tensors="np")
     return encoding.input_ids, encoding.attention_mask
 
-@partial(jax.pmap, in_axes=(0, 0, None))
+@partial(jax.pmap)
 def encode_texts(input_ids, attention_mask, model):
     assert model is not None     
     
