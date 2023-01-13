@@ -37,7 +37,6 @@ def encode_texts(input_ids, attention_mask, model):
 def test():
     tokenizer, model = get_tokenizer_and_model()
     text = ["This is a test"] * 1024
-    model = jax_utils.replicate(model)
     for i in tqdm.tqdm(range(100)):
         input_ids, attention_mask = tokenize_texts(text, tokenizer)
         input_ids = np.array(input_ids).reshape(8, -1, 512)
