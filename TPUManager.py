@@ -11,7 +11,7 @@ class TPUManager:
 
     def setup(self):
         for tpu in self.tpus:
-            ray_tpu.create_tpu(tpu, "us-central1-f", "v2-8", True)
+            ray_tpu.create_tpu(tpu, "us-central1-f", "v3-128", True)
         for tpu in self.tpus:
             ray_tpu.wait_til(tpu, 'us-central1-f', {"state": "READY"})
         threads = []
