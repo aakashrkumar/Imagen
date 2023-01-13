@@ -3,10 +3,10 @@ from transformers import T5Tokenizer, FlaxT5ForConditionalGeneration
 import numpy as np
 import jax
 import tqdm
+from flax import struct, jax_utils
 
 max_sequence_length = 512
 name = "t5-large"
-
 def get_tokenizer_and_model():
     tokenizer = T5Tokenizer.from_pretrained(name)
     model = FlaxT5ForConditionalGeneration.from_pretrained(name)
@@ -36,10 +36,16 @@ def encode_texts(input_ids, attention_mask, model):
 
 def test():
     tokenizer, model = get_tokenizer_and_model()
-    text = ["This is a test"] * 128
+    text = ["This is a test"] * 1024
+    model = jax_utils.replicate(model)
     for i in tqdm.tqdm(range(100)):
         input_ids, attention_mask = tokenize_texts(text, tokenizer)
-        print(input_ids.shape, attention_mask.shape)
+        input_ids = np.array(input_ids).reshape(8, -1, 512)
+        attention_mask = np.array(attention_mask).reshape(8, -1, 512)
         encoded, attention_mask = encode_texts(input_ids, attention_mask, model)
+        print(encoded.shape)
+        encoded = np.array(encoded).reshape(-1, 512, 1024)
+        attention_mask = np.array(attention_mask).reshape(-1, 512)
+        
 if __name__ == "__main__":
     test()

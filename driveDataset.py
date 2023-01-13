@@ -9,6 +9,7 @@ import cv2
 import numpy as np
 import ray
 import T5Utils
+from flax import struct, jax_utils
 
 creds = Credentials.from_authorized_user_file(
             'token.json',
