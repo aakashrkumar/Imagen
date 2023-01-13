@@ -36,7 +36,7 @@ def encode_text(input_ids, attention_mask, model):
 def test():
     tokenizer, model = get_tokenizer_and_model()
     text = "This is a test"
-    for i in tqdm(range(100)):
+    for i in tqdm.tqdm(range(100)):
         input_ids, attention_mask = tokenize_text(text, tokenizer)
         encoded, attention_mask = encode_text(input_ids, attention_mask, model)
 if __name__ == "__main__":
