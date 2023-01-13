@@ -165,8 +165,10 @@ class Encoder:
             if data is None:
                 continue
             images, texts = data
-            texts_tokenized, attention_mask = T5Utils.tokenize_texts(texts, self.tokenizer)
-            texts_encoded, attention_mask = T5Utils.encode_texts(texts_tokenized, attention_mask, self.model)
+            input_ids, attention_mask = T5Utils.tokenize_texts(texts, self.tokenizer)
+            input_ids = np.array(input_ids).reshape(8, -1, 512)
+            attention_mask = np.array(attention_mask).reshape(8, -1, 512)
+            texts_encoded, attention_mask = T5Utils.encode_texts(input_ids, attention_mask, self.model)
             texts_encoded = np.array(texts_encoded)
             attention_mask = np.array(attention_mask)
             self.shared_storage_encoded.add_data.remote(images, texts, texts_encoded, attention_mask)

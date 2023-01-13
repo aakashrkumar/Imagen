@@ -22,7 +22,7 @@ def tokenize_texts(text, tokenizer):
         return_tensors="np")
     return encoding.input_ids, encoding.attention_mask
 
-@partial(jax.jit, static_argnums=(2,))
+@partial(jax.pmap, static_argnums=(2,))
 def encode_texts(input_ids, attention_mask, model):
     assert model is not None     
     
@@ -39,6 +39,7 @@ def test():
     text = ["This is a test"] * 128
     for i in tqdm.tqdm(range(100)):
         input_ids, attention_mask = tokenize_texts(text, tokenizer)
+        print(input_ids.shape, attention_mask.shape)
         encoded, attention_mask = encode_texts(input_ids, attention_mask, model)
 if __name__ == "__main__":
     test()
