@@ -5,9 +5,9 @@ import jax
 import tqdm
 
 max_sequence_length = 512
+name = "t5-large"
 
 def get_tokenizer_and_model():
-    name = "t5-large"
     tokenizer = T5Tokenizer.from_pretrained(name)
     model = FlaxT5ForConditionalGeneration.from_pretrained(name)
     return tokenizer, model
@@ -36,7 +36,7 @@ def encode_text(input_ids, attention_mask, model):
 
 def test():
     tokenizer, model = get_tokenizer_and_model()
-    text = "This is a test"
+    text = ["This is a test"] * 128
     for i in tqdm.tqdm(range(100)):
         input_ids, attention_mask = tokenize_text(text, tokenizer)
         encoded, attention_mask = encode_text(input_ids, attention_mask, model)
