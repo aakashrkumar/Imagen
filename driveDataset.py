@@ -171,7 +171,9 @@ class Encoder:
             attention_mask = np.array(attention_mask).reshape(8, -1, 512)
             texts_encoded, attention_mask = T5Utils.encode_texts(input_ids, attention_mask, self.model)
             texts_encoded = np.array(texts_encoded)
+            texts_encoded = texts_encoded.reshape(-1, 512, 1024)
             attention_mask = np.array(attention_mask)
+            attention_mask.reshape(-1, 512)
             self.shared_storage_encoded.add_data.remote(images, texts, texts_encoded, attention_mask)
         
 
