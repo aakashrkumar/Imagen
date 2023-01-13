@@ -1,4 +1,5 @@
 import pickle
+import random
 import time
 from googleapiclient import errors
 from googleapiclient.discovery import build
@@ -6,6 +7,8 @@ from google.oauth2.credentials import Credentials
 import io
 import cv2
 import numpy as np
+import ray
+import T5Utils
 
 creds = Credentials.from_authorized_user_file(
             'token.json',
@@ -47,37 +50,155 @@ def download_pickle(file):
     request = drive_service.files().get_media(fileId=file.get('id')).execute()
     data = pickle.load(io.BytesIO(request))
     return data
+@ray.remote
+class SharedStorageEncoded:
+    def __init__(self):
+        self.images = []
+        self.texts = []
+        self.texts_encoded = []
+        self.attention_masks = []
 
-files = list_files()
-for file in files:
-    print(file)
-    images, labels = download_pickle(file)
-    batch = zip(images, labels)
-    for img in images:
-        try:
-            # crop image to center (min between height and width)
-            height_diff = img.size[1] - img.size[0]
-            width_diff = img.size[0] - img.size[1]
-            height_diff = height_diff // 2
-            width_diff = width_diff // 2
-            width_diff = width_diff if width_diff > 0 else 0
-            height_diff = height_diff if height_diff > 0 else 0
-            img = img.crop((width_diff, height_diff, min(img.size[0], img.size[1]) + width_diff, min(img.size[0], img.size[1]) + height_diff))
+    def get_size(self):
+        return len(self.images)
 
-            np_img = np.array(img.getdata()).reshape(img.size[0], img.size[1], len(img.getbands()))
-            np_img = np.array(np_img, dtype=np.uint8)
-            if np_img.shape[2] == 4:
-                np_img = cv2.cvtColor(np_img, cv2.COLOR_RGBA2RGB)
-            if np_img.shape[2] == 1:
-                np_img = cv2.cvtColor(np_img, cv2.COLOR_GRAY2RGB)
-            try:
-                np_img = cv2.cvtColor(np_img, cv2.COLOR_RGB2BGR)
-                cv2.imshow("image", np_img)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    img.show()
-            except Exception as e:
-                print(e)
-                img.show()
-                time.sleep(5)
-        except Exception as e:
-            print(e)
+    def add_data(self, images, texts, texts_encoded, attention_masks):
+        self.images.extend(images)
+        self.texts.extend(texts)
+        self.texts_encoded.extend(texts_encoded)
+        self.attention_masks.extend(attention_masks)
+
+    def get_batch(self, batch_size):
+        if len(self.images) < batch_size:
+            return None
+        images = self.images[:batch_size]
+        self.images = self.images[batch_size:]
+        texts = self.texts[:batch_size]
+        texts_encoded = self.texts_encoded[:batch_size]
+        attention_masks = self.attention_masks[:batch_size]
+        images = np.array(images)
+        texts_encoded = np.array(texts_encoded)
+        attention_masks = np.array(attention_masks)
+        return images, texts, texts_encoded, attention_masks
+@ray.remote
+class SharedStorage:
+    def __init__(self):
+        self.images = []
+        self.texts = []
+    
+    def get_size(self):
+        return len(self.images)
+    
+    def add_data(self, images, texts):
+        self.images.extend(images)
+        self.texts.extend(texts)
+    
+    def get_batch(self, batch_size):
+        if len(self.images) < batch_size:
+            return None
+        images = self.images[:batch_size]
+        self.images = self.images[batch_size:]
+        texts = self.texts[:batch_size]
+        self.texts = self.texts[batch_size:]
+        images = np.array(images)
+        return images, texts
+
+
+@ray.remote
+class DatasetFetcher:
+    def __init__(self):
+        self.files = list_files()
+        self.index = 0
+    def get_data(self):
+        self.index += 1
+        if self.index % 100 == 0:
+            self.files = list_files()
+        return self.files[self.index % len(self.files)]
+
+def processImage(img):
+    # image is a pillow image
+    height_diff = img.size[1] - img.size[0]
+    width_diff = img.size[0] - img.size[1]
+    height_diff = height_diff // 2
+    width_diff = width_diff // 2
+    width_diff = width_diff if width_diff > 0 else 0
+    height_diff = height_diff if height_diff > 0 else 0
+    img = img.crop((width_diff, height_diff, min(img.size[0], img.size[1]) + width_diff, min(img.size[0], img.size[1]) + height_diff))
+    np_img = np.array(img, dtype=np.uint8)
+    if len(np_img.shape) == 2:
+        np_img = cv2.cvtColor(np_img, cv2.COLOR_GRAY2RGB)
+    if np_img.shape[2] == 4:
+        np_img = cv2.cvtColor(np_img, cv2.COLOR_RGBA2RGB)
+    if np_img.shape[2] == 1:
+        np_img = cv2.cvtColor(np_img, cv2.COLOR_GRAY2RGB)
+    return np_img
+@ray.remote
+class DataCollector:
+    def __init__(self, shared_storage:SharedStorage, dataset:DatasetFetcher):
+        self.shared_storage = shared_storage
+        self.dataset = dataset
+        self.images_collected = 0
+    def collect(self):
+        MAX_BUFFER = 100_000
+        while True:
+            if ray.get(self.shared_storage.get_size.remote()) > MAX_BUFFER:
+                time.sleep(10)
+                continue
+            file = ray.get(self.dataset.get_data.remote())
+            data = download_pickle(file)
+            images = data[0] # list of pil images
+            texts = data[1]
+            # convert pil images to numpy arrays
+            images = [processImage(image) for image in images]
+            
+            self.images_collected += len(images)
+            self.shared_storage.add_data.remote(images, texts)
+
+@ray.remote
+class Encoder:
+    def __init__(self, shared_storage, shared_storage_encoded):
+        self.shared_storage = shared_storage
+        self.shared_storage_encoded = shared_storage_encoded
+        self.tokenizer, self.model = T5Utils.get_tokenizer_and_model()
+    def encode(self):
+        while True:
+            data = ray.get(self.shared_storage.get_batch.remote(1024))
+            if data is None:
+                continue
+            images, texts = data
+            texts_tokenized, attention_mask = T5Utils.tokenize_texts(texts, self.tokenizer)
+            texts_encoded, attention_mask = T5Utils.encode_texts(texts_tokenized, attention_mask, self.model)
+            texts_encoded = np.array(texts_encoded)
+            attention_mask = np.array(attention_mask)
+            self.shared_storage_encoded.add_data.remote(images, texts, texts_encoded, attention_mask)
+        
+
+@ray.remote
+class DataManager:
+    def __init__(self, num_collectors, batch_size):
+        self.shared_storage = SharedStorage.remote()
+        self.shared_storage_encoded = SharedStorageEncoded.remote()
+        self.batch_size = batch_size
+        self.dataset = DatasetFetcher.remote()
+        self.collectors = [DataCollector.remote(self.shared_storage, self.dataset) for _ in range(num_collectors)]
+        
+        for collector in self.collectors:
+            collector.collect.remote()
+        
+        self.processor = Encoder.remote(self.shared_storage, self.shared_storage_encoded)
+        self.processor.encode.remote()
+        print("Initialized all collectors and processors")
+    
+    def get_num_images(self):
+        return ray.get(self.shared_storage_encoded.get_size.remote())
+    
+    def get_batch(self):
+        return ray.get(self.shared_storage_encoded.get_batch.remote(self.batch_size))
+
+def test():
+    datamanager = DataManager.remote(4, 32)
+    while True:
+        print(ray.get(datamanager.get_num_images.remote()))
+        time.sleep(1)
+    
+if __name__ == "__main__":
+    test()
