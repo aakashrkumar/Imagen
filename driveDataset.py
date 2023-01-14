@@ -181,6 +181,7 @@ class Encoder:
             attention_mask = np.array(attention_mask)
             attention_mask.reshape(-1, 512)
             self.shared_storage_encoded.add_data.remote(images, texts, texts_encoded, attention_mask)
+            print("Encoded")
         
 
 @ray.remote
