@@ -167,12 +167,9 @@ class DataManager:
         self.shared_storage_encoded = SharedStorageEncoded.remote()
         self.batch_size = batch_size
         self.dataset = DatasetFetcher.remote()
-        self.processor = Encoder.remote(self.shared_storage, self.shared_storage_encoded)
+        self.processor = Encoder.remote(self.shared_storage_encoded)
         self.processor.encode.remote()
         print("Initialized all collectors and processors")
-    
-    def get_num_unencoded_images(self):
-        return ray.get(self.shared_storage.get_size.remote())
     
     def get_num_images(self):
         return ray.get(self.shared_storage_encoded.get_size.remote())
