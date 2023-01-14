@@ -113,37 +113,7 @@ def processImage(img):
     if np_img.shape[2] == 1:
         np_img = cv2.cvtColor(np_img, cv2.COLOR_GRAY2RGB)
     return np_img
-@ray.remote
-class DataCollector:
-    def __init__(self, shared_storage:SharedStorage, dataset:DatasetFetcher):
-        self.shared_storage = shared_storage
-        self.dataset = dataset
-        self.images_collected = 0
-    
-    def process(self, file):
-        data = download_pickle(file)
-        images = data[0] # list of pil images
-        texts = data[1]
-        # convert pil images to numpy arrays
-        images = [processImage(image) for image in images]
-        
-        self.images_collected += len(images)
-        images = ray.put(images)
-        texts = ray.put(texts)
-        self.shared_storage.add_data.remote(images, texts)
-        
-    
-    def collect(self):
-        MAX_BUFFER = 10000
-        file_ref = self.dataset.get_data.remote()
-        while True:
-            if ray.get(self.shared_storage.get_size.remote()) > MAX_BUFFER:
-                time.sleep(10)
-                continue
-            file = ray.get(file_ref)
-            file_ref = self.dataset.get_data.remote()
-            self.process(file)
-            del file
+
 @ray.remote
 def collect(dataset:DatasetFetcher):
     file = ray.get(dataset.get_data.remote())
