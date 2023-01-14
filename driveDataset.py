@@ -169,8 +169,8 @@ class Encoder:
             if ray.get(self.shared_storage_encoded.get_size.remote()) > 10000:
                 time.sleep(1)
                 continue
-            batch = ray.get(batches.pop(0))
-            self.process(ray.get(batch))
+            batch, batches = ray.wait(batches, num_returns=1)
+            self.process(batch)
             batches.append(collect.remote(self.dataset))
             
 
