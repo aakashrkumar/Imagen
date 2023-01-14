@@ -129,8 +129,9 @@ def collect(dataset:DatasetFetcher):
 
 @ray.remote
 class Encoder:
-    def __init__(self, shared_storage_encoded):
+    def __init__(self, shared_storage_encoded, dataset:DatasetFetcher):
         self.shared_storage_encoded = shared_storage_encoded
+        self.dataset = dataset
         self.tokenizer, self.model = T5Utils.get_tokenizer_and_model()
         self.batch_size = 1000
             
@@ -155,7 +156,7 @@ class Encoder:
             if ray.get(self.shared_storage_encoded.get_size.remote()) > 10000:
                 time.sleep(1)
                 continue
-            batches = [collect.remote() for _ in range(32)]
+            batches = [collect.remote(self.dataset) for _ in range(32)]
             data = ray.get(batches)
             for batch in data:
                 self.process(batch)
