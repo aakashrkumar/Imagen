@@ -160,7 +160,7 @@ class Encoder:
         texts_encoded = [ray.put(text_encoded) for text_encoded in texts_encoded]
         attention_mask = [ray.put(mask) for mask in attention_mask]
         self.shared_storage_encoded.add_data.remote(images, texts, texts_encoded, attention_mask)
-        auto_garbage_collect()
+        auto_garbage_collect(pct=30)
         
     
     def encode(self):
