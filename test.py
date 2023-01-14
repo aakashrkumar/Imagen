@@ -20,13 +20,7 @@ creds = Credentials.from_authorized_user_file(
             'token.json',
             scopes=["https://www.googleapis.com/auth/drive"]
         )
-for file in os.listdir('drive'):
-    if file.endswith('.pkl'):
-        st = time.time()
-        with open(os.path.join('drive', file), 'rb') as f:
-            data = pickle.load(f)
-        print("Drive Mounted", time.time() - st)
-        image, text = data
+
 
 
 def list_files():
@@ -62,8 +56,20 @@ def download_pickle(file):
     data = pickle.load(io.BytesIO(request))
     return data
 
-for file in list_files():
-    st = time.time()
-    data = download_pickle(file)
-    print("Requst Download", time.time() - st)
-    image, text = data
+def reqDownload():
+    for file in list_files():
+        st = time.time()
+        data = download_pickle(file)
+        print("Requst Download", time.time() - st)
+        image, text = data
+def mount():
+    for file in os.listdir('drive'):
+        if file.endswith('.pkl'):
+            st = time.time()
+            with open(os.path.join('drive', file), 'rb') as f:
+                data = pickle.load(f)
+                f.close()
+            print("Drive Mounted", time.time() - st)
+            image, text = data
+    
+reqDownload()
