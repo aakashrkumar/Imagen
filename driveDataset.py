@@ -138,6 +138,7 @@ class Encoder:
     def process(self, data):
         images, texts = data
         print(texts)
+        texts = ray.get(texts)
         input_ids, attention_mask = T5Utils.tokenize_texts(texts, self.tokenizer)
         input_ids = np.array(input_ids).reshape(8, -1, 512)
         attention_mask = np.array(attention_mask).reshape(8, -1, 512)
