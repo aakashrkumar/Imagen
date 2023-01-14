@@ -145,6 +145,7 @@ class DataCollector:
         while True:
             if ray.get(self.shared_storage.get_size.remote()) > MAX_BUFFER:
                 time.sleep(10)
+                print(F'Buffer full, sleeping for 10 seconds')
                 continue
             file = ray.get(self.dataset.get_data.remote())
             data = download_pickle(file)
