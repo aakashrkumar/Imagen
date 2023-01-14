@@ -214,7 +214,7 @@ class DataManager:
         return ray.get(self.shared_storage_encoded.get_size.remote())
     
     def get_batch(self):
-        return ray.get(self.shared_storage_encoded.get_batch.remote(self.batch_size))
+        return self.shared_storage_encoded.get_batch.remote(self.batch_size)
 
 def test():
     datamanager = DataManager.remote(16, 1024)
@@ -222,7 +222,7 @@ def test():
     while True:
         time.sleep(1)
         print(ray.get(datamanager.get_num_images.remote()), ray.get(datamanager.get_num_unencoded_images.remote()))
-        batch = ray.get(datamanager.get_batch.remote())
+        batch = ray.get(ray.get(datamanager.get_batch.remote()))
         if batch is None:
             continue
         else:
