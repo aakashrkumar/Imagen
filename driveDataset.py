@@ -171,6 +171,7 @@ class Encoder:
                 continue
             batch, batches = ray.wait(batches, num_returns=1)
             batch = ray.get(batch)
+            print(batch)
             self.process(batch)
             batches.append(collect.remote(self.dataset))
             
