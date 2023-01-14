@@ -157,10 +157,8 @@ class Encoder:
                 time.sleep(1)
                 continue
             batches = [collect.remote(self.dataset) for _ in range(32)]
-            data = ray.get(batches)
-            for batch in data:
-                print(batch)
-                self.process(batch)
+            for batch in batches:
+                self.process(ray.get(batch))
             
 
 @ray.remote
