@@ -137,6 +137,7 @@ class Encoder:
             
     def process(self, data):
         images, texts = data
+        print(texts)
         input_ids, attention_mask = T5Utils.tokenize_texts(texts, self.tokenizer)
         input_ids = np.array(input_ids).reshape(8, -1, 512)
         attention_mask = np.array(attention_mask).reshape(8, -1, 512)
@@ -149,7 +150,6 @@ class Encoder:
         texts_encoded = [ray.put(text_encoded) for text_encoded in texts_encoded]
         attention_mask = [ray.put(mask) for mask in attention_mask]
         self.shared_storage_encoded.add_data.remote(images, texts, texts_encoded, attention_mask)
-        
     
     def encode(self):
         while True:
