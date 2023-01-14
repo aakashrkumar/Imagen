@@ -96,7 +96,9 @@ class SharedStorage:
     def add_data(self, images, texts):
         self.images.extend(images)
         self.texts.extend(texts)
-    
+        del images
+        del texts
+
     def get_batch(self, batch_size):
         if len(self.images) < batch_size:
             return None
@@ -166,6 +168,7 @@ class DataCollector:
             file = ray.get(file_ref)
             file_ref = self.dataset.get_data.remote()
             self.process(file)
+            del file
 @ray.remote
 class Encoder:
     def __init__(self, shared_storage, shared_storage_encoded):
@@ -201,6 +204,7 @@ class Encoder:
                 continue
             
             self.process(data)
+            del data
             
 
 @ray.remote
