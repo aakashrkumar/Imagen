@@ -168,7 +168,7 @@ class DataManager:
         self.shared_storage_encoded = SharedStorageEncoded.remote()
         self.batch_size = batch_size
         self.dataset = DatasetFetcher.remote()
-        self.processor = Encoder.remote(self.shared_storage_encoded)
+        self.processor = Encoder.remote(self.shared_storage_encoded, self.dataset)
         self.processor.encode.remote()
         print("Initialized")
     
