@@ -142,54 +142,66 @@ class DataCollector:
         self.shared_storage = shared_storage
         self.dataset = dataset
         self.images_collected = 0
+    
+    def process(self, file):
+        data = download_pickle(file)
+        images = data[0] # list of pil images
+        texts = data[1]
+        # convert pil images to numpy arrays
+        images = [processImage(image) for image in images]
+        
+        self.images_collected += len(images)
+        images = ray.put(images)
+        texts = ray.put(texts)
+        self.shared_storage.add_data.remote(images, texts)
+        
+    
     def collect(self):
         MAX_BUFFER = 10000
+        file_ref = self.dataset.get_data.remote()
         while True:
             if ray.get(self.shared_storage.get_size.remote()) > MAX_BUFFER:
                 time.sleep(10)
                 continue
-            file = ray.get(self.dataset.get_data.remote())
-            data = download_pickle(file)
-            images = data[0] # list of pil images
-            texts = data[1]
-            # convert pil images to numpy arrays
-            images = [processImage(image) for image in images]
-            
-            self.images_collected += len(images)
-            images = [ray.put(image) for image in images]
-            texts = [ray.put(text) for text in texts]
-            texts = ray.put(texts)
-            self.shared_storage.add_data.remote(images, texts)
-
+            file = ray.get(file_ref)
+            file_ref = self.dataset.get_data.remote()
+            self.process(file)
 @ray.remote
 class Encoder:
     def __init__(self, shared_storage, shared_storage_encoded):
         self.shared_storage = shared_storage
         self.shared_storage_encoded = shared_storage_encoded
         self.tokenizer, self.model = T5Utils.get_tokenizer_and_model()
+    
+    def process(self, data):
+        images, texts = data
+        input_ids, attention_mask = T5Utils.tokenize_texts(texts, self.tokenizer)
+        input_ids = np.array(input_ids).reshape(8, -1, 512)
+        attention_mask = np.array(attention_mask).reshape(8, -1, 512)
+        texts_encoded, attention_mask = T5Utils.encode_texts(input_ids, attention_mask, self.model)
+        texts_encoded = np.array(texts_encoded)
+        texts_encoded = texts_encoded.reshape(-1, 512, 1024)
+        attention_mask = np.array(attention_mask)
+        attention_mask.reshape(-1, 512)
+        texts = [ray.put(text) for text in texts]
+        texts_encoded = [ray.put(text_encoded) for text_encoded in texts_encoded]
+        attention_mask = [ray.put(mask) for mask in attention_mask]
+        self.shared_storage_encoded.add_data.remote(images, texts, texts_encoded, attention_mask)
+        
+    
     def encode(self):
+        data_ref = self.shared_storage.get_batch.remote(1024)
         while True:
             if ray.get(self.shared_storage_encoded.get_size.remote()) > 10000:
                 time.sleep(1)
                 continue
-            data = ray.get(self.shared_storage.get_batch.remote(1024))
+            data = ray.get(data_ref)
+            data_ref = self.shared_storage.get_batch.remote(1024)
             if data is None:
                 continue
-            images, texts = data
-            texts = [ray.get(text) for text in texts]
-            input_ids, attention_mask = T5Utils.tokenize_texts(texts, self.tokenizer)
-            input_ids = np.array(input_ids).reshape(8, -1, 512)
-            attention_mask = np.array(attention_mask).reshape(8, -1, 512)
-            texts_encoded, attention_mask = T5Utils.encode_texts(input_ids, attention_mask, self.model)
-            texts_encoded = np.array(texts_encoded)
-            texts_encoded = texts_encoded.reshape(-1, 512, 1024)
-            attention_mask = np.array(attention_mask)
-            attention_mask.reshape(-1, 512)
-            texts = [ray.put(text) for text in texts]
-            texts_encoded = [ray.put(text_encoded) for text_encoded in texts_encoded]
-            attention_mask = [ray.put(mask) for mask in attention_mask]
-            self.shared_storage_encoded.add_data.remote(images, texts, texts_encoded, attention_mask)
-        
+            
+            self.process(data)
+            
 
 @ray.remote
 class DataManager:
