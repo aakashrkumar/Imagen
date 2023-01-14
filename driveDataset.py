@@ -169,7 +169,7 @@ class DataManager:
         self.dataset = DatasetFetcher.remote()
         self.processor = Encoder.remote(self.shared_storage_encoded)
         self.processor.encode.remote()
-        print("Initialized all collectors and processors")
+        print("Initialized")
     
     def get_num_images(self):
         return ray.get(self.shared_storage_encoded.get_size.remote())
@@ -182,7 +182,7 @@ def test():
     total_processed = 0
     while True:
         time.sleep(1)
-        print(ray.get(datamanager.get_num_images.remote()))
+        print("Current Storage", ray.get(datamanager.get_num_images.remote()))
         batch = ray.get(ray.get(datamanager.get_batch.remote()))
         if batch is None:
             continue
