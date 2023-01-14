@@ -165,11 +165,12 @@ class Encoder:
     def encode(self):
         while True:
             if ray.get(self.shared_storage_encoded.get_size.remote()) > 16384:
-                time.sleep(10)
+                time.sleep(1)
                 continue
             data = ray.get(self.shared_storage.get_batch.remote(1024))
             if data is None:
                 continue
+            print("Encoding")
             images, texts = data
             input_ids, attention_mask = T5Utils.tokenize_texts(texts, self.tokenizer)
             input_ids = np.array(input_ids).reshape(8, -1, 512)
