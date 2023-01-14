@@ -195,9 +195,8 @@ class DataManager:
         self.processor.encode.remote()
         print("Initialized all collectors and processors")
     
-    def get_unencoded_images(self):
-        return ray.get(self.shared_storage.get_batch.remote(self.batch_size))
-    
+    def get_num_unencoded_images(self):
+        return ray.get(self.shared_storage.get_size.remote())
     def get_num_images(self):
         return ray.get(self.shared_storage_encoded.get_size.remote())
     
