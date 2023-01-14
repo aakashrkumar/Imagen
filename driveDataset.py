@@ -1,3 +1,4 @@
+import gc
 import pickle
 import random
 import time
@@ -7,6 +8,7 @@ from google.oauth2.credentials import Credentials
 import io
 import cv2
 import numpy as np
+import psutil
 import ray
 import T5Utils
 import logging
@@ -55,6 +57,18 @@ def download_pickle(file):
     request = drive_service.files().get_media(fileId=file.get('id')).execute()
     data = pickle.load(io.BytesIO(request))
     return data
+
+def auto_garbage_collect(pct=80.0):
+    """
+    auto_garbage_collection - Call the garbage collection if memory used is greater than 80% of total available memory.
+                              This is called to deal with an issue in Ray not freeing up used memory.
+
+        pct - Default value of 80%.  Amount of memory in use that triggers the garbage collection call.
+    """
+    if psutil.virtual_memory().percent >= pct:
+        gc.collect()
+    return
+
 @ray.remote
 class SharedStorageEncoded:
     def __init__(self):
@@ -147,6 +161,8 @@ class Encoder:
         texts_encoded = [ray.put(text_encoded) for text_encoded in texts_encoded]
         attention_mask = [ray.put(mask) for mask in attention_mask]
         self.shared_storage_encoded.add_data.remote(images, texts, texts_encoded, attention_mask)
+        auto_garbage_collect()
+        
     
     def encode(self):
         while True:
