@@ -84,6 +84,31 @@ class SharedStorageEncoded:
         texts_encoded = np.array(texts_encoded)
         attention_masks = np.array(attention_masks)
         return images, texts, texts_encoded, attention_masks
+@ray.remote
+class SharedStorage:
+    def __init__(self):
+        self.images = []
+        self.texts = []
+    
+    def get_size(self):
+        return len(self.images)
+    
+    def add_data(self, images, texts):
+        self.images.extend(images)
+        self.texts.extend(texts)
+        del images
+        del texts
+
+    def get_batch(self, batch_size):
+        if len(self.images) < batch_size:
+            return None
+        images = self.images[:batch_size]
+        self.images = self.images[batch_size:]
+        texts = self.texts[:batch_size]
+        self.texts = self.texts[batch_size:]
+        images = np.array(images)
+        return images, texts
+
 
 @ray.remote
 class DatasetFetcher:
@@ -145,25 +170,12 @@ class DataCollector:
             self.process(file)
             del file
 @ray.remote
-def collect(dataset:DatasetFetcher):
-    file = ray.get(dataset.get_data.remote())
-    data = download_pickle(file)
-    images = data[0] # list of pil images
-    texts = data[1]
-    # convert pil images to numpy arrays
-    images = [processImage(image) for image in images]
-    images = ray.put(images)
-    texts = ray.put(texts)
-    return images, texts
-    
-
-@ray.remote
 class Encoder:
-    def __init__(self, shared_storage_encoded):
+    def __init__(self, shared_storage, shared_storage_encoded):
+        self.shared_storage = shared_storage
         self.shared_storage_encoded = shared_storage_encoded
         self.tokenizer, self.model = T5Utils.get_tokenizer_and_model()
-        self.batch_size = 1000
-            
+    
     def process(self, data):
         images, texts = data
         input_ids, attention_mask = T5Utils.tokenize_texts(texts, self.tokenizer)
@@ -181,22 +193,32 @@ class Encoder:
         
     
     def encode(self):
+        data_ref = self.shared_storage.get_batch.remote(1024)
         while True:
             if ray.get(self.shared_storage_encoded.get_size.remote()) > 10000:
                 time.sleep(1)
                 continue
-            batches = [collect.remote() for _ in range(32)]
-            data = ray.get(batches)
-            for batch in data:
-                self.process(batch)
+            data = ray.get(data_ref)
+            data_ref = self.shared_storage.get_batch.remote(1024)
+            if data is None:
+                continue
+            
+            self.process(data)
+            del data
             
 
 @ray.remote
 class DataManager:
-    def __init__(self, batch_size):
+    def __init__(self, num_collectors, batch_size):
+        self.shared_storage = SharedStorage.remote()
         self.shared_storage_encoded = SharedStorageEncoded.remote()
         self.batch_size = batch_size
         self.dataset = DatasetFetcher.remote()
+        self.collectors = [DataCollector.remote(self.shared_storage, self.dataset) for _ in range(num_collectors)]
+        
+        for collector in self.collectors:
+            collector.collect.remote()
+        
         self.processor = Encoder.remote(self.shared_storage, self.shared_storage_encoded)
         self.processor.encode.remote()
         print("Initialized all collectors and processors")
@@ -211,11 +233,11 @@ class DataManager:
         return self.shared_storage_encoded.get_batch.remote(self.batch_size)
 
 def test():
-    datamanager = DataManager.remote(1024)
+    datamanager = DataManager.remote(16, 1024)
     total_processed = 0
     while True:
         time.sleep(1)
-        print(ray.get(datamanager.get_num_images.remote()))
+        print(ray.get(datamanager.get_num_images.remote()), ray.get(datamanager.get_num_unencoded_images.remote()))
         batch = ray.get(ray.get(datamanager.get_batch.remote()))
         if batch is None:
             continue
