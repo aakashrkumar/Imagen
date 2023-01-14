@@ -141,7 +141,7 @@ class DataCollector:
         self.dataset = dataset
         self.images_collected = 0
     def collect(self):
-        MAX_BUFFER = 16384
+        MAX_BUFFER = 10000
         while True:
             if ray.get(self.shared_storage.get_size.remote()) > MAX_BUFFER:
                 time.sleep(10)
@@ -165,7 +165,7 @@ class Encoder:
         self.tokenizer, self.model = T5Utils.get_tokenizer_and_model()
     def encode(self):
         while True:
-            if ray.get(self.shared_storage_encoded.get_size.remote()) > 16384:
+            if ray.get(self.shared_storage_encoded.get_size.remote()) > 10000:
                 time.sleep(1)
                 print(F'Encoder Storage Buffer full, sleeping for 1 seconds')
                 continue
