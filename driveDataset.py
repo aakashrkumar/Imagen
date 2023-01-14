@@ -195,6 +195,9 @@ class DataManager:
         self.processor.encode.remote()
         print("Initialized all collectors and processors")
     
+    def get_unencoded_images(self):
+        return ray.get(self.shared_storage.get_batch.remote(self.batch_size))
+    
     def get_num_images(self):
         return ray.get(self.shared_storage_encoded.get_size.remote())
     
@@ -202,9 +205,9 @@ class DataManager:
         return ray.get(self.shared_storage_encoded.get_batch.remote(self.batch_size))
 
 def test():
-    datamanager = DataManager.remote(16, 32)
+    datamanager = DataManager.remote(32, 32)
     while True:
-        print(ray.get(datamanager.get_num_images.remote()))
+        print(ray.get(datamanager.get_num_images.remote()), ray.get(datamanager.get_unencoded_images.remote()))
         time.sleep(1)
     
 if __name__ == "__main__":
