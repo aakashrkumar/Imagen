@@ -141,7 +141,7 @@ class DataCollector:
         self.dataset = dataset
         self.images_collected = 0
     def collect(self):
-        MAX_BUFFER = 100_000
+        MAX_BUFFER = 16384
         while True:
             if ray.get(self.shared_storage.get_size.remote()) > MAX_BUFFER:
                 time.sleep(10)
@@ -164,6 +164,9 @@ class Encoder:
         self.tokenizer, self.model = T5Utils.get_tokenizer_and_model()
     def encode(self):
         while True:
+            if ray.get(self.shared_storage_encoded.get_size.remote()) > 16384:
+                time.sleep(10)
+                continue
             data = ray.get(self.shared_storage.get_batch.remote(1024))
             if data is None:
                 continue
@@ -196,7 +199,7 @@ class DataManager:
         print("Initialized all collectors and processors")
     
     def get_num_unencoded_images(self):
-        return ray.get(self.shared_storage.get_size.remote())
+        return ray.get(self.shared_storage.get_batch.remote(self.batch_size))
     
     def get_num_images(self):
         return ray.get(self.shared_storage_encoded.get_size.remote())
@@ -207,8 +210,7 @@ class DataManager:
 def test():
     datamanager = DataManager.remote(32, 1024)
     while True:
-        print(ray.get(datamanager.get_num_images.remote()), ray.get(datamanager.get_num_unencoded_images.remote()))
-        datamanager.get_batch.remote()
+        print(ray.get(datamanager.get_num_images.remote()), ray.get(datamanager.get_unencoded_images.remote()))
         time.sleep(1)
     
 if __name__ == "__main__":
