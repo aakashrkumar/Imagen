@@ -170,6 +170,7 @@ class Encoder:
                 time.sleep(1)
                 continue
             batch, batches = ray.wait(batches, num_returns=1)
+            batch = ray.get(batch)
             self.process(batch)
             batches.append(collect.remote(self.dataset))
             
