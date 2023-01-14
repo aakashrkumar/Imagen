@@ -147,7 +147,6 @@ class DataCollector:
         while True:
             if ray.get(self.shared_storage.get_size.remote()) > MAX_BUFFER:
                 time.sleep(10)
-                print(F'Buffer full, sleeping for 10 seconds')
                 continue
             file = ray.get(self.dataset.get_data.remote())
             data = download_pickle(file)
@@ -169,13 +168,10 @@ class Encoder:
         while True:
             if ray.get(self.shared_storage_encoded.get_size.remote()) > 10000:
                 time.sleep(1)
-                print(F'Encoder Storage Buffer full, sleeping for 1 seconds')
                 continue
             data = ray.get(self.shared_storage.get_batch.remote(1024))
             if data is None:
-                print(F'No data to encode')
                 continue
-            print("Encoding")
             images, texts = data
             input_ids, attention_mask = T5Utils.tokenize_texts(texts, self.tokenizer)
             input_ids = np.array(input_ids).reshape(8, -1, 512)
@@ -186,7 +182,6 @@ class Encoder:
             attention_mask = np.array(attention_mask)
             attention_mask.reshape(-1, 512)
             self.shared_storage_encoded.add_data.remote(images, texts, texts_encoded, attention_mask)
-            print("Encoded")
         
 
 @ray.remote
@@ -212,7 +207,7 @@ class DataManager:
         return ray.get(self.shared_storage_encoded.get_size.remote())
     
     def get_batch(self):
-        return ray.get(self.shared_storage_encoded.get_batch.remote(self.batch_size))
+        return ray.put(self.shared_storage_encoded.get_batch.remote(self.batch_size))
 
 def test():
     datamanager = DataManager.remote(16, 1024)
