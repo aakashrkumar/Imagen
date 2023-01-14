@@ -156,6 +156,9 @@ class DataCollector:
             images = [processImage(image) for image in images]
             
             self.images_collected += len(images)
+            images = [ray.put(image) for image in images]
+            texts = [ray.put(text) for text in texts]
+            texts = ray.put(texts)
             self.shared_storage.add_data.remote(images, texts)
 
 @ray.remote
@@ -173,6 +176,7 @@ class Encoder:
             if data is None:
                 continue
             images, texts = data
+            texts = [ray.get(text) for text in texts]
             input_ids, attention_mask = T5Utils.tokenize_texts(texts, self.tokenizer)
             input_ids = np.array(input_ids).reshape(8, -1, 512)
             attention_mask = np.array(attention_mask).reshape(8, -1, 512)
@@ -181,6 +185,9 @@ class Encoder:
             texts_encoded = texts_encoded.reshape(-1, 512, 1024)
             attention_mask = np.array(attention_mask)
             attention_mask.reshape(-1, 512)
+            texts = [ray.put(text) for text in texts]
+            texts_encoded = [ray.put(text_encoded) for text_encoded in texts_encoded]
+            attention_mask = [ray.put(mask) for mask in attention_mask]
             self.shared_storage_encoded.add_data.remote(images, texts, texts_encoded, attention_mask)
         
 
@@ -207,7 +214,7 @@ class DataManager:
         return ray.get(self.shared_storage_encoded.get_size.remote())
     
     def get_batch(self):
-        return self.shared_storage_encoded.get_batch.remote(self.batch_size)
+        return ray.get(self.shared_storage_encoded.get_batch.remote(self.batch_size))
 
 def test():
     datamanager = DataManager.remote(16, 1024)
