@@ -164,13 +164,15 @@ class Encoder:
         
     
     def encode(self):
+        batches = [collect.remote(self.dataset) for _ in range(32)]
         while True:
             if ray.get(self.shared_storage_encoded.get_size.remote()) > 10000:
                 time.sleep(1)
                 continue
-            batches = [collect.remote(self.dataset) for _ in range(16)]
-            for batch in batches:
-                self.process(ray.get(batch))
+            batch = ray.get(batches.pop(0))
+            self.process(ray.get(batch))
+            batches.append(collect.remote(self.dataset))
+            
 
 @ray.remote
 class DataManager:
