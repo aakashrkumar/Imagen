@@ -209,8 +209,16 @@ class DataManager:
 
 def test():
     datamanager = DataManager.remote(32, 1024)
+    total_processed = 0
     while True:
         print(ray.get(datamanager.get_num_images.remote()), ray.get(datamanager.get_unencoded_images.remote()))
+        batch = ray.get(datamanager.get_batch.remote())
+        if batch is None:
+            continue
+        else:
+            images, texts, texts_encoded, attention_mask = batch
+            total_processed += len(images)
+            print("Total Processed", total_processed)
         time.sleep(1)
     
 if __name__ == "__main__":
