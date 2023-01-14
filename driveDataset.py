@@ -11,7 +11,7 @@ import ray
 import T5Utils
 import logging
 
-ray.init(logging_level=logging.ERROR, log_to_driver=False)
+# ray.init(logging_level=logging.ERROR, log_to_driver=False)
 
 creds = Credentials.from_authorized_user_file(
             'token.json',
