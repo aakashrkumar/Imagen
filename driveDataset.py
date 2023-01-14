@@ -205,9 +205,10 @@ class DataManager:
         return ray.get(self.shared_storage_encoded.get_batch.remote(self.batch_size))
 
 def test():
-    datamanager = DataManager.remote(32, 32)
+    datamanager = DataManager.remote(32, 1024)
     while True:
         print(ray.get(datamanager.get_num_images.remote()), ray.get(datamanager.get_num_unencoded_images.remote()))
+        datamanager.get_batch.remote()
         time.sleep(1)
     
 if __name__ == "__main__":
