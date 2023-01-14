@@ -167,9 +167,11 @@ class Encoder:
         while True:
             if ray.get(self.shared_storage_encoded.get_size.remote()) > 16384:
                 time.sleep(1)
+                print(F'Encoder Storage Buffer full, sleeping for 1 seconds')
                 continue
             data = ray.get(self.shared_storage.get_batch.remote(1024))
             if data is None:
+                print(F'No data to encode')
                 continue
             print("Encoding")
             images, texts = data
