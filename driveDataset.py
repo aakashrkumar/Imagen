@@ -122,8 +122,6 @@ def collect(dataset:DatasetFetcher):
     texts = data[1]
     # convert pil images to numpy arrays
     images = [processImage(image) for image in images]
-    images = ray.put(images)
-    texts = ray.put(texts)
     return images, texts
     
 
