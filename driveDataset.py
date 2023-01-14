@@ -94,7 +94,6 @@ class SharedStorageEncoded:
         texts = self.texts[:batch_size]
         texts_encoded = self.texts_encoded[:batch_size]
         attention_masks = self.attention_masks[:batch_size]
-        images = np.array(images)
         texts_encoded = np.array(texts_encoded)
         attention_masks = np.array(attention_masks)
         return images, texts, texts_encoded, attention_masks
