@@ -159,6 +159,7 @@ class Encoder:
             batches = [collect.remote(self.dataset) for _ in range(32)]
             data = ray.get(batches)
             for batch in data:
+                print(batch)
                 self.process(batch)
             
 
