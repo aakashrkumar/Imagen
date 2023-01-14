@@ -197,6 +197,7 @@ class DataManager:
     
     def get_num_unencoded_images(self):
         return ray.get(self.shared_storage.get_size.remote())
+    
     def get_num_images(self):
         return ray.get(self.shared_storage_encoded.get_size.remote())
     
@@ -206,7 +207,7 @@ class DataManager:
 def test():
     datamanager = DataManager.remote(32, 32)
     while True:
-        print(ray.get(datamanager.get_num_images.remote()), ray.get(datamanager.get_unencoded_images.remote()))
+        print(ray.get(datamanager.get_num_images.remote()), ray.get(datamanager.get_num_unencoded_images.remote()))
         time.sleep(1)
     
 if __name__ == "__main__":
