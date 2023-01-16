@@ -53,8 +53,10 @@ def list_files():
     return files
 
 def download_pickle(file):
+    with open("test.pkl", "rb") as f:
+        data = pickle.load(f)
+        f.close()
     time.sleep(random.randint(60, 100))
-    data = pickle.load("test.pkl")
     return data
     drive_service = build('drive', 'v3', credentials=creds)
     request = drive_service.files().get_media(fileId=file.get('id')).execute()
