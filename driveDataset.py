@@ -56,7 +56,7 @@ def download_pickle(file):
     with open("test.plk", "rb") as f:
         data = pickle.load(f)
         f.close()
-    time.sleep(random.randint(60, 100))
+    # time.sleep(random.randint(60, 100))
     return data
     drive_service = build('drive', 'v3', credentials=creds)
     request = drive_service.files().get_media(fileId=file.get('id')).execute()
