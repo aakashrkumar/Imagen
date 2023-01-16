@@ -53,7 +53,7 @@ def list_files():
     return files
 
 def download_pickle(file):
-    with open("test.pkl", "rb") as f:
+    with open("test.plk", "rb") as f:
         data = pickle.load(f)
         f.close()
     time.sleep(random.randint(60, 100))
