@@ -124,7 +124,6 @@ def processImage(img):
     height_diff = height_diff if height_diff > 0 else 0
     img = img.crop((width_diff, height_diff, min(img.size[0], img.size[1]) + width_diff, min(img.size[0], img.size[1]) + height_diff))
     np_img = np.array(img, dtype=np.uint8)
-    np_img = cv2.resize(np_img, (256, 256), mode="nearest")
     if len(np_img.shape) == 2:
         np_img = cv2.cvtColor(np_img, cv2.COLOR_GRAY2RGB)
     if np_img.shape[2] == 4:
@@ -141,7 +140,6 @@ def collect(dataset:DatasetFetcher):
     texts = data[1]
     # convert pil images to numpy arrays
     images = [processImage(image) for image in images]
-    images = np.array(images)
     auto_garbage_collect(pct=30)
     return images, texts
     
@@ -164,9 +162,9 @@ class Encoder:
         texts_encoded = texts_encoded.reshape(-1, 512, 1024)
         attention_mask = np.array(attention_mask)
         attention_mask.reshape(-1, 512)
-        texts = [text for text in texts]
-        texts_encoded = [text_encoded for text_encoded in texts_encoded]
-        attention_mask = [mask for mask in attention_mask]
+        texts = [ray.put(text) for text in texts]
+        texts_encoded = [ray.put(text_encoded) for text_encoded in texts_encoded]
+        attention_mask = [ray.put(mask) for mask in attention_mask]
         self.shared_storage_encoded.add_data.remote(images, texts, texts_encoded, attention_mask)
         auto_garbage_collect(pct=30)
         
