@@ -14,7 +14,7 @@ def simulate_trial(tosses):
     return trial
 
 if __name__ == "__main__":
-    with Pool(95) as p:
+    with Pool(1000) as p:
         for trial in tqdm.tqdm(p.imap_unordered(simulate_trial, [TOSSES for _ in range(TRIALS)]), total=TRIALS):
             trials.append(trial)
     for i, trial in enumerate(trials):
