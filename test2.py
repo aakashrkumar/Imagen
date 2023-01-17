@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import random
 import tqdm
-from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import Pool
 
 TRIALS = 1000000
 TOSSES = 1000
@@ -14,8 +14,8 @@ def simulate_trial(tosses):
     return trial
 
 if __name__ == "__main__":
-    with ProcessPoolExecutor() as executor:
-        for trial in tqdm.tqdm(executor.map(simulate_trial, [TOSSES for _ in range(TRIALS)]), total=TRIALS):
+    with Pool(95) as p:
+        for trial in tqdm.tqdm(p.imap_unordered(simulate_trial, [TOSSES for _ in range(TRIALS)]), total=TRIALS):
             trials.append(trial)
     for i, trial in enumerate(trials):
         print(f"Trial {i + 1}: {sum(trial) / TOSSES}")
