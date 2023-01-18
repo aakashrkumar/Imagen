@@ -147,7 +147,7 @@ def upload_pickle_to_google_drive(data, pickle_file_name, creds=None, upload_dat
         else: 
             media = MediaIoBaseUpload(io.BytesIO(data), mimetype='unknown/pkl', resumable=True)
         file = service.files().create(body=file_metadata, media_body=media, fields='id', supportsAllDrives=True).execute()
-        print(f"File uploaded: {file.get('id')}")
+        print(f"File uploaded: {file.get('name')} with ID: {file.get('id')}")
 
     except HttpError as error:
         print(f"An error occurred while uploading the file: {error}")
