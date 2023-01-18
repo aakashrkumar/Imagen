@@ -69,6 +69,8 @@ class DatasetFetcher:
         self.index = 0
         self.uploaded_ids = []
         for file in list_files("1fUYXHjDJRhBaDJM3TdxIhGh4NZHi4qM0"):
+            if "12" in file.get('name'):
+                print(file.get('name'))
             self.uploaded_ids.append(file.get('name'))
         self.sent_ids = []
     def get_data(self):
