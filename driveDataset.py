@@ -57,7 +57,7 @@ def download_pickle(file):
     with open("test.plk", "rb") as f:
         data = pickle.load(f)
         f.close()
-    # time.sleep(random.randint(60, 100))
+    time.sleep(random.randint(60, 100))
     return data
     drive_service = build('drive', 'v3', credentials=creds)
     request = drive_service.files().get_media(fileId=file.get('id')).execute()
@@ -166,7 +166,7 @@ class Encoder:
         
     
     def encode(self):
-        batches = [collect.remote(self.dataset) for _ in range(64)]
+        batches = [collect.remote(self.dataset) for _ in range(60)]
         while True:
             if ray.get(self.shared_storage_encoded.get_size.remote()) > 10000:
                 time.sleep(1)
