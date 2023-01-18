@@ -70,12 +70,14 @@ class DatasetFetcher:
         self.uploaded_ids = []
         for file in list_files("1fUYXHjDJRhBaDJM3TdxIhGh4NZHi4qM0"):
             self.uploaded_ids.append(file.get('id'))
+        self.sent_ids = []
     def get_data(self):
         self.index += 1
         if self.index % 100 == 0:
             self.files = list_files()
-        while self.files[self.index % len(self.files)].get('id') in self.uploaded_ids:
+        while self.files[self.index % len(self.files)].get('id') in self.uploaded_ids or self.files[self.index % len(self.files)].get('id') in self.sent_ids:
             self.index += 1
+        self.sent_ids.append(self.files[self.index % len(self.files)].get('id'))
         return self.files[self.index % len(self.files)]
         
 def processImage(img):
