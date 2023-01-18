@@ -75,7 +75,6 @@ class DatasetFetcher:
         self.index += 1
         if self.index % 100 == 0:
             self.files = list_files()
-        print(self.uploaded_ids, self.sent_ids)
         while self.files[self.index % len(self.files)].get('name') in self.uploaded_ids or self.files[self.index % len(self.files)].get('name') in self.sent_ids:
             self.index += 1
         self.sent_ids.append(self.files[self.index % len(self.files)].get('name'))
