@@ -183,26 +183,13 @@ class DataManager:
         self.dataset = DatasetFetcher.remote()
         collectors = [DataCollector.remote(self.dataset) for _ in range(8)]
         print("Initialized")
-    
-    def get_num_images(self):
-        return ray.get(self.shared_storage_encoded.get_size.remote())
-    
-    def get_batch(self):
-        return self.shared_storage_encoded.get_batch.remote(self.batch_size)
+        for collector in collectors:
+            collector.start.remote()
 
 def test():
     datamanager = DataManager.remote(1024)
     total_processed = 0
     while True:
         time.sleep(1)
-        print("Current Storage", ray.get(datamanager.get_num_images.remote()))
-        batch = ray.get(ray.get(datamanager.get_batch.remote()))
-        if batch is None:
-            continue
-        else:
-            images, texts, texts_encoded, attention_mask = batch
-            total_processed += len(images)
-            print("Total Processed", total_processed)
-        auto_garbage_collect(pct=30)
 if __name__ == "__main__":
     test()
