@@ -10,9 +10,12 @@ import cv2
 import numpy as np
 import psutil
 import ray
+import urllib3
 import T5Utils
 import logging
 import os
+from googleapiclient.http import MediaFileUpload, MediaIoBaseUpload
+
 os.environ["TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD"] = "2000000000000"
 
 # ray.init(logging_level=logging.ERROR, log_to_driver=False)
@@ -132,53 +135,87 @@ def processImage(img):
         np_img = cv2.cvtColor(np_img, cv2.COLOR_GRAY2RGB)
     return np_img
 
+
+def upload_pickle_to_google_drive(data, pickle_file_name, creds=None, upload_data_without_file=False):
+    # Set the credentials object with the required scope for accessing Google Drive
+    if creds is None:
+        creds = Credentials.from_authorized_user_file(
+            'token.json',
+            scopes=["https://www.googleapis.com/auth/drive"]
+        )
+
+    # Build the service for interacting with Google Drive
+    service = build("drive", "v3", credentials=creds)
+
+
+    # Obtain the ID of the shared drive
+    # Replace "SHARED_DRIVE_NAME" with the name of the shared drive
+    query = "name='LAION-ART-PROCESSED'"
+    results = service.files().list(
+        q=query, 
+        fields="nextPageToken, files(id, name)", 
+        includeItemsFromAllDrives=True,
+        supportsAllDrives=True,
+        corpora="allDrives").execute()
+    print(results)
+
+    # results2 = service.files().list().execute()
+    # print(results2)
+    shared_drive_id = results["files"][0]["id"]
+
+
+    # Dump the data you want to upload to a pickle file
+    if not upload_data_without_file:
+        with open(pickle_file_name, "wb") as f:
+            pickle.dump(data,f)
+            f.close()
+
+    try:
+        # Upload the pickle file to Google Drive
+        file_metadata = {
+            "name": pickle_file_name,
+            "parents": [shared_drive_id]
+            }
+        media = None
+        if not upload_data_without_file:
+            media = MediaFileUpload(pickle_file_name, resumable=True, mimetype='unknown/pkl')
+        else: 
+            media = MediaIoBaseUpload(io.BytesIO(data), mimetype='unknown/pkl', resumable=True)
+        file = service.files().create(body=file_metadata, media_body=media, fields='id', supportsAllDrives=True).execute()
+        print(f"File uploaded: {file.get('id')}")
+
+    except HttpError as error:
+        print(f"An error occurred while uploading the file: {error}")
+        # Handle the error
 @ray.remote
-def collect(dataset:DatasetFetcher):
-    file = ray.get(dataset.get_data.remote())
-    data = download_pickle(file)
-    images = data[0] # list of pil images
-    texts = data[1]
-    # convert pil images to numpy arrays
-    images = [processImage(image) for image in images]
-    auto_garbage_collect(pct=30)
-    return images, texts
-    
+class Uploader:
+    def __init__(self):
+        self.index = 441
+        self.creds = None
+        self.save_name = "laion_art"
+        with open("uploader.txt", "r") as f:        
+            self.run_name = f.read()
+            print("Uploading as", self.run_name)
+    def save(self, data):
+        print(f"Saving {len(data[0])} images")
+        upload_pickle_to_google_drive(data, f"{self.run_name}_{self.save_name}_{self.index}.pkl", self.creds)
+        print(f"Saved {len(data[0])} images")
+        self.index += 1
+        return 1
 
 @ray.remote
-class Encoder:
-    def __init__(self, shared_storage_encoded, dataset:DatasetFetcher):
-        self.shared_storage_encoded = shared_storage_encoded
-        self.dataset = dataset
-        self.tokenizer, self.model = T5Utils.get_tokenizer_and_model()
-        self.batch_size = 1000
-            
-    def process(self, data):
-        images, texts = data
-        input_ids, attention_mask = T5Utils.tokenize_texts(texts, self.tokenizer)
-        input_ids = np.array(input_ids).reshape(8, -1, 512)
-        attention_mask = np.array(attention_mask).reshape(8, -1, 512)
-        texts_encoded, attention_mask = T5Utils.encode_texts(input_ids, attention_mask, self.model)
-        texts_encoded = np.array(texts_encoded)
-        texts_encoded = texts_encoded.reshape(-1, 512, 1024)
-        attention_mask = np.array(attention_mask)
-        attention_mask.reshape(-1, 512)
-        texts = [ray.put(text) for text in texts]
-        texts_encoded = [ray.put(text_encoded) for text_encoded in texts_encoded]
-        attention_mask = [ray.put(mask) for mask in attention_mask]
-        self.shared_storage_encoded.add_data.remote(images, texts, texts_encoded, attention_mask)
-        auto_garbage_collect(pct=30)
-        
-    
-    def encode(self):
-        batches = [collect.remote(self.dataset) for _ in range(32)]
+class DataCollector:
+    def __init__(self, dataset, shared_storage):
+        self.dataset = dataset        
+    def start(self):
         while True:
-            if ray.get(self.shared_storage_encoded.get_size.remote()) > 10000:
-                time.sleep(1)
-                continue
-            batch, batches = ray.wait(batches, num_returns=1)
-            batch = ray.get(batch)[0]
-            self.process(batch)
-            batches.append(collect.remote(self.dataset))
+            file = ray.get(self.dataset.get_data.remote())
+            data = download_pickle(file)
+            images = data[0] # list of pil images
+            texts = data[1]
+            # convert pil images to numpy arrays
+            images = [processImage(image) for image in images]
+            images = np.array(images)
             
 
 @ray.remote
@@ -187,8 +224,6 @@ class DataManager:
         self.shared_storage_encoded = SharedStorageEncoded.remote()
         self.batch_size = batch_size
         self.dataset = DatasetFetcher.remote()
-        self.processor = Encoder.remote(self.shared_storage_encoded, self.dataset)
-        self.processor.encode.remote()
         print("Initialized")
     
     def get_num_images(self):

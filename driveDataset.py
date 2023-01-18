@@ -180,6 +180,10 @@ class Encoder:
                 continue
             batch, batches = ray.wait(batches, num_returns=1)
             batch = ray.get(batch)[0]
+            with open("test_processed.pkl", "wb") as f:
+                pickle.dump(batch, f)
+                f.close()
+                quit()
             self.process(batch)
             batches.append(collect.remote(self.dataset))
             
