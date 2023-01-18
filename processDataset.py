@@ -168,7 +168,7 @@ class DataManager:
     def __init__(self, batch_size):
         self.batch_size = batch_size
         self.dataset = DatasetFetcher.remote()
-        collectors = [DataCollector.remote(self.dataset) for _ in range(8)]
+        collectors = [DataCollector.remote(self.dataset) for _ in range(30)]
         print("Initialized")
         for collector in collectors:
             collector.start.remote()
