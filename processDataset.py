@@ -82,6 +82,7 @@ def processImage(img):
     width_diff = width_diff if width_diff > 0 else 0
     height_diff = height_diff if height_diff > 0 else 0
     img = img.crop((width_diff, height_diff, min(img.size[0], img.size[1]) + width_diff, min(img.size[0], img.size[1]) + height_diff))
+    img = img.resize((256, 256))
     np_img = np.array(img, dtype=np.uint8)
     if len(np_img.shape) == 2:
         np_img = cv2.cvtColor(np_img, cv2.COLOR_GRAY2RGB)
@@ -89,8 +90,8 @@ def processImage(img):
         np_img = cv2.cvtColor(np_img, cv2.COLOR_RGBA2RGB)
     if np_img.shape[2] == 1:
         np_img = cv2.cvtColor(np_img, cv2.COLOR_GRAY2RGB)
-    np_img = cv2.resize(np_img, (256, 256))
     return np_img
+
 
 
 def upload_pickle_to_google_drive(data, pickle_file_name, creds=None, upload_data_without_file=False):
