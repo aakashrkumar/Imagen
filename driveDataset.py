@@ -119,8 +119,8 @@ def processImage(img):
     width_diff = width_diff if width_diff > 0 else 0
     height_diff = height_diff if height_diff > 0 else 0
     img = img.crop((width_diff, height_diff, min(img.size[0], img.size[1]) + width_diff, min(img.size[0], img.size[1]) + height_diff))
+    img = img.resize((256, 256))
     np_img = np.array(img, dtype=np.uint8)
-    np_img = cv2.resize(np_img, (256, 256))
     if len(np_img.shape) == 2:
         np_img = cv2.cvtColor(np_img, cv2.COLOR_GRAY2RGB)
     if np_img.shape[2] == 4:
