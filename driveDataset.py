@@ -64,16 +64,6 @@ def download_pickle(file):
     data = pickle.load(io.BytesIO(request))
     return data
 
-def auto_garbage_collect(pct=30.0):
-    """
-    auto_garbage_collection - Call the garbage collection if memory used is greater than 80% of total available memory.
-                              This is called to deal with an issue in Ray not freeing up used memory.
-
-        pct - Default value of 80%.  Amount of memory in use that triggers the garbage collection call.
-    """
-    if psutil.virtual_memory().percent >= pct:
-        gc.collect()
-    return
 
 @ray.remote
 class SharedStorageEncoded:
@@ -148,7 +138,6 @@ def collect(dataset:DatasetFetcher):
     # convert pil images to numpy arrays
     images = [processImage(image) for image in images]
     images = np.array(images)
-    auto_garbage_collect(pct=30)
     return images, texts
     
 
@@ -174,11 +163,10 @@ class Encoder:
         texts_encoded = [text_encoded for text_encoded in texts_encoded]
         attention_mask = [mask for mask in attention_mask]
         self.shared_storage_encoded.add_data.remote(images, texts, texts_encoded, attention_mask)
-        auto_garbage_collect(pct=30)
         
     
     def encode(self):
-        batches = [collect.remote(self.dataset) for _ in range(32)]
+        batches = [collect.remote(self.dataset) for _ in range(64)]
         while True:
             if ray.get(self.shared_storage_encoded.get_size.remote()) > 10000:
                 time.sleep(1)
@@ -203,7 +191,6 @@ class DataManager:
         return ray.get(self.shared_storage_encoded.get_size.remote())
     
     def get_batch(self):
-        auto_garbage_collect(pct=30)
         return self.shared_storage_encoded.get_batch.remote(self.batch_size)
 
 def test():
@@ -219,6 +206,5 @@ def test():
             images, texts, texts_encoded, attention_mask = batch
             total_processed += len(images)
             print("Total Processed", total_processed)
-        auto_garbage_collect(pct=30)
 if __name__ == "__main__":
     test()
