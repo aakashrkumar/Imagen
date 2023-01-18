@@ -141,8 +141,8 @@ def collect(dataset:DatasetFetcher):
     images = data[0] # list of pil images
     texts = data[1]
     # convert pil images to numpy arrays
-    # images = [processImage(image) for image in images]
-    # images = np.array(images)
+    images = [processImage(image) for image in images]
+    images = np.array(images)
     auto_garbage_collect(pct=30)
     return images, texts
     
