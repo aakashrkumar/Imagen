@@ -83,6 +83,7 @@ def processImage(img):
     height_diff = height_diff if height_diff > 0 else 0
     img = img.crop((width_diff, height_diff, min(img.size[0], img.size[1]) + width_diff, min(img.size[0], img.size[1]) + height_diff))
     np_img = np.array(img, dtype=np.uint8)
+    np_img = cv2.resize(np_img, (256, 256))
     if len(np_img.shape) == 2:
         np_img = cv2.cvtColor(np_img, cv2.COLOR_GRAY2RGB)
     if np_img.shape[2] == 4:
@@ -147,11 +148,10 @@ def upload_pickle_to_google_drive(data, pickle_file_name, creds=None, upload_dat
 @ray.remote
 class DataCollector:
     def __init__(self, dataset):
-        self.dataset = dataset        
+        self.dataset = dataset
     def start(self):
         while True:
             file = ray.get(self.dataset.get_data.remote())
-            print(f"Processing {file}")
             data = download_pickle(file)
             images = data[0] # list of pil images
             texts = data[1]
