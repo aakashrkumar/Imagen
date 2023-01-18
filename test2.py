@@ -3,8 +3,8 @@ import random
 import tqdm
 from multiprocessing import Pool
 
-TRIALS = 1000000
-TOSSES = 1000
+TRIALS = 10_000_000
+TOSSES = 100
 trials = []
 
 def simulate_trial(tosses):
@@ -14,7 +14,7 @@ def simulate_trial(tosses):
     return trial
 
 if __name__ == "__main__":
-    with Pool(1000) as p:
+    with Pool(16) as p:
         for trial in tqdm.tqdm(p.imap_unordered(simulate_trial, [TOSSES for _ in range(TRIALS)]), total=TRIALS):
             trials.append(trial)
     for i, trial in enumerate(trials):
