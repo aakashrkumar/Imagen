@@ -15,7 +15,7 @@ import logging
 import os
 os.environ["TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD"] = "2000000000000"
 
-ray.init(address="auto")
+ray.init(address='auto', _node_ip_address='34.147.22.32')
 # ray.init(logging_level=logging.ERROR, log_to_driver=False)
 
 creds = Credentials.from_authorized_user_file(
