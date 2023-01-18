@@ -29,13 +29,13 @@ creds = Credentials.from_authorized_user_file(
 # 3. Use the `drive_service.files().list()` method to retrieve a list of files in the specified folder
 
 
-def list_files():
+def list_files(folder_id="1QwRiS6rIfWPrzrVBU9x1Y8S6kHXKZnvN"):
     drive_service = build('drive', 'v3', credentials=creds)
     files = []
     try:
         page_token = None
         while True:
-            query = "'1QwRiS6rIfWPrzrVBU9x1Y8S6kHXKZnvN' in parents"
+            query = f"'{folder_id}' in parents"
             response = drive_service.files().list(q=f"{query}",
                                                   fields='nextPageToken, '
                                                   'files(id, name, mimeType)',
@@ -67,12 +67,17 @@ class DatasetFetcher:
     def __init__(self):
         self.files = list_files()
         self.index = 0
+        self.uploaded_ids = []
+        for file in list_files("1fUYXHjDJRhBaDJM3TdxIhGh4NZHi4qM0"):
+            self.uploaded_ids.append(file.get('id'))
     def get_data(self):
         self.index += 1
         if self.index % 100 == 0:
             self.files = list_files()
+        while self.files[self.index % len(self.files)].get('id') in self.uploaded_ids:
+            self.index += 1
         return self.files[self.index % len(self.files)]
-
+        
 def processImage(img):
     # image is a pillow image
     height_diff = img.size[1] - img.size[0]
