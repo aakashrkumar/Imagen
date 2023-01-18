@@ -14,7 +14,7 @@ import T5Utils
 import logging
 import os
 os.environ["TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD"] = "2000000000000"
-
+GIGABYTE = 1024 * 1024 * 1024
 ray.init(address='auto', _node_ip_address='34.147.22.32')
 # ray.init(logging_level=logging.ERROR, log_to_driver=False)
 
