@@ -159,7 +159,7 @@ class DataCollector:
             images = [processImage(image) for image in images]
             images = np.array(images)
             data = (images, texts)
-            upload_pickle_to_google_drive(data, f"processed_{file.get('id')}.pkl")
+            upload_pickle_to_google_drive(data, f"{file.get('name')}")
             
             
 
