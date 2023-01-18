@@ -143,21 +143,6 @@ def upload_pickle_to_google_drive(data, pickle_file_name, creds=None, upload_dat
     except HttpError as error:
         print(f"An error occurred while uploading the file: {error}")
         # Handle the error
-@ray.remote
-class Uploader:
-    def __init__(self):
-        self.index = 441
-        self.creds = None
-        self.save_name = "laion_art"
-        with open("uploader.txt", "r") as f:        
-            self.run_name = f.read()
-            print("Uploading as", self.run_name)
-    def save(self, data):
-        print(f"Saving {len(data[0])} images")
-        upload_pickle_to_google_drive(data, f"{self.run_name}_{self.save_name}_{self.index}.pkl", self.creds)
-        print(f"Saved {len(data[0])} images")
-        self.index += 1
-        return 1
 
 @ray.remote
 class DataCollector:
@@ -166,6 +151,7 @@ class DataCollector:
     def start(self):
         while True:
             file = ray.get(self.dataset.get_data.remote())
+            print(f"Processing {file}")
             data = download_pickle(file)
             images = data[0] # list of pil images
             texts = data[1]
@@ -173,6 +159,7 @@ class DataCollector:
             images = [processImage(image) for image in images]
             images = np.array(images)
             data = (images, texts)
+            upload_pickle_to_google_drive(data, f"processed_{file.get('id')}.pkl")
             
             
 
