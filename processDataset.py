@@ -216,6 +216,8 @@ class DataCollector:
             # convert pil images to numpy arrays
             images = [processImage(image) for image in images]
             images = np.array(images)
+            data = (images, texts)
+            
             
 
 @ray.remote

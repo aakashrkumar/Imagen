@@ -54,7 +54,7 @@ def list_files():
     return files
 
 def download_pickle(file):
-    with open("test.plk", "rb") as f:
+    with open("test_processed.pkl", "rb") as f:
         data = pickle.load(f)
         f.close()
     # time.sleep(random.randint(60, 100))
@@ -141,8 +141,8 @@ def collect(dataset:DatasetFetcher):
     images = data[0] # list of pil images
     texts = data[1]
     # convert pil images to numpy arrays
-    images = [processImage(image) for image in images]
-    images = np.array(images)
+    # images = [processImage(image) for image in images]
+    # images = np.array(images)
     auto_garbage_collect(pct=30)
     return images, texts
     
@@ -180,12 +180,6 @@ class Encoder:
                 continue
             batch, batches = ray.wait(batches, num_returns=1)
             batch = ray.get(batch)[0]
-            with open("test_processed.pkl", "wb") as f:
-                pickle.dump(batch, f)
-                f.close()
-            time.sleep(10)
-            print("Processed batch")
-            quit()
             self.process(batch)
             batches.append(collect.remote(self.dataset))
             
