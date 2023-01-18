@@ -96,12 +96,17 @@ class SharedStorageEncoded:
         if len(self.images) < batch_size:
             return None
         images = self.images[:batch_size]
-        self.images = self.images[batch_size:]
         texts = self.texts[:batch_size]
         texts_encoded = self.texts_encoded[:batch_size]
         attention_masks = self.attention_masks[:batch_size]
-        texts_encoded = np.array(texts_encoded)
-        attention_masks = np.array(attention_masks)
+        self.images = self.images[batch_size:]
+        self.texts = self.texts[batch_size:]
+        self.texts_encoded = self.texts_encoded[batch_size:]
+        self.attention_masks = self.attention_masks[batch_size:]
+        images = np.array(self.images)
+        texts = np.array(self.texts)
+        texts_encoded = np.array(self.texts_encoded)
+        attention_masks = np.array(self.attention_masks)
         return images, texts, texts_encoded, attention_masks
 
 @ray.remote
