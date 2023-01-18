@@ -158,7 +158,6 @@ class DataCollector:
             texts = data[1]
             # convert pil images to numpy arrays
             images = [processImage(image) for image in images]
-            images = np.array(images)
             data = (images, texts)
             upload_pickle_to_google_drive(data, f"{file.get('name')}")
             
