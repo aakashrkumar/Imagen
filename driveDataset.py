@@ -191,7 +191,13 @@ class DataManager:
         return ray.get(self.shared_storage_encoded.get_size.remote())
     
     def get_batch(self):
-        return self.shared_storage_encoded.get_batch.remote(self.batch_size)
+        while True:
+            data = ray.get(self.shared_storage_encoded.get_batch.remote(self.batch_size))
+            if data is None:
+                time.sleep(1)
+                continue
+            else:
+                return data
 
 def test():
     datamanager = DataManager.remote(1024)

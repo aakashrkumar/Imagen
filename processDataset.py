@@ -181,7 +181,7 @@ class DataManager:
         print("Initialized")
         for collector in collectors:
             collector.start.remote()
-
+    
 def test():
     datamanager = DataManager.remote(1024)
     total_processed = 0
