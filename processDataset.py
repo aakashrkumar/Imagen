@@ -57,55 +57,10 @@ def list_files():
     return files
 
 def download_pickle(file):
-    with open("test.plk", "rb") as f:
-        data = pickle.load(f)
-        f.close()
-    time.sleep(random.randint(60, 100))
-    return data
     drive_service = build('drive', 'v3', credentials=creds)
     request = drive_service.files().get_media(fileId=file.get('id')).execute()
     data = pickle.load(io.BytesIO(request))
     return data
-
-def auto_garbage_collect(pct=30.0):
-    """
-    auto_garbage_collection - Call the garbage collection if memory used is greater than 80% of total available memory.
-                              This is called to deal with an issue in Ray not freeing up used memory.
-
-        pct - Default value of 80%.  Amount of memory in use that triggers the garbage collection call.
-    """
-    if psutil.virtual_memory().percent >= pct:
-        gc.collect()
-    return
-
-@ray.remote
-class SharedStorageEncoded:
-    def __init__(self):
-        self.images = []
-        self.texts = []
-        self.texts_encoded = []
-        self.attention_masks = []
-
-    def get_size(self):
-        return len(self.images)
-
-    def add_data(self, images, texts, texts_encoded, attention_masks):
-        self.images.extend(images)
-        self.texts.extend(texts)
-        self.texts_encoded.extend(texts_encoded)
-        self.attention_masks.extend(attention_masks)
-
-    def get_batch(self, batch_size):
-        if len(self.images) < batch_size:
-            return None
-        images = self.images[:batch_size]
-        self.images = self.images[batch_size:]
-        texts = self.texts[:batch_size]
-        texts_encoded = self.texts_encoded[:batch_size]
-        attention_masks = self.attention_masks[:batch_size]
-        texts_encoded = np.array(texts_encoded)
-        attention_masks = np.array(attention_masks)
-        return images, texts, texts_encoded, attention_masks
 
 @ray.remote
 class DatasetFetcher:
@@ -206,7 +161,7 @@ class Uploader:
 
 @ray.remote
 class DataCollector:
-    def __init__(self, dataset, shared_storage):
+    def __init__(self, dataset):
         self.dataset = dataset        
     def start(self):
         while True:
@@ -224,16 +179,15 @@ class DataCollector:
 @ray.remote
 class DataManager:
     def __init__(self, batch_size):
-        self.shared_storage_encoded = SharedStorageEncoded.remote()
         self.batch_size = batch_size
         self.dataset = DatasetFetcher.remote()
+        collectors = [DataCollector.remote(self.dataset) for _ in range(8)]
         print("Initialized")
     
     def get_num_images(self):
         return ray.get(self.shared_storage_encoded.get_size.remote())
     
     def get_batch(self):
-        auto_garbage_collect(pct=30)
         return self.shared_storage_encoded.get_batch.remote(self.batch_size)
 
 def test():
