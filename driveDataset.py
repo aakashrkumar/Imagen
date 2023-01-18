@@ -54,7 +54,7 @@ def list_files():
     return files
 
 def download_pickle(file):
-    with open("test_processed.pkl", "rb") as f:
+    with open("test.plk", "rb") as f:
         data = pickle.load(f)
         f.close()
     # time.sleep(random.randint(60, 100))
@@ -183,7 +183,9 @@ class Encoder:
             with open("test_processed.pkl", "wb") as f:
                 pickle.dump(batch, f)
                 f.close()
-                quit()
+            time.sleep(10)
+            print("Processed batch")
+            quit()
             self.process(batch)
             batches.append(collect.remote(self.dataset))
             
