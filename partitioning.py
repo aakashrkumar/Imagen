@@ -33,7 +33,7 @@ def _replacement_rules(rules):
     return replace
 
 
-def _get_partition_rules():
+def __get_partition_rules():
     return [
         # embeddings
         (("embed_positions", "embedding"), P("mp", None)),
@@ -52,6 +52,12 @@ def _get_partition_rules():
         (("lm_head", "kernel"), P(None, "mp")),
         # head scale and tau
         (("(head_scale|tau)",), None),
+    ]
+
+def _get_partition_rules():
+    return [
+        # embeddings
+        (("params", "Conv_0", "kernel"), P(None, None)),
     ]
 
 
