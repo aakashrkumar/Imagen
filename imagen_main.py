@@ -237,7 +237,7 @@ class Imagen:
 
         mesh_shape = (2,4)
         self.devices = np.asarray(jax.devices()).reshape(*mesh_shape)
-        mesh = maps.Mesh(self.devices, ("dp", "mp"))
+        self.mesh = maps.Mesh(self.devices, ("dp", "mp"))
 
         num_total_params = 0
         for i in range(len(config.unets)):
