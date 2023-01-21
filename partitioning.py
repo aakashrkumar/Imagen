@@ -57,7 +57,38 @@ def __get_partition_rules():
 def _get_partition_rules():
     return [
         # embeddings
-        (("params", "Conv_0", "kernel"), P(None, None)),
+        (("params", "Conv_0", "kernel|bias"), P(None, None)),
+        
+        (("params", "CrossEmbedLayer_0", "Conv_0", "kernel|bias"), P(None, None)),
+        (("params", "CrossEmbedLayer_0", "Conv_1", "kernel|bias"), P(None, None)),
+        (("params", "CrossEmbedLayer_0", "Conv_2", "kernel|bias"), P(None, None)),
+        
+        (("params", "Dense_0", "kernel|bias"), P(None, None)),
+        (("params", "Dense_1", "kernel|bias"), P(None, None)),
+        (("params", "Dense_2", "kernel|bias"), P(None, None)),
+        
+        (("params", "Downsample_0", "Conv_0", "kernel|bias"), P(None, None)),
+        (("params", "Downsample_0", "Conv_0", "kernel|bias"), P(None, None)),
+        
+        (("params", "LearnedSinusoidalPosEmb_0", "pos_emb"), P(None, None)),
+        
+        (("params", "ResnetBlock_.*", "Block_.*",  "Conv_0", "kernel|bias"), P(None, None)),
+        (("params", "ResnetBlock_.*", "Block_.*",  "GroupNorm_0", "bias|scale"), P(None, None)),
+        (("params", "ResnetBlock_.*", "Conv_0", "kernel|bias"), P(None, None)),
+        (("params", "ResnetBlock_.*", "Dense_0", "kernel|bias"), P(None, None)),
+        
+        (("params", "TextConditioning_.*", "Dense_0", "kernel|bias"), P(None, None)),
+        (("params", "TextConditioning_.*", "Dense_1", "kernel|bias"), P(None, None)),
+        (("params", "TextConditioning_.*", "Dense_2", "kernel|bias"), P(None, None)),
+        (("params", "TextConditioning_.*", "LayerNorm_0", "bias|scale"), P(None, None)),
+        (("params", "TextConditioning_.*", "LayerNorm_1", "bias|scale"), P(None, None)),
+        (("params", "TextConditioning_.*", "null_text_embed"), P(None, None)),
+        (("params", "TextConditioning_.*", "null_text_hidden"), P(None, None)),
+        
+        (("params", "UpsampleCombiner_0", "Block_0", "Conv_0", "kernel|bias"), P(None, None)),
+        (("params", "UpsampleCombiner_0", "Block_0", "GroupNorm_0", "bias|scale"), P(None, None)),
+        
+        (("params", "Upsample_0", "Conv_0", "bias|kernel"), P(None, None)),
     ]
 
 

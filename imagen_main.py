@@ -21,7 +21,8 @@ from jax.experimental import maps
 
 import numpy as np
 
-from jax.experimental import pjit, PartitionSpec as P
+from jax.experimental import PartitionSpec as P
+from jax.experimental.pjit import pjit
 
 import partitioning as nnp
 
@@ -235,7 +236,7 @@ class Imagen:
         self.sample_steps = []
         self.schedulers = []
 
-        mesh_shape = (2,4)
+        mesh_shape = (1,1)
         self.devices = np.asarray(jax.devices()).reshape(*mesh_shape)
         self.mesh = maps.Mesh(self.devices, ("dp", "mp"))
 
@@ -263,7 +264,6 @@ class Imagen:
                 noise_schedule="cosine", num_timesteps=1000
             )
             
-            params_spec = self.partitioner.get_mesh_axes(params_shape)
             lr = optax.warmup_cosine_decay_schedule(
                 init_value=0.0,
                 peak_value=1e-5,
@@ -281,8 +281,6 @@ class Imagen:
                 # return None spec for empty elements
                 is_leaf=lambda x: isinstance(x, (FrozenDict, optax.EmptyState)),
             )
-            opt_state_spec = freeze(opt_state_spec)
-            opt_state_shape = freeze(opt_state_shape)
 
             trainStateSpec = TrainState(
                 params=params_spec,
@@ -302,13 +300,13 @@ class Imagen:
                         tx=opt,
                         params=params,
                     )
-                params = pjit(model_utils.init_params, in_axis_resources=(None,), out_axis_resources=(params_spec,))(self.get_key())
+                params = pjit(init_params, in_axis_resources=(None,), out_axis_resources=(params_spec))(self.get_key())
                 state = pjit(
                     init_state,
                     in_axis_resources=(params_spec,),
-                    out_axis_resources=(trainStateSpec,),
+                    out_axis_resources=trainStateSpec,
                     donate_argnums=(0,)
-                )(params, opt_state_shape)
+                )(params)
 
                 sampler_spec = jax.tree_map(lambda x: None, scheduler)
                 config_spec = jax.tree_map(lambda x: None, self.config)
