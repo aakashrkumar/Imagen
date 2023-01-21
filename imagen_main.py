@@ -235,7 +235,7 @@ class Imagen:
         self.sample_steps = []
         self.schedulers = []
 
-        mesh_shape = (1,)
+        mesh_shape = (2,4)
         self.devices = np.asarray(jax.devices()).reshape(*mesh_shape)
         mesh = maps.Mesh(self.devices, ("dp", "mp"))
 
