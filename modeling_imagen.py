@@ -4,7 +4,7 @@ import jax.numpy as jnp
 
 from einops import rearrange, repeat, reduce, pack, unpack
 from utils import exists, default
-from layers import ResnetBlock, UpsampleCombiner, CheckNan, CrossEmbedLayer, TextConditioning, TransformerBlock, Downsample, Upsample, Attention, EinopsToAndFrom, LearnedSinusoidalPosEmb
+from layers import ResnetBlock, UpsampleCombiner, CrossEmbedLayer, TextConditioning, TransformerBlock, Downsample, Upsample, Attention, EinopsToAndFrom, LearnedSinusoidalPosEmb
 from jax.experimental.pjit import PartitionSpec as P
 import partitioning as nnp
 from flax.linen import partitioning as nn_partitioning
@@ -42,24 +42,24 @@ class EfficentUNet(nn.Module):
         x = CrossEmbedLayer(dim=self.config.dim,
                     kernel_sizes=(3, 7, 15), stride=1)(x)
         time_hidden = LearnedSinusoidalPosEmb(config=self.config)(time)  # (b, 1, d)
-        time_hidden = nnp.Dense(features=self.config.time_conditiong_dim, shard_axes={"kernel": ("length", "mlp")})(time_hidden)
+        time_hidden = nn.Dense(features=self.config.time_conditiong_dim)(time_hidden)
         time_hidden = nn.silu(time_hidden)
-        t = nnp.Dense(features=self.config.time_conditiong_dim,
-                      dtype=self.config.dtype, shard_axes={"kernel": ("embed", "mlp")})(time_hidden)
+        t = nn.Dense(features=self.config.time_conditiong_dim,
+                      dtype=self.config.dtype)(time_hidden)
 
         t = with_sharding_constraint(t, ("batch", "mlp"))
-        time_tokens = nnp.Dense(self.config.cond_dim * self.config.num_time_tokens, shard_axes={"kernel": ("mlp", "embed")})(t)
+        time_tokens = nn.Dense(self.config.cond_dim * self.config.num_time_tokens)(t)
         time_tokens = rearrange(time_tokens, 'b (r d) -> b r d', r=self.config.num_time_tokens)
 
         time_tokens = with_sharding_constraint(time_tokens, P("batch", "seq", "embed"))
         if self.config.lowres_conditioning:
             lowres_time_hiddens = LearnedSinusoidalPosEmb(config=self.config)(lowres_noise_times)  # (b, 1, d)
-            lowres_time_hiddens = nnp.Dense(features=self.config.time_conditiong_dim, shard_axes={"kernel": ("embed", "mlp")})(lowres_time_hiddens)
+            lowres_time_hiddens = nn.Dense(features=self.config.time_conditiong_dim)(lowres_time_hiddens)
             lowres_time_hiddens = nn.silu(lowres_time_hiddens)
-            lowres_time_tokens = nnp.Dense(self.config.cond_dim * self.config.num_time_tokens, shard_axes={"kernel": ("mlp", "embed")})(lowres_time_hiddens)
+            lowres_time_tokens = nn.Dense(self.config.cond_dim * self.config.num_time_tokens)(lowres_time_hiddens)
             lowres_time_tokens = rearrange(lowres_time_tokens, 'b (r d) -> b r d', r=self.config.num_time_tokens)
             
-            lowres_t = nnp.Dense(features=self.config.time_conditiong_dim, dtype=self.config.dtype, shard_axes={"kernel": ("mlp", "embed")})(lowres_time_hiddens)
+            lowres_t = nn.Dense(features=self.config.time_conditiong_dim, dtype=self.config.dtype)(lowres_time_hiddens)
 
             t = t + lowres_t
             time_tokens = jnp.concatenate([time_tokens, lowres_time_tokens], axis=-2)
@@ -118,5 +118,5 @@ class EfficentUNet(nn.Module):
         x = ResnetBlock(config=self.config, block_config=block_config)(x, t, c)
             
         # x = nn.Dense(features=3, dtype=self.dtype)(x)
-        x = nnp.Conv(features=3, kernel_size=(3, 3), strides=1, dtype=self.config.dtype, padding=1, shard_axes={"kernel": ("width", "height", "channels")})(x)
+        x = nn.Conv(features=3, kernel_size=(3, 3), strides=1, dtype=self.config.dtype, padding=1)(x)
         return x

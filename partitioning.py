@@ -1,137 +1,69 @@
-import dataclasses
+import re
 
-from typing import List, Mapping, Optional, Tuple
+from flax.core.frozen_dict import freeze
+from flax.traverse_util import flatten_dict, unflatten_dict
+from jax.experimental import PartitionSpec as P
 
-from flax import linen as nn, traverse_util
-from flax.core import frozen_dict
-from flax.linen import partitioning as nn_partitioning
+# utils adapted from https://github.com/google-research/google-research/blob/master/flax_models/t5x/partitions.py
+# Sentinels
+_unmatched = object()
 
-
-DEFAULT_TPU_RULES = [
-    ('batch', 'X'),
-    ('mlp', 'Y'),
-    ('heads', 'Y'),
-    ('vocab', 'Y'),
-    ('embed', None),
-    ('kv', None),
-    ('joined_kv', None),
-    ('relpos_buckets', None),
-    ('abspos_buckets', None),
-    ('length', None),
-    ('layers', None),
-    ('stack', None),
-    ('mlp_activations', None),
-
-    ("width", None),
-    ("height", None),
-    
-    ("X", "X"),
-    ("Y", "Y"),
-    (None, None),
-]
-
-param_with_axes = nn_partitioning.param_with_axes
+# For specifying empty leaf dict `{}`
+empty_dict = object()
 
 
-def get_params_axes(
-    esm_params: frozen_dict.FrozenDict,
-    esm_axes: frozen_dict.FrozenDict,
-    rules: List[Tuple[str, str]] = DEFAULT_TPU_RULES,
-):
-    """Converts `esm_axes` to a PyTree with the same structure as `esm_params`
-    and its named axes to the logical axes of the mesh.
-    Args:
-        esm_params (frozen_dict.FrozenDict): Params dict for ESM2. Could be
-            the output of `jax.eval_shape`, since only the *structure* of the
-            PyTree is used.
-        esm_axes (frozen_dict.FrozenDict): The `params_axes` dict obtained from `.init`
-        rules (List[Tuple[str, str]], optional): Rules to convert named axes to logical mesh axes.
-            Defaults to DEFAULT_TPU_RULES.
-    Returns:
-        axes_dict: A PyTree with same structure as `esm_params`, with sharding pattern
-            for *all* params. (All with no sharding originally now have None, that is
-            full replication on all devices in mesh.)
-    """
-    # Utility function, converts keys such as `kernel_axes` -> `kernel`.
-    axes_modifier_dict = nn_partitioning.get_axis_names(esm_axes)
-    # Flatten dict with the full params structure.
-    axes_modifier_dict = traverse_util.flatten_dict(axes_modifier_dict, sep="/")
-
-    # Flatten dict with the axis metadata for sharded params.
-    axes_dict = traverse_util.flatten_dict(esm_params["params"], sep="/")
-    # If key matches a key in the full params PyTree, replace with converted axis metadata.
-    # Else replace with None, that is, no sharding.
-    axes_dict = {
-        k: nn_partitioning.logical_to_mesh_axes(axes_modifier_dict[k], rules=rules)
-        if k in axes_modifier_dict.keys()
-        else None
-        for k in axes_dict.keys()
-    }
-    # Unflatten dict back to original structure.
-    axes_dict = traverse_util.unflatten_dict(axes_dict, sep="/")
-    axes_dict = frozen_dict.freeze({"params": axes_dict})
-    return axes_dict
+def _match(qs, ks):
+    """Return True if regexes in qs match any window of strings in tuple ks."""
+    # compile regexes and force complete match
+    qts = tuple(map(lambda x: re.compile(x + "$"), qs))
+    for i in range(len(ks) - len(qs) + 1):
+        matches = [x.match(y) for x, y in zip(qts, ks[i:])]
+        if matches and all(matches):
+            return True
+    return False
 
 
-@dataclasses.dataclass
-class ShardMixIn:
-    """Adds parameter sharding constraints for any flax.linen Module.
-    This is a mix-in class that overrides the `param` method of the
-    original Module, to selectively add sharding constraints as specified
-    in `shard_axes`"""
+def _replacement_rules(rules):
+    def replace(key, val):
+        for rule, replacement in rules:
+            if _match(rule, key):
+                return replacement
+        return val
 
-    shard_axes: Optional[Mapping[str, Tuple[str, ...]]] = None
+    return replace
 
-    # Modifies off https://github.com/google/flax/blob/main/flax/linen/partitioning.py#L304
-    def param(self, name: str, *init_args):
-        # Initialize using the original Module's `param` method
-        param = super().param(name, *init_args)
 
-        # If `shard_axes` specified and param name in the dict, apply constraint
-        if self.shard_axes and (name in self.shard_axes.keys()):
-            axes = self.shard_axes[name]
+def _get_partition_rules():
+    return [
+        # embeddings
+        (("embed_positions", "embedding"), P("mp", None)),
+        (("embed_tokens", "embedding"), P("mp", None)),
+        (("rel_bias", "embedding"), P(None, "mp")),
+        # attention
+        (("(q_proj|k_proj|v_proj)", "kernel"), P(None, "mp")),
+        (("out_proj", "kernel"), P("mp", None)),
+        # FFN
+        (("Dense_0", "kernel"), P(None, "mp")),
+        (("GLU.*", "Dense_1", "kernel"), P(None, "mp")),
+        (("GLU.*", "Dense_2", "kernel"), P("mp", None)),
+        (("FFN.*", "Dense_1", "kernel"), P("mp", None)),
+        # layer norms
+        (("(bias|scale)",), None),
+        (("lm_head", "kernel"), P(None, "mp")),
+        # head scale and tau
+        (("(head_scale|tau)",), None),
+    ]
 
-            # Apply the sharding constraint (e.g. axes=('embedding', 'hidden'))
-            param = nn_partitioning.with_sharding_constraint(param, axes)
 
-            # Sow this, to have the AxisMetadata available at initialization.
-            self.sow(
-                "params_axes",
-                f"{name}_axes",
-                nn_partitioning.AxisMetadata(axes),
-                reduce_fn=nn_partitioning._param_with_axes_sow_reduce_fn,
-            )
-        elif self.shard_axes and name == "bias" and "bias" not in self.shard_axes.keys() and "kernel" in self.shard_axes.keys():
-            axes = (self.shard_axes["kernel"][-1],)
-            param = nn_partitioning.with_sharding_constraint(param, axes)
-            
-            self.sow(
-                "params_axes",
-                f"{name}_axes",
-                nn_partitioning.AxisMetadata(axes),
-                reduce_fn=nn_partitioning._param_with_axes_sow_reduce_fn,
-            )
-        elif name == "scale" or name == "bias" and self.shard_axes is None:
-            axes = ("batch",)
-            param = nn_partitioning.with_sharding_constraint(param, axes)
-            
-            self.sow(
-                "params_axes",
-                f"{name}_axes",
-                nn_partitioning.AxisMetadata(axes),
-                reduce_fn=nn_partitioning._param_with_axes_sow_reduce_fn,
-            )
-            
-
-        return param
-
-class Dense(ShardMixIn, nn.Dense):
-    pass                    
-class Conv(ShardMixIn, nn.Conv):
-    pass
-
-class GroupNorm(ShardMixIn, nn.GroupNorm):
-    pass
-
-class LayerNorm(ShardMixIn, nn.LayerNorm):
-    pass
+def set_partitions(in_dict):
+    #TODO: Use scan
+    rules = _get_partition_rules()
+    replace = _replacement_rules(rules)
+    initd = {k: _unmatched for k in flatten_dict(in_dict)}
+    result = {k: replace(k, v) for k, v in initd.items()}
+    for k, v in result.items():
+        if v == _unmatched:
+            print(f"Unmatched -> {k}")
+    l = list(result.keys())
+    assert _unmatched not in result.values(), "Incomplete partition spec." 
+    return freeze(unflatten_dict(result))
