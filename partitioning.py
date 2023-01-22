@@ -60,9 +60,7 @@ def _get_partition_rules():
         (("params", "Conv_0", "kernel"), P(None, None)),
         (("params", "Conv_0", "bias"), P(None,)),
 
-        (("params", "CrossEmbedLayer_0", "Conv_0", "kernel"), P(None, None)),
-        (("params", "CrossEmbedLayer_0", "Conv_1", "kernel"), P(None, None)),
-        (("params", "CrossEmbedLayer_0", "Conv_2", "kernel"), P(None, None)),
+        (("params", "CrossEmbedLayer_*", "Conv_0", "kernel"), P(None, None)),
         (("params", "CrossEmbedLayer_0", "Conv_.*", "bias"), P("dp", )),
         
         (("params", "Dense_0", "kernel"), P(None, None)),
@@ -90,8 +88,8 @@ def _get_partition_rules():
         (("params", "TextConditioning_.*", "Dense_.*", "bias"), P(None, )),
         (("params", "TextConditioning_.*", "LayerNorm_0", "bias|scale"), P(None, )),
         (("params", "TextConditioning_.*", "LayerNorm_1", "bias|scale"), P(None, )),
-        (("params", "TextConditioning_.*", "null_text_embed"), P(None, "mp")),
-        (("params", "TextConditioning_.*", "null_text_hidden"), P(None, "mp")),
+        (("params", "TextConditioning_.*", "null_text_embed"), P(None, None)),
+        (("params", "TextConditioning_.*", "null_text_hidden"), P(None, None)),
         
         (("params", "UpsampleCombiner_0", "Block_0", "Conv_0", "kernel"), P(None, None)),
         (("params", "UpsampleCombiner_0", "Block_0", "Conv_0", "bias"), P("dp",)),
