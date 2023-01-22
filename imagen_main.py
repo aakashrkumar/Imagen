@@ -76,7 +76,7 @@ class TrainState(struct.PyTreeNode):
     train_samples: int = 0  # number of samples seen
 
     def apply(self, *args, **kwargs):
-        return self.apply_fn(self, {'params': self.params}, *args, **kwargs)
+        return self.apply_fn(self, self.params, *args, **kwargs)
 
     def apply_gradients(self, *, grads, **kwargs):
         update_fn = self.tx.update
@@ -85,8 +85,8 @@ class TrainState(struct.PyTreeNode):
         opt_state = new_opt_state
         return self.replace(
             step=self.step + 1,
-            params=freeze(params),
-            opt_state=freeze(opt_state),
+            params=params,
+            opt_state=opt_state,
             **kwargs,
         )
 
@@ -98,14 +98,13 @@ class TrainState(struct.PyTreeNode):
             apply_fn=apply_fn,
             params=params,
             tx=tx,
-            opt_state=freeze(opt_state),
+            opt_state=opt_state,
             **kwargs,
         )
 
 
 class UnetState(struct.PyTreeNode):
     train_state: TrainState
-
     sampler: GaussianDiffusionContinuousTimes
     unet_config: Any
     config: Any
@@ -121,8 +120,7 @@ class GeneratorState(struct.PyTreeNode):
 
 
 def conditioning_pred(generator_state, t, cond_scale):
-    pred = generator_state.unet_state.apply_fn(
-        {"params": generator_state.unet_state.train_state.params},
+    pred = generator_state.unet_state.train_state.apply(
         generator_state.image,
         t,
         generator_state.text,
@@ -132,8 +130,7 @@ def conditioning_pred(generator_state, t, cond_scale):
         jnp.zeros(generator_state.image.shape[0])*0.1 if generator_state.lowres_cond_image is not None else None,
         generator_state.rng
     )
-    null_logits = generator_state.unet_state.apply_fn(
-        {"params": generator_state.unet_state.train_state.params},
+    null_logits = generator_state.unet_state.train_state.apply(
         generator_state.image,
         t,
         generator_state.text,
@@ -200,8 +197,8 @@ def train_step(unet_state, imgs_start, timestep, texts, attention_masks, lowres_
         lowres_cond_image_noise = None
 
     def loss_fn(params):
-        predicted_noise = unet_state.apply_fn(
-            {"params": params},
+        predicted_noise = unet_state.train_state.apply_fn(
+            params,
             x_noise,
             timestep,
             texts,
@@ -216,8 +213,8 @@ def train_step(unet_state, imgs_start, timestep, texts, attention_masks, lowres_
     gradient_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (loss, logits), grads = gradient_fn(unet_state.train_state.params)
 
-    train_state = unet_state.train_state.apply_gradient(grads=grads, learning_rate=unet_state.lr(unet_state.step))
-    unet_state = unet_state.replace(train_state=train_state, step=unet_state.step + 1)
+    train_state = unet_state.train_state.apply_gradients(grads=grads,)
+    unet_state = unet_state.replace(train_state=train_state)
 
     return unet_state, compute_metrics(loss, logits, imgs_start.shape[1])
 
@@ -289,14 +286,14 @@ class Imagen:
                 epoch=None,
                 train_time=None,
                 train_samples=None,
-                apply_fn=unet.__call__,
+                apply_fn=unet.apply,
                 tx=opt,
             )
             with self.mesh:           
                 def init_state(params):
                     # opt = OptaxWrapper(opt)
                     return TrainState.create(
-                        apply_fn=unet.__call__,
+                        apply_fn=unet.apply,
                         tx=opt,
                         params=params,
                     )
@@ -320,9 +317,6 @@ class Imagen:
 
                 unet_state = UnetState(
                     train_state=state,
-                    apply_fn=unet.apply,
-                    lr=lr,
-                    step=0,
                     sampler=scheduler,
                     config=self.config,
                     unet_config=unet_config
@@ -332,22 +326,22 @@ class Imagen:
                 self.schedulers.append(scheduler)
                 p_train_step = pjit(train_step, in_axis_resources=(
                     unet_spec,
-                    P("data",),  # image
-                    P("data",),  # timesteps
-                    P("data",),  # text
-                    P("data",),  # masks
-                    P("data",) if unet_config.lowres_conditioning else None,  # lowres_image
-                    P("data",) if unet_config.lowres_conditioning else None,  # lowres_image
+                    P("dp",),  # image
+                    P("dp",),  # timesteps
+                    P("dp",),  # text
+                    P("dp",),  # masks
+                    P("dp",) if unet_config.lowres_conditioning else None,  # lowres_image
+                    P("dp",) if unet_config.lowres_conditioning else None,  # lowres_image
                     None
                 ), out_axis_resources=(unet_spec, None))
                 p_sample = pjit(sample, in_axis_resources=(
                     unet_spec,
-                    P("data"),  # image
-                    P("data"),  # text
-                    P("data"),  # masks
-                    P("data") if unet_config.lowres_conditioning else None,  # lowres_image
+                    P("dp"),  # image
+                    P("dp"),  # text
+                    P("dp"),  # masks
+                    P("dp") if unet_config.lowres_conditioning else None,  # lowres_image
                     None  # key
-                ), out_axis_resources=(P("data"),)
+                ), out_axis_resources=(P("dp"),)
                 )
 
                 self.train_steps.append(p_train_step)
@@ -364,22 +358,19 @@ class Imagen:
         return key
 
     def sample(self, texts, attention):
-        with maps.mesh(self.devices, ('dp', 'mp')):
+        with maps.Mesh(self.devices, ('dp', 'mp')):
             lowres_images = None
             for i in range(len(self.unets)):
                 batch_size = texts.shape[0]
                 if self.unets[i].unet_config.lowres_conditioning:
                     lowres_images = jax.image.resize(lowres_images, (texts.shape[0], self.config.image_sizes[i], self.config.image_sizes[i], lowres_images.shape[-1]), method='nearest')
                 noise = jax.random.uniform(self.get_key(), (batch_size, self.config.image_sizes[i], self.config.image_sizes[i], 3), minval=-1, maxval=1)
-                err, image = self.sample_steps[i](self.unets[i], noise, texts, attention, lowres_images, self.get_key())
-                err = err.get()
-                if err:
-                    print("Sample error", err)
+                image = self.sample_steps[i](self.unets[i], noise, texts, attention, lowres_images, self.get_key())
                 lowres_images = image
         return image
 
     def train_step(self, image_batch, texts_batches=None, attention_batches=None):
-        with maps.mesh(self.devices, ('dp', 'mp')):
+        with maps.Mesh(self.devices, ('dp', 'mp')):
             image_batch = image_batch.astype(jnp.bfloat16)
             texts_batches = texts_batches.astype(jnp.bfloat16)
             attention_batches = attention_batches.astype(jnp.bfloat16)
@@ -397,7 +388,7 @@ class Imagen:
                     lowres_aug_times = repeat(lowres_aug_times, '1 -> b', b=image_batch.shape[0])
 
                 image_batch = jax.image.resize(image_batch, (image_batch.shape[0], self.config.image_sizes[i], self.config.image_sizes[i], 3), method='nearest')
-                err, (self.unets[i], unet_metrics) = self.train_steps[i](
+                self.unets[i], unet_metrics = self.train_steps[i](
                     self.unets[i],
                     image_batch,
                     timestep,
@@ -407,7 +398,6 @@ class Imagen:
                     lowres_aug_times,
                     key
                 )
-                err.throw()
                 for key in unet_metrics:
                     unet_metrics[key] = np.asarray(unet_metrics[key])
                     unet_metrics[key] = np.mean(unet_metrics[key])
