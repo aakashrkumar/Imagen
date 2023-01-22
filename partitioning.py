@@ -78,7 +78,7 @@ def _get_partition_rules():
         (("params", "TextConditioning_.*", "null_text_hidden"), P(None, "mp")),
 
         
-        (("params", "Downsample_0", "Conv_0", "kernel"), P(None, None, None, None)),
+        (("params", "Downsample_0", "Conv_0", "kernel"), P(None, None, "mp", "dp")),
         (("params", "Downsample_0", "Conv_0", "bias"), P("dp",)),
                 
         (("params", "(UpsampleCombiner_.*|ResnetBlock_.*)", "Block_.*",  "Conv_0", "kernel"), P(None, None, "mp", "dp")),
@@ -87,7 +87,7 @@ def _get_partition_rules():
         
         (("params", "ResnetBlock_.*", "Conv_0", "kernel"), P(None, None, "mp", "dp")),
         (("params", "ResnetBlock_.*", "Conv_0", "bias"), P("dp",)),
-        (("params", "ResnetBlock_.*", "Dense_0", "kernel"), P(None, "mp")),
+        (("params", "ResnetBlock_.*", "Dense_0", "kernel"), P("mp", None)),
         (("params", "ResnetBlock_.*", "Dense_0", "bias"), P("dp", )),
                         
         (("params", "Upsample_0", "Conv_0", "kernel"), P(None, None, "mp")),
