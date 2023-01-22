@@ -90,12 +90,12 @@ def _get_partition_rules():
         (("params", "ResnetBlock_.*", "Dense_0", "kernel"), P(None, "mp")),
         (("params", "ResnetBlock_.*", "Dense_0", "bias"), P("dp", )),
                 
-        (("params", "UpsampleCombiner_0", "Block_0", "Conv_0", "kernel"), P(None, None)),
+        (("params", "UpsampleCombiner_0", "Block_0", "Conv_0", "kernel"), P(None, None, "mp", "dp")),
         (("params", "UpsampleCombiner_0", "Block_0", "Conv_0", "bias"), P("dp",)),
-        (("params", "UpsampleCombiner_0", "Block_0", "GroupNorm_0", "bias|scale"), P(None,)),
+        (("params", "UpsampleCombiner_0", "Block_0", "GroupNorm_0", "bias|scale"), P("dp",)),
         
-        (("params", "Upsample_0", "Conv_0", "bias"), P(None, )),
-        (("params", "Upsample_0", "Conv_0", "kernel"), P(None, None)),
+        (("params", "Upsample_0", "Conv_0", "kernel"), P(None, None, "mp")),
+        (("params", "Upsample_0", "Conv_0", "bias"), P("dp", )),
     ]
 
 
