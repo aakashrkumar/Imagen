@@ -61,11 +61,11 @@ def _get_partition_rules():
         (("params", "Conv_0", "bias"), P(None,)), # do not parallelize
 
         (("params", "CrossEmbedLayer_0", "Conv_.*", "kernel"), P(None, None, None, None)),
-        (("params", "CrossEmbedLayer_0", "Conv_.*", "bias"), P("dp", )),
+        (("params", "CrossEmbedLayer_0", "Conv_.*", "bias"), P(None, )),
         
         (("params", "LearnedSinusoidalPosEmb_0", "pos_emb"), P(None,)),
         
-        (("params", "Dense_.*", "kernel"), P(None, None)), # time stuff
+        (("params", "Dense_.*", "kernel"), P(None, "mp")), # time stuff
         (("params", "Dense_.*", "bias"), P(None, )),
         
         (("params", "TextConditioning_.*", "Dense_0", "kernel"), P(None, None)), # text_tokens
