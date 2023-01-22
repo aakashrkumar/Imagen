@@ -82,7 +82,7 @@ def _get_partition_rules():
         (("params", "ResnetBlock_.*", "Dense_0", "kernel"), P(None, None)),
         (("params", "ResnetBlock_.*", "Dense_0", "bias"), P(None, )),
         
-        (("params", "TextConditioning_.*", "Dense_0", "kernel"), P(None, "mp")),
+        (("params", "TextConditioning_.*", "Dense_0", "kernel"), P(None, None)),
         (("params", "TextConditioning_.*", "Dense_1", "kernel"), P(None, "mp")),
         (("params", "TextConditioning_.*", "Dense_2", "kernel"), P(None, "mp")),
         (("params", "TextConditioning_.*", "Dense_.*", "bias"), P(None, )),
