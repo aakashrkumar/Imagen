@@ -94,6 +94,7 @@ def _get_partition_rules():
         (("params", "ResnetBlock_.*", "Dense_0", "kernel"), P("mp", None)),
         (("params", "ResnetBlock_.*", "Dense_0", "bias"), P("dp", )),
         (("params", "ResnetBlock_.*", "CrossAttention_.*", "Dense_.*","kernel"), P(None, "mp")),
+        (("params", "ResnetBlock_.*", "CrossAttention_.*", "LayerNorm_.*","bias|scale"), P("dp")),
                         
         (("params", "Upsample_0", "Conv_0", "kernel"), P(None, None, "mp", "dp")),
         (("params", "Upsample_0", "Conv_0", "bias"), P("dp", )),
