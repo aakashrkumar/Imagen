@@ -78,7 +78,7 @@ def _get_partition_rules():
         (("params", "TextConditioning_.*", "null_text_hidden"), P(None, "mp")),
 
         
-        (("params", "Downsample_0", "Conv_0", "kernel"), P(None, None, "mp", "dp")),
+        (("params", "Downsample_0", "Conv_0", "kernel"), P(None, None, None, None)),
         (("params", "Downsample_0", "Conv_0", "bias"), P("dp",)),
                 
         (("params", "(UpsampleCombiner_.*|ResnetBlock_.*)", "Block_.*",  "Conv_0", "kernel"), P(None, None, "mp", "dp")),
