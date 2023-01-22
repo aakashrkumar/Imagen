@@ -80,7 +80,11 @@ def _get_partition_rules():
         
         (("params", "Downsample_0", "Conv_0", "kernel"), P(None, None, "mp", "dp")),
         (("params", "Downsample_0", "Conv_0", "bias"), P("dp",)),
-                
+        
+        (('params', 'Attention_.*', 'Dense_.*', 'kernel'), P(None, "mp"))
+        (('params', 'Attention_.*', 'LayerNorm_.*', 'g'), P("dp"))
+        (('params', 'Attention_.*', 'null_kv', 'g'), P("dp", "mp"))
+        
         (("params", "(UpsampleCombiner_.*|ResnetBlock_.*)", "Block_.*",  "Conv_0", "kernel"), P(None, None, "mp", "dp")),
         (("params", "(UpsampleCombiner_.*|ResnetBlock_.*)", "Block_.*",  "Conv_0", "bias"), P("dp",)),
         (("params", "(UpsampleCombiner_.*|ResnetBlock_.*)", "Block_.*",  "GroupNorm_0", "bias|scale"), P("dp", )),
@@ -89,6 +93,7 @@ def _get_partition_rules():
         (("params", "ResnetBlock_.*", "Conv_0", "bias"), P("dp",)),
         (("params", "ResnetBlock_.*", "Dense_0", "kernel"), P("mp", None)),
         (("params", "ResnetBlock_.*", "Dense_0", "bias"), P("dp", )),
+        (("params", "ResnetBlock_.*", "CrossAttention_.*", "Dense_.*","kernel"), P(None, "mp")),
                         
         (("params", "Upsample_0", "Conv_0", "kernel"), P(None, None, "mp", "dp")),
         (("params", "Upsample_0", "Conv_0", "bias"), P("dp", )),
