@@ -90,8 +90,8 @@ def _get_partition_rules():
         (('params', 'TransformerBlock_.*', 'Attention_.*', 'null_kv'), P("dp", "mp")),
         
         (('params', 'TransformerBlock_.*', 'ChannelFeedForward_0', 'Conv_.*', "kernel"), P(None, None, "dp", "mp")),
-        (('params', 'TransformerBlock_.*', 'ChannelFeedForward_0', 'Conv_.*', "bias"), P("dp",),
-        (('params', 'TransformerBlock_.*', 'ChannelFeedForward_0', 'LayerNorm_.*', "g"), P("dp",),
+        (('params', 'TransformerBlock_.*', 'ChannelFeedForward_0', 'Conv_.*', "bias"), P("dp",)),
+        (('params', 'TransformerBlock_.*', 'ChannelFeedForward_0', 'LayerNorm_.*', "g"), P("dp",)),
         
         
         (("params", "(UpsampleCombiner_.*|ResnetBlock_.*)", "Block_.*",  "Conv_0", "kernel"), P(None, None, "mp", "dp")),
