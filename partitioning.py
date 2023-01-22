@@ -57,10 +57,10 @@ def __get_partition_rules():
 def _get_partition_rules():
     return [
         # embeddings
-        (("params", "Conv_0", "kernel"), P(None, None)),
-        (("params", "Conv_0", "bias"), P(None,)),
+        (("params", "Conv_0", "kernel"), P(None, None)), # do not parallelize
+        (("params", "Conv_0", "bias"), P(None,)), # do not parallelize
 
-        (("params", "CrossEmbedLayer_0", "Conv_.*", "kernel"), P(None, None, None, None)),
+        (("params", "CrossEmbedLayer_0", "Conv_.*", "kernel"), P(None, None, None, "mp")),
         (("params", "CrossEmbedLayer_0", "Conv_.*", "bias"), P(None, )),
         
         (("params", "LearnedSinusoidalPosEmb_0", "pos_emb"), P(None,)),
