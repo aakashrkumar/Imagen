@@ -86,28 +86,28 @@ def _get_partition_rules():
         (('params', 'Attention_.*', 'null_kv'), P("dp", "mp")),
         
         (('params', 'TransformerBlock_.*', 'Attention_.*', 'Dense_.*', 'kernel'), P(None, "mp")),
-        (('params', 'TransformerBlock_.*', 'Attention_.*', 'LayerNorm_.*', 'g'), P("dp")),
-        (('params', 'TransformerBlock_.*', 'Attention_.*', 'null_kv'), P("dp", "mp")),
+        (('params', 'TransformerBlock_.*', 'Attention_.*', 'LayerNorm_.*', 'g'), P(None,)),
+        (('params', 'TransformerBlock_.*', 'Attention_.*', 'null_kv'), P(None, "mp")),
         
         (('params', 'TransformerBlock_.*', 'ChannelFeedForward_0', 'Conv_.*', "kernel"), P(None, None, "mp", None)),
-        (('params', 'TransformerBlock_.*', 'ChannelFeedForward_0', 'Conv_.*', "bias"), P("dp",)),
-        (('params', 'TransformerBlock_.*', 'ChannelFeedForward_0', 'LayerNorm_.*', "g"), P("dp",)),
+        (('params', 'TransformerBlock_.*', 'ChannelFeedForward_0', 'Conv_.*', "bias"), P(None,)),
+        (('params', 'TransformerBlock_.*', 'ChannelFeedForward_0', 'LayerNorm_.*', "g"), P(None,)),
         
         
         (("params", "(UpsampleCombiner_.*|ResnetBlock_.*)", "Block_.*",  "Conv_0", "kernel"), P(None, None, "mp", None)),
-        (("params", "(UpsampleCombiner_.*|ResnetBlock_.*)", "Block_.*",  "Conv_0", "bias"), P("dp",)),
-        (("params", "(UpsampleCombiner_.*|ResnetBlock_.*)", "Block_.*",  "GroupNorm_0", "bias|scale"), P("dp", )),
+        (("params", "(UpsampleCombiner_.*|ResnetBlock_.*)", "Block_.*",  "Conv_0", "bias"), P(None,)),
+        (("params", "(UpsampleCombiner_.*|ResnetBlock_.*)", "Block_.*",  "GroupNorm_0", "bias|scale"), P(None, )),
         
         (("params", "ResnetBlock_.*", "Conv_0", "kernel"), P(None, None, "mp", None)),
-        (("params", "ResnetBlock_.*", "Conv_0", "bias"), P("dp",)),
-        (("params", "ResnetBlock_.*", "Dense_0", "kernel"), P("mp", None)),
-        (("params", "ResnetBlock_.*", "Dense_0", "bias"), P("dp", )),
+        (("params", "ResnetBlock_.*", "Conv_0", "bias"), P(None,)),
+        (("params", "ResnetBlock_.*", "Dense_0", "kernel"), P(None, None)),
+        (("params", "ResnetBlock_.*", "Dense_0", "bias"), P(None, )),
         (("params", "ResnetBlock_.*", "CrossAttention_.*", "Dense_.*","kernel"), P(None, "mp")),
-        (("params", "ResnetBlock_.*", "CrossAttention_.*", "null_kv"), P("dp", "mp")),
-        (("params", "ResnetBlock_.*", "CrossAttention_.*", "LayerNorm_.*","bias|scale"), P("dp", )),
+        (("params", "ResnetBlock_.*", "CrossAttention_.*", "null_kv"), P(None, "mp")),
+        (("params", "ResnetBlock_.*", "CrossAttention_.*", "LayerNorm_.*","bias|scale"), P(None, )),
                         
         (("params", "Upsample_.*", "Conv_0", "kernel"), P(None, None, "mp", None)),
-        (("params", "Upsample_.*", "Conv_0", "bias"), P("dp", )),
+        (("params", "Upsample_.*", "Conv_0", "bias"), P(None, )),
     ]
 
 
