@@ -60,7 +60,7 @@ def _get_partition_rules():
         (("params", "Conv_0", "kernel"), P(None, None)),
         (("params", "Conv_0", "bias"), P(None,)),
 
-        (("params", "CrossEmbedLayer_.*", "Conv_0", "kernel"), P(None, None)),
+        (("params", "CrossEmbedLayer_0", "Conv_.*", "kernel"), P(None, None)),
         (("params", "CrossEmbedLayer_0", "Conv_.*", "bias"), P("dp", )),
         
         (("params", "Dense_0", "kernel"), P(None, None)),
