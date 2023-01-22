@@ -65,7 +65,7 @@ def _get_partition_rules():
         
         (("params", "LearnedSinusoidalPosEmb_0", "pos_emb"), P("mp",)),
         
-        (("params", "Dense_*", "kernel"), P(None, "mp")), # time stuff
+        (("params", "Dense_.*", "kernel"), P(None, "mp")), # time stuff
         (("params", "Dense_.*", "bias"), P("dp", )),
         
         (("params", "TextConditioning_.*", "Dense_0", "kernel"), P(None, "mp")), # text_tokens
