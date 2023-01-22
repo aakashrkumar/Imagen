@@ -58,7 +58,7 @@ def _get_partition_rules():
     return [
         # embeddings
         (("params", "Conv_0", "kernel"), P(None, None)),
-        (("params", "Conv_0", "bias"), P("dp",)),
+        (("params", "Conv_0", "bias"), P(None,)),
 
         (("params", "CrossEmbedLayer_0", "Conv_0", "kernel"), P(None, None)),
         (("params", "CrossEmbedLayer_0", "Conv_1", "kernel"), P(None, None)),
@@ -97,7 +97,7 @@ def _get_partition_rules():
         (("params", "UpsampleCombiner_0", "Block_0", "Conv_0", "bias"), P("dp",)),
         (("params", "UpsampleCombiner_0", "Block_0", "GroupNorm_0", "bias|scale"), P(None,)),
         
-        (("params", "Upsample_0", "Conv_0", "bias"), P("dp", )),
+        (("params", "Upsample_0", "Conv_0", "bias"), P(None, )),
         (("params", "Upsample_0", "Conv_0", "kernel"), P(None, None)),
     ]
 
