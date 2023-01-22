@@ -73,7 +73,7 @@ def _get_partition_rules():
         
         (("params", "LearnedSinusoidalPosEmb_0", "pos_emb"), P("mp",)),
         
-        (("params", "ResnetBlock_.*", "Block_.*",  "Conv_0", "kernel"), P(None, "mp")),
+        (("params", "ResnetBlock_.*", "Block_.*",  "Conv_0", "kernel"), P(None, None)),
         (("params", "ResnetBlock_.*", "Block_.*",  "Conv_0", "bias"), P("dp",)),
         (("params", "ResnetBlock_.*", "Block_.*",  "GroupNorm_0", "bias|scale"), P(None, )),
         
