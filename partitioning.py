@@ -78,8 +78,8 @@ def _get_partition_rules():
         (("params", "TextConditioning_.*", "null_text_hidden"), P(None, "mp")),
 
         
-        (("params", "Downsample_0", "Conv_0", "kernel"), P(None, None, "mp", "dp")),
-        (("params", "Downsample_0", "Conv_0", "bias"), P("dp",)),
+        (("params", "Downsample_.*", "Conv_0", "kernel"), P(None, None, "mp", "dp")),
+        (("params", "Downsample_.*", "Conv_0", "bias"), P("dp",)),
         
         (('params', 'Attention_.*', 'Dense_.*', 'kernel'), P(None, "mp")),
         (('params', 'Attention_.*', 'LayerNorm_.*', 'g'), P("dp")),
@@ -106,8 +106,8 @@ def _get_partition_rules():
         (("params", "ResnetBlock_.*", "CrossAttention_.*", "null_kv"), P("dp", "mp")),
         (("params", "ResnetBlock_.*", "CrossAttention_.*", "LayerNorm_.*","bias|scale"), P("dp", )),
                         
-        (("params", "Upsample_0", "Conv_0", "kernel"), P(None, None, "mp", "dp")),
-        (("params", "Upsample_0", "Conv_0", "bias"), P("dp", )),
+        (("params", "Upsample_.*", "Conv_0", "kernel"), P(None, None, "mp", "dp")),
+        (("params", "Upsample_.*", "Conv_0", "bias"), P("dp", )),
     ]
 
 
