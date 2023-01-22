@@ -60,25 +60,25 @@ def _get_partition_rules():
         (("params", "Conv_0", "kernel"), P(None, None)),
         (("params", "Conv_0", "bias"), P(None,)),
 
-        (("params", "CrossEmbedLayer_0", "Conv_.*", "kernel"), P(None, None, None, "mp")),
-        (("params", "CrossEmbedLayer_0", "Conv_.*", "bias"), P("dp", )),
+        (("params", "CrossEmbedLayer_0", "Conv_.*", "kernel"), P(None, None, None, None)),
+        (("params", "CrossEmbedLayer_0", "Conv_.*", "bias"), P(None, )),
         
-        (("params", "LearnedSinusoidalPosEmb_0", "pos_emb"), P("mp",)),
+        (("params", "LearnedSinusoidalPosEmb_0", "pos_emb"), P(None,)),
         
-        (("params", "Dense_.*", "kernel"), P(None, "mp")), # time stuff
-        (("params", "Dense_.*", "bias"), P("dp", )),
+        (("params", "Dense_.*", "kernel"), P(None, None)), # time stuff
+        (("params", "Dense_.*", "bias"), P(None, )),
         
-        (("params", "TextConditioning_.*", "Dense_0", "kernel"), P(None, "mp")), # text_tokens
-        (("params", "TextConditioning_.*", "null_text_embed"), P(None, "mp")),
-        (("params", "TextConditioning_.*", "Dense_1", "kernel"), P("mp", None)), # text_hidden
-        (("params", "TextConditioning_.*", "Dense_2", "kernel"), P(None, "mp")), # text_hiddens 2
-        (("params", "TextConditioning_.*", "Dense_.*", "bias"), P("dp", )),
-        (("params", "TextConditioning_.*", "LayerNorm_0", "bias|scale"), P("dp", )),
-        (("params", "TextConditioning_.*", "LayerNorm_1", "bias|scale"), P("dp", )),
-        (("params", "TextConditioning_.*", "null_text_hidden"), P(None, "mp")),
+        (("params", "TextConditioning_.*", "Dense_0", "kernel"), P(None, None)), # text_tokens
+        (("params", "TextConditioning_.*", "null_text_embed"), P(None, None)),
+        (("params", "TextConditioning_.*", "Dense_1", "kernel"), P(None, None)), # text_hidden
+        (("params", "TextConditioning_.*", "Dense_2", "kernel"), P(None, None)), # text_hiddens 2
+        (("params", "TextConditioning_.*", "Dense_.*", "bias"), P(None, )),
+        (("params", "TextConditioning_.*", "LayerNorm_0", "bias|scale"), P(None, )),
+        (("params", "TextConditioning_.*", "LayerNorm_1", "bias|scale"), P(None, )),
+        (("params", "TextConditioning_.*", "null_text_hidden"), P(None, None)),
 
         
-        (("params", "Downsample_.*", "Conv_0", "kernel"), P(None, None, "mp", "dp")),
+        (("params", "Downsample_.*", "Conv_0", "kernel"), P(None, None, None, None)),
         (("params", "Downsample_.*", "Conv_0", "bias"), P("dp",)),
         
         (('params', 'Attention_.*', 'Dense_.*', 'kernel'), P(None, None)),
