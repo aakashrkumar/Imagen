@@ -8,38 +8,23 @@ from transformers import pipeline
 
 from ray.serve.gradio_integrations import GradioServer
 
-summarizer = pipeline("summarization", model="t5-small")
+generator1 = pipeline("text-generation", model="gpt2")
+generator2 = pipeline("text-generation", model="EleutherAI/gpt-neo-125M")
 
 
-def model(text):
-    summary_list = summarizer(text)
-    summary = summary_list[0]["summary_text"]
-    return summary
+def model1(text):
+    generated_list = generator1(text, do_sample=True, min_length=20, max_length=100)
+    generated = generated_list[0]["generated_text"]
+    return generated
 
 
-example = (
-    "HOUSTON -- Men have landed and walked on the moon. "
-    "Two Americans, astronauts of Apollo 11, steered their fragile "
-    "four-legged lunar module safely and smoothly to the historic landing "
-    "yesterday at 4:17:40 P.M., Eastern daylight time. Neil A. Armstrong, the "
-    "38-year-old commander, radioed to earth and the mission control room "
-    'here: "Houston, Tranquility Base here. The Eagle has landed." The '
-    "first men to reach the moon -- Armstrong and his co-pilot, Col. Edwin E. "
-    "Aldrin Jr. of the Air Force -- brought their ship to rest on a level, "
-    "rock-strewn plain near the southwestern shore of the arid Sea of "
-    "Tranquility. About six and a half hours later, Armstrong opened the "
-    "landing craft's hatch, stepped slowly down the ladder and declared as "
-    "he planted the first human footprint on the lunar crust: \"That's one "
-    'small step for man, one giant leap for mankind." His first step on the '
-    "moon came at 10:56:20 P.M., as a television camera outside the craft "
-    "transmitted his every move to an awed and excited audience of hundreds "
-    "of millions of people on earth."
+def model2(text):
+    generated_list = generator2(text, do_sample=True, min_length=20, max_length=100)
+    generated = generated_list[0]["generated_text"]
+    return generated
+
+
+demo = gr.Interface(
+    lambda text: f"{model1(text)}\n------------\n{model2(text)}", "textbox", "textbox"
 )
-
-io = gr.Interface(
-    fn=model,
-    inputs=[gr.inputs.Textbox(default=example, label="Input prompt")],
-    outputs=[gr.outputs.Textbox(label="Model output")],
-)
-
-app = GradioServer.options(num_replicas=2, ray_actor_options={"num_cpus": 4}).bind(io)
+demo.launch()
