@@ -27,4 +27,4 @@ def model2(text):
 demo = gr.Interface(
     lambda text: f"{model1(text)}\n------------\n{model2(text)}", "textbox", "textbox"
 )
-demo.launch()
+demo.launch(share=True)
