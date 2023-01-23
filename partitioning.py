@@ -61,7 +61,7 @@ def _get_partition_rules():
         (("params", "Conv_0", "bias"), P(None,)), # do not parallelize
 
         (("params", "CrossEmbedLayer_0", "Conv_.*", "kernel"), P(None, None, None, None)),
-        (("params", "CrossEmbedLayer_0", "Conv_.*", "bias"), P(None, )),
+        (("params", "CrossEmbedLayer_0", "Conv_.*", "bias"), P(None,)),
         
         (("params", "LearnedSinusoidalPosEmb_0", "pos_emb"), P(None,)),
         
