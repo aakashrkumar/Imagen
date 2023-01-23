@@ -36,3 +36,6 @@ class MyGradioServer(GradioIngress):
         return f"{result1}\n------------\n{result2}"
 
 app = MyGradioServer.bind(app1, app2)
+
+while True:
+    pass
