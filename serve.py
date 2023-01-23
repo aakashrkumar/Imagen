@@ -17,6 +17,6 @@ def model1(text):
     return generated
 
 demo = gr.Interface(
-    lambda text: f"{model1(text)}}", "textbox", "textbox"
+    lambda text: f"{model1(text)}", "textbox", "textbox"
 )
 demo.launch(share=True)
