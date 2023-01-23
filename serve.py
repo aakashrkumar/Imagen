@@ -6,6 +6,7 @@ import gradio as gr
 
 from transformers import pipeline
 
+from ray.serve.gradio_integrations import GradioServer
 
 summarizer = pipeline("summarization", model="t5-small")
 
@@ -41,4 +42,4 @@ io = gr.Interface(
     outputs=[gr.outputs.Textbox(label="Model output")],
 )
 
-app = gr.GradioServer.options(num_replicas=2, ray_actor_options={"num_cpus": 4}).bind(io)
+app = GradioServer.options(num_replicas=2, ray_actor_options={"num_cpus": 4}).bind(io)
