@@ -16,9 +16,6 @@ def model1(text):
     generated = generated_list[0]["generated_text"]
     return generated
 
-
-
-
 demo = gr.Interface(
     lambda text: f"{model1(text)}}", "textbox", "textbox"
 )
